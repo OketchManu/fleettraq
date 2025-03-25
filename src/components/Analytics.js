@@ -99,7 +99,8 @@ const Analytics = () => {
           font: {
             size: screenWidth < 640 ? 10 : 12
           }
-        } 
+        },
+        position: screenWidth < 640 ? 'bottom' : 'right', // Move legend to bottom on small screens
       },
       tooltip: { 
         backgroundColor: darkMode ? "#1f2937" : "#fff",
@@ -130,7 +131,22 @@ const Analytics = () => {
         }, 
         grid: { color: "rgba(255, 255, 255, 0.1)" } 
       }
-    } : {}
+    } : {
+      x: { 
+        ticks: { 
+          font: {
+            size: screenWidth < 640 ? 8 : 10
+          }
+        }
+      },
+      y: { 
+        ticks: { 
+          font: {
+            size: screenWidth < 640 ? 8 : 10
+          }
+        }
+      }
+    }
   };
 
   // Responsive container styles
@@ -141,13 +157,14 @@ const Analytics = () => {
       minHeight: '100vh',
       width: '100vw',
       maxWidth: '100%',
+      overflowX: 'hidden', // Prevent horizontal overflow
       ...themeStyles
     },
     header: {
       position: 'sticky',
       top: 0,
       zIndex: 10,
-      padding: '12px 16px',
+      padding: screenWidth < 640 ? '8px 12px' : '12px 16px',
       background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       display: 'flex',
@@ -157,47 +174,58 @@ const Analytics = () => {
       gap: '10px'
     },
     headerTitle: {
-      fontSize: screenWidth < 640 ? '18px' : '24px',
+      fontSize: screenWidth < 640 ? '16px' : '24px',
       fontWeight: 'bold',
       display: 'flex',
       alignItems: 'center',
       color: darkMode ? "#facc15" : "#1f2937",
-      marginBottom: screenWidth < 640 ? '10px' : '0'
+      marginBottom: screenWidth < 640 ? '8px' : '0'
     },
     mainContent: {
       flex: 1,
-      padding: '16px',
+      padding: screenWidth < 640 ? '12px' : '16px',
       width: '100%',
       overflowX: 'hidden'
     },
     statsGrid: {
       display: 'grid',
       gridTemplateColumns: screenWidth < 640 ? '1fr' : screenWidth < 1024 ? '1fr 1fr' : '1fr 1fr 1fr',
-      gap: '16px',
-      marginBottom: '24px'
+      gap: screenWidth < 640 ? '12px' : '16px',
+      marginBottom: screenWidth < 640 ? '16px' : '24px'
     },
     statsCard: {
       background: themeStyles.cardBg,
-      padding: '16px',
+      padding: screenWidth < 640 ? '12px' : '16px',
       borderRadius: '8px',
       border: themeStyles.cardBorder,
       boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
     },
-    chartsGrid: {
-      display: 'grid',
-      gridTemplateColumns: screenWidth < 1024 ? '1fr' : '1fr 1fr',
-      gap: '24px'
+    chartsContainer: {
+      display: 'flex',
+      flexDirection: screenWidth < 640 ? 'column' : 'row', // Stack on phones (< 640px)
+      gap: screenWidth < 640 ? '16px' : '24px',
+      width: '100%',
+      maxWidth: '100%',
+      overflowX: 'hidden'
     },
     chartContainer: {
       background: themeStyles.chartBg,
-      padding: '16px',
+      padding: screenWidth < 640 ? '12px' : '16px',
       borderRadius: '8px',
       border: themeStyles.cardBorder,
-      height: screenWidth < 640 ? '250px' : '300px'
+      height: screenWidth < 640 ? '200px' : '300px',
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden'
+    },
+    chartTitle: {
+      color: darkMode ? "#facc15" : "#1f2937",
+      marginBottom: screenWidth < 640 ? '12px' : '16px',
+      fontSize: screenWidth < 640 ? '14px' : '16px'
     },
     footer: {
       background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)",
-      padding: '16px',
+      padding: screenWidth < 640 ? '12px' : '16px',
       textAlign: 'center',
       color: darkMode ? "#9ca3af" : "#6b7280",
       fontSize: screenWidth < 640 ? '12px' : '14px'
@@ -214,7 +242,7 @@ const Analytics = () => {
       {/* Header */}
       <header style={responsiveStyles.header}>
         <h1 style={responsiveStyles.headerTitle}>
-          <BarChart style={{ marginRight: '8px', width: screenWidth < 640 ? '20px' : '24px', height: screenWidth < 640 ? '20px' : '24px' }} /> 
+          <BarChart style={{ marginRight: '8px', width: screenWidth < 640 ? '18px' : '24px', height: screenWidth < 640 ? '18px' : '24px' }} /> 
           Fleet Analytics
         </h1>
         <Button onClick={() => navigate("/dashboard")}>
@@ -225,8 +253,8 @@ const Analytics = () => {
       {/* Main Content */}
       <main style={responsiveStyles.mainContent}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '24px' }}>
-            <p>Loading analytics data...</p>
+          <div style={{ textAlign: 'center', padding: screenWidth < 640 ? '16px' : '24px' }}>
+            <p style={{ fontSize: screenWidth < 640 ? '14px' : '16px' }}>Loading analytics data...</p>
           </div>
         ) : (
           <>
@@ -235,56 +263,48 @@ const Analytics = () => {
               {/* Fleet Size Card */}
               <div style={responsiveStyles.statsCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <Truck size={20} />
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: '16px' }}>
+                  <Truck size={screenWidth < 640 ? 18 : 20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 640 ? '14px' : '16px' }}>
                     Fleet Size
                   </h3>
                 </div>
-                <p style={{ fontSize: '20px', fontWeight: 'bold' }}>{vehicles.length}</p>
-                <p style={{ fontSize: '12px' }}>Active: {analyticsData.activeVehicles}</p>
+                <p style={{ fontSize: screenWidth < 640 ? '18px' : '20px', fontWeight: 'bold' }}>{vehicles.length}</p>
+                <p style={{ fontSize: screenWidth < 640 ? '10px' : '12px' }}>Active: {analyticsData.activeVehicles}</p>
               </div>
 
               {/* Drivers Card */}
               <div style={responsiveStyles.statsCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <Users size={20} />
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: '16px' }}>
+                  <Users size={screenWidth < 640 ? 18 : 20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 640 ? '14px' : '16px' }}>
                     Drivers
                   </h3>
                 </div>
-                <p style={{ fontSize: '20px', fontWeight: 'bold' }}>{drivers.length}</p>
-                <p style={{ fontSize: '12px' }}>Assigned: {drivers.filter(d => d.vehicleId).length}</p>
+                <p style={{ fontSize: screenWidth < 640 ? '18px' : '20px', fontWeight: 'bold' }}>{drivers.length}</p>
+                <p style={{ fontSize: screenWidth < 640 ? '10px' : '12px' }}>Assigned: {drivers.filter(d => d.vehicleId).length}</p>
               </div>
 
               {/* Utilization Card */}
               <div style={responsiveStyles.statsCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <Clock size={20} />
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: '16px' }}>
+                  <Clock size={screenWidth < 640 ? 18 : 20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 640 ? '14px' : '16px' }}>
                     Avg Utilization
                   </h3>
                 </div>
-                <p style={{ fontSize: '20px', fontWeight: 'bold' }}>{Math.round(analyticsData.avgUtilization)}%</p>
-                <p style={{ fontSize: '12px' }}>Fleet usage rate</p>
+                <p style={{ fontSize: screenWidth < 640 ? '18px' : '20px', fontWeight: 'bold' }}>{Math.round(analyticsData.avgUtilization)}%</p>
+                <p style={{ fontSize: screenWidth < 640 ? '10px' : '12px' }}>Fleet usage rate</p>
               </div>
             </div>
 
             {/* Charts */}
-            <div style={{
-              display: 'flex', 
-              flexDirection: screenWidth < 1024 ? 'column' : 'row',
-              gap: '24px'
-            }}>
+            <div style={responsiveStyles.chartsContainer}>
               {/* Mileage Chart */}
-              <div style={{
-                ...responsiveStyles.chartContainer,
-                flex: 1,
-                width: screenWidth < 1024 ? '100%' : '50%'
-              }}>
-                <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", marginBottom: '16px', fontSize: '16px' }}>
+              <div style={responsiveStyles.chartContainer}>
+                <h3 style={responsiveStyles.chartTitle}>
                   Vehicle Mileage Distribution
                 </h3>
-                <div style={{ height: '100%' }}>
+                <div style={{ height: '100%', width: '100%' }}>
                   <Bar 
                     data={mileageChartData} 
                     options={{
@@ -302,27 +322,14 @@ const Analytics = () => {
               </div>
 
               {/* Status Chart */}
-              <div style={{
-                ...responsiveStyles.chartContainer,
-                flex: 1,
-                width: screenWidth < 1024 ? '100%' : '50%'
-              }}>
-                <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", marginBottom: '16px', fontSize: '16px' }}>
+              <div style={responsiveStyles.chartContainer}>
+                <h3 style={responsiveStyles.chartTitle}>
                   Fleet Status
                 </h3>
-                <div style={{ height: '100%' }}>
+                <div style={{ height: '100%', width: '100%' }}>
                   <Pie 
                     data={statusChartData} 
-                    options={{
-                      ...chartOptions,
-                      plugins: {
-                        ...chartOptions.plugins,
-                        legend: {
-                          ...chartOptions.plugins.legend,
-                          position: screenWidth < 640 ? 'bottom' : 'right'
-                        }
-                      }
-                    }} 
+                    options={chartOptions} 
                   />
                 </div>
               </div>
