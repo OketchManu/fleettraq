@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { auth, db } from "../firebase";
-import { collection, getDocs, onSnapshot, doc, setDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
 const FleetContext = createContext();
@@ -169,52 +169,79 @@ export const FleetProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(true);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  const fetchDrivers = useCallback(async () => {
-    if (!user) return;
-    try {
-      const querySnapshot = await getDocs(collection(db, "drivers"));
-      setDrivers(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    } catch (err) {
+  const fetchDrivers = useCallback(() => {
+    if (!user) return () => {};
+
+    const q = query(collection(db, "drivers"), where("accountId", "==", user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const driverData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setDrivers(driverData);
+    }, (err) => {
       console.error("Error fetching drivers:", err.message);
-    }
+    });
+
+    return unsubscribe;
   }, [user]);
 
-  const fetchVehicles = useCallback(async () => {
-    if (!user) return;
-    try {
-      const querySnapshot = await getDocs(collection(db, "vehicles"));
-      setVehicles(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    } catch (err) {
+  const fetchVehicles = useCallback(() => {
+    if (!user) return () => {};
+
+    const q = query(collection(db, "vehicles"), where("accountId", "==", user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const vehicleData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setVehicles(vehicleData);
+    }, (err) => {
       console.error("Error fetching vehicles:", err.message);
-    }
+    });
+
+    return unsubscribe;
   }, [user]);
 
-  const fetchReports = useCallback(async () => {
-    if (!user) return;
-    try {
-      const querySnapshot = await getDocs(collection(db, "reports"));
-      setReports(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    } catch (err) {
+  const fetchReports = useCallback(() => {
+    if (!user) return () => {};
+
+    const q = query(collection(db, "reports"), where("accountId", "==", user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const reportData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setReports(reportData);
+    }, (err) => {
       console.error("Error fetching reports:", err.message);
-    }
+    });
+
+    return unsubscribe;
   }, [user]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setLoadingAuth(true);
       if (currentUser) {
         setUser(currentUser);
         localStorage.setItem("token", await currentUser.getIdToken());
-        // Force token refresh to ensure auth is fully propagated
-        await currentUser.getIdToken(true);
-        await Promise.all([fetchDrivers(), fetchVehicles(), fetchReports()]);
-        try {
-          const userDoc = await getDocs(collection(db, "users"));
-          const userData = userDoc.docs.find((doc) => doc.id === currentUser.uid);
-          if (userData) localStorage.setItem("role", userData.data().role || "driver");
-        } catch (err) {
+        await currentUser.getIdToken(true); // Force token refresh
+
+        // Fetch user role
+        const q = query(collection(db, "users"), where("uid", "==", currentUser.uid));
+        const unsubscribeUsers = onSnapshot(q, (snapshot) => {
+          const userDoc = snapshot.docs[0];
+          if (userDoc) {
+            localStorage.setItem("role", userDoc.data().role || "driver");
+          }
+        }, (err) => {
           console.error("Error fetching user role:", err.message);
-        }
+        });
+
+        // Fetch data with real-time listeners
+        const unsubDrivers = fetchDrivers();
+        const unsubVehicles = fetchVehicles();
+        const unsubReports = fetchReports();
+
+        // Cleanup subscriptions
+        return () => {
+          unsubDrivers();
+          unsubVehicles();
+          unsubReports();
+          unsubscribeUsers();
+        };
       } else {
         setUser(null);
         setDrivers([]);
@@ -225,13 +252,15 @@ export const FleetProvider = ({ children }) => {
       }
       setLoadingAuth(false);
     });
-    return () => unsubscribe();
+
+    return () => unsubscribeAuth();
   }, [fetchDrivers, fetchVehicles, fetchReports]);
 
   useEffect(() => {
-    if (loadingAuth || !user || !auth.currentUser) return;
+    if (loadingAuth || !user) return;
 
-    const unsubTracking = onSnapshot(collection(db, "tracking"), (snapshot) => {
+    const qTracking = query(collection(db, "tracking"), where("accountId", "==", user.uid));
+    const unsubTracking = onSnapshot(qTracking, (snapshot) => {
       const tracking = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       if (tracking.length > 0) {
         const latest = tracking[tracking.length - 1];
