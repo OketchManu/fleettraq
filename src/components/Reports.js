@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FileText, Plus, Edit, Trash2 } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
 
@@ -36,7 +36,8 @@ const Reports = () => {
     try {
       const reportData = {
         ...formData,
-        date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(), // Store as ISO string
+        date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(),
+        userId: auth.currentUser.uid, // Add userId
       };
 
       if (editingReport) {
@@ -47,7 +48,7 @@ const Reports = () => {
         await addDoc(collection(db, "reports"), reportData);
       }
 
-      await fetchReports(); // Refresh reports list
+      await fetchReports();
       setFormData({ title: "", date: "", description: "", status: "Pending" });
       setShowAddForm(false);
     } catch (error) {
@@ -71,7 +72,7 @@ const Reports = () => {
     setEditingReport(report);
     setFormData({
       title: report.title || "",
-      date: report.date ? new Date(report.date).toISOString().split("T")[0] : "", // Convert ISO to YYYY-MM-DD
+      date: report.date ? new Date(report.date).toISOString().split("T")[0] : "",
       description: report.description || "",
       status: report.status || "Pending",
     });
@@ -168,8 +169,8 @@ const Reports = () => {
                   required
                 />
                 <textarea
-                  style={{ padding: "8px", borderRadius: "4px", border: themeStyles.cardBorder, background: darkMode ? "#1a0033" : "#fff", minHeight: "100px", color: darkMode ? "#fff" : "#000" }}
-                  placeholder="Report Description"
+                  style={{ padding: "8px", borderRadius: "4px", border: themeStyles.cardBorder, background: darkMode ? "#1a0033" : "#fff", minHeight: "100px" }}
+                  placeholder="Description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   required
@@ -187,7 +188,7 @@ const Reports = () => {
                   ))}
                 </select>
                 <div style={{ display: "flex", gap: "8px" }}>
-                  <Button type="submit">{editingReport ? "Update Report" : "Save Report"}</Button>
+                  <Button type="submit">{editingReport ? "Update Report" : "Add Report"}</Button>
                   <Button
                     onClick={() => {
                       setShowAddForm(false);
@@ -258,10 +259,10 @@ const Reports = () => {
                         <span
                           style={{
                             color:
-                              report.status === "Pending"
-                                ? "#facc15"
-                                : report.status === "Completed"
+                              report.status === "Completed"
                                 ? "#22c55e"
+                                : report.status === "Pending"
+                                ? "#facc15"
                                 : report.status === "In Progress"
                                 ? "#3b82f6"
                                 : "#ef4444",
@@ -278,7 +279,7 @@ const Reports = () => {
               </div>
             ) : (
               <motion.div style={{ background: themeStyles.cardBg, padding: "24px", borderRadius: "8px", textAlign: "center", border: themeStyles.cardBorder }}>
-                <p style={{ color: darkMode ? "#facc15" : "#1f2937" }}>No reports available. Click "Create New Report" to start adding reports!</p>
+                <p style={{ color: darkMode ? "#facc15" : "#1f2937" }}>No reports available. Click "Create New Report" to get started!</p>
               </motion.div>
             )}
           </div>
