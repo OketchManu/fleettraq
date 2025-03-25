@@ -88,7 +88,7 @@ const Analytics = () => {
       legend: {
         labels: {
           color: darkMode ? "#fff" : "#000",
-          font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" }, // Responsive legend font
+          font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" },
         },
       },
       tooltip: { backgroundColor: darkMode ? "#1f2937" : "#fff" },
@@ -103,6 +103,8 @@ const Analytics = () => {
           y: { ticks: { font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" } } },
         },
   };
+
+  const isSmallScreen = window.innerWidth < 768;
 
   return (
     <motion.div
@@ -120,7 +122,7 @@ const Analytics = () => {
       <header
         style={{
           background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
-          padding: "clamp(0.5rem, 2vw, 1rem)", // Responsive padding
+          padding: "clamp(0.5rem, 2vw, 1rem)",
           boxShadow: "0 0.125rem 0.25rem rgba(0,0,0,0.1)",
           position: "sticky",
           top: 0,
@@ -131,7 +133,7 @@ const Analytics = () => {
         <div
           style={{
             maxWidth: "100%",
-            width: "min(1280px, 95%)", // Limit width but keep responsive
+            width: "min(1280px, 95%)",
             margin: "0 auto",
             display: "flex",
             flexDirection: "row",
@@ -143,7 +145,7 @@ const Analytics = () => {
         >
           <h1
             style={{
-              fontSize: "clamp(1rem, 4vw, 1.5rem)", // Scalable font size
+              fontSize: "clamp(1rem, 4vw, 1.5rem)",
               fontWeight: "bold",
               display: "flex",
               alignItems: "center",
@@ -173,7 +175,7 @@ const Analytics = () => {
 
       <main
         style={{
-          padding: "clamp(0.75rem, 3vw, 1.5rem)", // Responsive padding
+          padding: "clamp(0.75rem, 3vw, 1.5rem)",
           flexGrow: 1,
           width: "100%",
         }}
@@ -181,7 +183,7 @@ const Analytics = () => {
         <div
           style={{
             maxWidth: "100%",
-            width: "min(1280px, 95%)", // Responsive container
+            width: "min(1280px, 95%)",
             margin: "0 auto",
           }}
         >
@@ -200,7 +202,7 @@ const Analytics = () => {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 40vw), 1fr))", // Responsive grid
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 40vw), 1fr))",
                   gap: "clamp(0.5rem, 2vw, 1rem)",
                   marginBottom: "clamp(1rem, 3vw, 1.5rem)",
                 }}
@@ -304,19 +306,21 @@ const Analytics = () => {
 
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "repeat(auto-fit, minmax(40%, 1fr))", // Responsive chart layout
+                  display: "flex",
+                  flexDirection: isSmallScreen ? "column" : "row", // Stack on small screens, row on large
                   gap: "clamp(0.75rem, 3vw, 1.5rem)",
                   width: "100%",
                 }}
               >
+                {/* Vehicle Mileage Distribution (always first) */}
                 <motion.div
                   style={{
                     background: themeStyles.chartBg,
                     padding: "clamp(0.75rem, 2vw, 1rem)",
                     borderRadius: "0.5rem",
                     border: themeStyles.cardBorder,
-                    width: "100%",
+                    width: isSmallScreen ? "100%" : "50%", // Full width on small screens, half on large
+                    flexShrink: 0,
                   }}
                 >
                   <h3
@@ -330,7 +334,7 @@ const Analytics = () => {
                   </h3>
                   <div
                     style={{
-                      height: "clamp(200px, 40vh, 400px)", // Scalable chart height
+                      height: "clamp(200px, 40vh, 400px)",
                       width: "100%",
                     }}
                   >
@@ -338,13 +342,15 @@ const Analytics = () => {
                   </div>
                 </motion.div>
 
+                {/* Fleet Status (below Mileage on small screens) */}
                 <motion.div
                   style={{
                     background: themeStyles.chartBg,
                     padding: "clamp(0.75rem, 2vw, 1rem)",
                     borderRadius: "0.5rem",
                     border: themeStyles.cardBorder,
-                    width: "100%",
+                    width: isSmallScreen ? "100%" : "50%", // Full width on small screens, half on large
+                    flexShrink: 0,
                   }}
                 >
                   <h3
@@ -358,7 +364,7 @@ const Analytics = () => {
                   </h3>
                   <div
                     style={{
-                      height: "clamp(200px, 40vh, 400px)", // Scalable chart height
+                      height: "clamp(200px, 40vh, 400px)",
                       width: "100%",
                     }}
                   >
