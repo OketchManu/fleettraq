@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Plus, Edit, Trash2 } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
 
@@ -34,7 +34,10 @@ const Drivers = () => {
     e.preventDefault();
     setError(null);
     try {
-      const driverData = { ...formData };
+      const driverData = {
+        ...formData,
+        userId: auth.currentUser.uid, // Add userId
+      };
 
       if (editingDriver) {
         const driverRef = doc(db, "drivers", editingDriver.id);
@@ -44,7 +47,7 @@ const Drivers = () => {
         await addDoc(collection(db, "drivers"), driverData);
       }
 
-      await fetchDrivers(); // Refresh drivers list
+      await fetchDrivers();
       setFormData({ name: "", licenseNumber: "", phone: "", status: "Active" });
       setShowAddForm(false);
     } catch (error) {
