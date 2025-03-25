@@ -27,7 +27,7 @@ let DefaultIcon = L.icon({
 // Larger car icon for tracked vehicles
 let CarIcon = L.icon({
   iconUrl: carIcon,
-  iconSize: [48, 48], // Consistent with your update
+  iconSize: [48, 48],
   iconAnchor: [24, 24],
   popupAnchor: [0, -24],
 });
@@ -53,6 +53,7 @@ const Dashboard = () => {
   const { vehicles, fetchVehicles, trackingData, darkMode, setDarkMode } = useFleet();
   const role = localStorage.getItem("role");
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
@@ -78,15 +79,18 @@ const Dashboard = () => {
   useEffect(() => {
     const loadVehicles = async () => {
       try {
+        setIsLoading(true);
         await fetchVehicles();
       } catch (err) {
-        setError("Failed to load vehicles: " + err.message);
+        setError("Failed to load fleet data: " + err.message);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadVehicles();
   }, [fetchVehicles]);
 
-  // Listen for real-time tracking updates, showing all actively tracked vehicles
+  // Listen for real-time tracking updates
   useEffect(() => {
     const q = query(
       collection(db, "tracking"),
@@ -125,6 +129,27 @@ const Dashboard = () => {
     }
   };
 
+  // Calculate fleet statistics
+  const getFleetStats = () => {
+    if (!vehicles || !Array.isArray(vehicles)) {
+      return {
+        total: 0,
+        active: 0,
+        onRoute: 0,
+        maintenance: 0
+      };
+    }
+
+    return {
+      total: vehicles.length,
+      active: vehicles.filter(v => v.status?.toLowerCase() === "active").length,
+      onRoute: vehicles.filter(v => v.status?.toLowerCase() === "on_route").length,
+      maintenance: vehicles.filter(v => v.status?.toLowerCase() === "maintenance").length
+    };
+  };
+
+  const fleetStats = getFleetStats();
+
   const themeStyles = {
     background: darkMode
       ? "linear-gradient(135deg, #1a0033 0%, #330066 50%, #4d0099 100%)"
@@ -160,12 +185,11 @@ const Dashboard = () => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        {/* Show all actively tracked vehicles */}
         {trackedVehicles.map((track) => {
           const vehicle = vehicles.find(v => v.id === track.vehicleId);
           return (
             <Marker
-              key={`tracked-${track.id}`} // Use document ID for uniqueness
+              key={`tracked-${track.id}`}
               position={[track.lat, track.lng]}
               icon={CarIcon}
             >
@@ -284,7 +308,15 @@ const Dashboard = () => {
       </header>
       <main className="flex-grow p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          {error && (
+          {isLoading ? (
+            <motion.div
+              className="text-center text-xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              Loading fleet data...
+            </motion.div>
+          ) : error ? (
             <motion.div
               className="mb-4 p-4 bg-red-600 rounded-lg shadow-lg"
               initial={{ opacity: 0, y: -20 }}
@@ -292,72 +324,81 @@ const Dashboard = () => {
             >
               {error}
             </motion.div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6">
+                <motion.div
+                  className="p-6 rounded-lg shadow-lg bg-opacity-15"
+                  style={{
+                    backgroundImage: darkMode
+                      ? "linear-gradient(135deg, rgba(75, 0, 130, 0.7) 0%, rgba(138, 43, 226, 0.4) 100%)"
+                      : "linear-gradient(135deg, rgba(200, 200, 200, 0.7) 0%, rgba(240, 240, 240, 0.4) 100%)",
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: "#facc15" }}>
+                    <Truck className="mr-2" /> Fleet Overview
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
+                      <p className={`text-3xl font-bold ${darkMode ? "text-white" : "text-black"}`}>
+                        {fleetStats.total}
+                      </p>
+                    </div>
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Active Vehicles</p>
+                      <p className="text-3xl font-bold text-green-400">
+                        {fleetStats.active}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  className="p-6 rounded-lg shadow-lg"
+                  style={{
+                    backgroundImage: darkMode
+                      ? "linear-gradient(135deg, rgba(0, 128, 128, 0.7) 0%, rgba(0, 179, 179, 0.4) 100%)"
+                      : "linear-gradient(135deg, rgba(180, 230, 230, 0.7) 0%, rgba(220, 255, 255, 0.4) 100%)",
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: "#facc15" }}>
+                    <Activity className="mr-2" /> Quick Stats
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>On Route</p>
+                      <p className="text-3xl font-bold text-blue-400">
+                        {fleetStats.onRoute}
+                      </p>
+                    </div>
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Maintenance</p>
+                      <p className="text-3xl font-bold" style={{ color: "#facc15" }}>
+                        {fleetStats.maintenance}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+              <motion.div
+                className="rounded-lg overflow-hidden shadow-xl mb-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className={`p-4 border-b ${darkMode ? "bg-gray-900 bg-opacity-80 border-gray-800" : "bg-gray-100 border-gray-300"}`}>
+                  <h2 className="text-xl font-semibold flex items-center" style={{ color: "#facc15" }}>
+                    <MapPin className="mr-2" /> Live Fleet Location
+                  </h2>
+                </div>
+                <MapComponent />
+              </motion.div>
+            </>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6">
-            <motion.div
-              className="p-6 rounded-lg shadow-lg bg-opacity-15"
-              style={{
-                backgroundImage: darkMode
-                  ? "linear-gradient(135deg, rgba(75, 0, 130, 0.7) 0%, rgba(138, 43, 226, 0.4) 100%)"
-                  : "linear-gradient(135deg, rgba(200, 200, 200, 0.7) 0%, rgba(240, 240, 240, 0.4) 100%)",
-              }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: "#facc15" }}>
-                <Truck className="mr-2" /> Fleet Overview
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
-                  <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
-                  <p className={`text-3xl font-bold ${darkMode ? "text-white" : "text-black"}`}>{vehicles.length}</p>
-                </div>
-                <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
-                  <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Active Vehicles</p>
-                  <p className="text-3xl font-bold text-green-400">{vehicles.filter((v) => v.status === "active").length}</p>
-                </div>
-              </div>
-            </motion.div>
-            <motion.div
-              className="p-6 rounded-lg shadow-lg"
-              style={{
-                backgroundImage: darkMode
-                  ? "linear-gradient(135deg, rgba(0, 128, 128, 0.7) 0%, rgba(0, 179, 179, 0.4) 100%)"
-                  : "linear-gradient(135deg, rgba(180, 230, 230, 0.7) 0%, rgba(220, 255, 255, 0.4) 100%)",
-              }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: "#facc15" }}>
-                <Activity className="mr-2" /> Quick Stats
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
-                  <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>On Route</p>
-                  <p className="text-3xl font-bold text-blue-400">{vehicles.filter((v) => v.status === "on_route").length || 0}</p>
-                </div>
-                <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
-                  <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Maintenance</p>
-                  <p className="text-3xl font-bold" style={{ color: "#facc15" }}>
-                    {vehicles.filter((v) => v.status === "maintenance").length || 0}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-          <motion.div
-            className="rounded-lg overflow-hidden shadow-xl mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className={`p-4 border-b ${darkMode ? "bg-gray-900 bg-opacity-80 border-gray-800" : "bg-gray-100 border-gray-300"}`}>
-              <h2 className="text-xl font-semibold flex items-center" style={{ color: "#facc15" }}>
-                <MapPin className="mr-2" /> Live Fleet Location
-              </h2>
-            </div>
-            <MapComponent />
-          </motion.div>
         </div>
       </main>
       <footer className={`p-4 text-center text-sm ${darkMode ? "bg-black bg-opacity-70 text-gray-400" : "bg-gray-200 text-gray-600"}`}>
