@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Truck, Plus, Edit, Trash2 } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
 
@@ -20,7 +20,7 @@ const Vehicles = () => {
     mileage: "",
     status: "Active",
   });
-  const [error, setError] = useState(null); // For error feedback
+  const [error, setError] = useState(null);
 
   const themeStyles = {
     background: darkMode ? "linear-gradient(135deg, #080016 0%, #150025 100%)" : "linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)",
@@ -34,10 +34,14 @@ const Vehicles = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null); // Reset error state
+    setError(null);
     try {
       const mileage = parseInt(formData.mileage, 10) || 0;
-      const vehicleData = { ...formData, mileage };
+      const vehicleData = {
+        ...formData,
+        mileage,
+        userId: auth.currentUser.uid, // Add userId
+      };
 
       if (editingVehicle) {
         const vehicleRef = doc(db, "vehicles", editingVehicle.id);
@@ -47,12 +51,12 @@ const Vehicles = () => {
         await addDoc(collection(db, "vehicles"), vehicleData);
       }
 
-      await fetchVehicles(); // Refresh the vehicle list
+      await fetchVehicles();
       setFormData({ make: "", model: "", year: "", licensePlate: "", mileage: "", status: "Active" });
       setShowAddForm(false);
     } catch (error) {
       console.error("Error saving vehicle:", error.message);
-      setError("Failed to save vehicle. Please try again."); // User feedback
+      setError("Failed to save vehicle. Please try again.");
     }
   };
 
@@ -243,7 +247,6 @@ const Vehicles = () => {
                     whileHover={{ scale: 1.05, boxShadow: darkMode ? "0 0 25px rgba(250, 204, 21, 0.5)" : "0 0 25px rgba(59, 130, 246, 0.4)" }}
                     transition={{ type: "spring", stiffness: 400 }}
                   >
-                    {/* Futuristic overlay */}
                     <div
                       style={{
                         position: "absolute",
