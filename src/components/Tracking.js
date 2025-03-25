@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { MapPin, ChevronLeft, Crosshair, MapIcon, Trash2 } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { collection, addDoc, onSnapshot, query, orderBy, where, updateDoc, doc, deleteDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -50,7 +50,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -68,9 +68,15 @@ const Tracking = () => {
 
   const nairobiCoordinates = useMemo(() => ({ lat: -1.2864, lng: 36.8172 }), []);
 
-  // Fetch all tracked vehicles
+  // Fetch all tracked vehicles for the current user
   useEffect(() => {
-    const q = query(collection(db, "tracking"), orderBy("timestamp", "desc"));
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, "tracking"),
+      where("accountId", "==", auth.currentUser.uid),
+      orderBy("timestamp", "desc")
+    );
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -88,6 +94,11 @@ const Tracking = () => {
   const handleTrackVehicle = async () => {
     if (!selectedVehicle) {
       setError("Please select a vehicle to track.");
+      return;
+    }
+
+    if (!auth.currentUser) {
+      setError("You must be logged in to track a vehicle.");
       return;
     }
 
@@ -134,7 +145,7 @@ const Tracking = () => {
           timestamp: new Date().toISOString(),
           method,
           deviceId: deviceId,
-          accountId: user?.uid || "YOUR_ACCOUNT_ID",
+          accountId: auth.currentUser.uid, // Use authenticated user's UID
           isTracking: true,
         });
         setControllingDeviceId(deviceId);
@@ -144,7 +155,7 @@ const Tracking = () => {
         throw err;
       }
     },
-    [selectedVehicle, deviceId, user, setCurrentLocation, setTrackingData, setError]
+    [selectedVehicle, deviceId, setCurrentLocation, setTrackingData, setError]
   );
 
   const startTracking = () => {
@@ -199,7 +210,7 @@ const Tracking = () => {
 
   // Listen for tracking updates for selected vehicle
   useEffect(() => {
-    if (!selectedVehicle) {
+    if (!selectedVehicle || !auth.currentUser) {
       setCurrentLocation(null);
       setTrackingHistory([]);
       setControllingDeviceId(null);
@@ -209,6 +220,7 @@ const Tracking = () => {
     const q = query(
       collection(db, "tracking"),
       where("vehicleId", "==", selectedVehicle),
+      where("accountId", "==", auth.currentUser.uid),
       orderBy("timestamp", "desc")
     );
 
@@ -257,6 +269,11 @@ const Tracking = () => {
       return;
     }
 
+    if (!auth.currentUser) {
+      setError("You must be logged in to stop tracking.");
+      return;
+    }
+
     const trackingRef = doc(db, "tracking", trackingDocId);
 
     try {
@@ -272,6 +289,11 @@ const Tracking = () => {
   const removeVehicleFromTracking = async (trackingDocId) => {
     if (!trackingDocId) {
       setError("No tracking entry selected for removal.");
+      return;
+    }
+
+    if (!auth.currentUser) {
+      setError("You must be logged in to remove tracking.");
       return;
     }
 
@@ -487,7 +509,7 @@ const Tracking = () => {
                             padding: "0.5rem",
                             fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                           }}
-                          disabled={!user}
+                          disabled={!auth.currentUser}
                         >
                           Stop Tracking
                         </Button>
@@ -500,7 +522,7 @@ const Tracking = () => {
                           padding: "0.5rem",
                           fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
                         }}
-                        disabled={!user}
+                        disabled={!auth.currentUser}
                       >
                         <Trash2 size={16} style={{ marginRight: "0.25rem" }} /> Remove
                       </Button>
@@ -679,7 +701,7 @@ const Tracking = () => {
 
                   <Button
                     onClick={handleTrackVehicle}
-                    disabled={!selectedVehicle || (controllingDeviceId && controllingDeviceId !== deviceId)}
+                    disabled={!selectedVehicle || (controllingDeviceId && controllingDeviceId !== deviceId) || !auth.currentUser}
                     style={{
                       padding: "0.5rem 1rem",
                       fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
