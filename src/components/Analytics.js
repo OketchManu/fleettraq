@@ -306,10 +306,11 @@ const Analytics = () => {
 
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: isSmallScreen ? "1fr" : "repeat(2, 1fr)", // Single column on small screens, two on large
+                  display: "flex",
+                  flexDirection: isSmallScreen ? "column" : "row", // Stack vertically on small screens
                   gap: "clamp(0.75rem, 3vw, 1.5rem)",
                   width: "100%",
+                  flexWrap: isSmallScreen ? "nowrap" : "wrap", // Prevent wrapping on small screens
                 }}
               >
                 {/* Vehicle Mileage Distribution (first) */}
@@ -319,7 +320,8 @@ const Analytics = () => {
                     padding: "clamp(0.75rem, 2vw, 1rem)",
                     borderRadius: "0.5rem",
                     border: themeStyles.cardBorder,
-                    width: "100%",
+                    width: isSmallScreen ? "100%" : "calc(50% - clamp(0.375rem, 1.5vw, 0.75rem))", // Full width on small, half on large with gap adjustment
+                    maxWidth: "100%", // Prevent overflow
                   }}
                 >
                   <h3
@@ -335,6 +337,7 @@ const Analytics = () => {
                     style={{
                       height: "clamp(200px, 40vh, 400px)",
                       width: "100%",
+                      overflow: "hidden", // Prevent chart from spilling out
                     }}
                   >
                     <Bar data={mileageChartData} options={{ ...chartOptions, responsive: true }} />
@@ -348,7 +351,8 @@ const Analytics = () => {
                     padding: "clamp(0.75rem, 2vw, 1rem)",
                     borderRadius: "0.5rem",
                     border: themeStyles.cardBorder,
-                    width: "100%",
+                    width: isSmallScreen ? "100%" : "calc(50% - clamp(0.375rem, 1.5vw, 0.75rem))", // Full width on small, half on large with gap adjustment
+                    maxWidth: "100%", // Prevent overflow
                   }}
                 >
                   <h3
@@ -364,6 +368,7 @@ const Analytics = () => {
                     style={{
                       height: "clamp(200px, 40vh, 400px)",
                       width: "100%",
+                      overflow: "hidden", // Prevent chart from spilling out
                     }}
                   >
                     <Pie data={statusChartData} options={{ ...chartOptions, responsive: true }} />
