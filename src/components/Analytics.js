@@ -21,7 +21,9 @@ const Analytics = () => {
   });
 
   const themeStyles = {
-    background: darkMode ? "linear-gradient(135deg, #080016 0%, #150025 100%)" : "linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)",
+    background: darkMode
+      ? "linear-gradient(135deg, #080016 0%, #150025 100%)"
+      : "linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)",
     color: darkMode ? "#fff" : "#000",
     cardBg: darkMode ? "rgba(255, 255, 255, 0.1)" : "#fff",
     cardBorder: darkMode ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #e5e7eb",
@@ -36,13 +38,15 @@ const Analytics = () => {
         if (!drivers.length) await fetchDrivers();
 
         const totalMileage = vehicles.reduce((sum, v) => sum + (parseInt(v.mileage) || 0), 0);
-        const activeVehicles = vehicles.filter(v => v.status === "Active").length;
-        const avgUtilization = vehicles.length ? (vehicles.reduce((sum, v) => sum + (v.utilizationRate || 0), 0) / vehicles.length) : 0;
+        const activeVehicles = vehicles.filter((v) => v.status === "Active").length;
+        const avgUtilization = vehicles.length
+          ? vehicles.reduce((sum, v) => sum + (v.utilizationRate || 0), 0) / vehicles.length
+          : 0;
 
         setAnalyticsData({
           totalMileage,
           activeVehicles,
-          avgUtilization
+          avgUtilization,
         });
       } catch (error) {
         console.error("Error loading analytics data:", error);
@@ -54,96 +58,229 @@ const Analytics = () => {
   }, [vehicles, drivers, fetchVehicles, fetchDrivers]);
 
   const mileageChartData = {
-    labels: vehicles.length ? vehicles.map(v => `${v.make} ${v.model}`) : ["No Data"],
-    datasets: [{
-      label: "Mileage",
-      data: vehicles.length ? vehicles.map(v => v.mileage || 0) : [0],
-      backgroundColor: darkMode ? "rgba(250, 204, 21, 0.7)" : "rgba(59, 130, 246, 0.7)",
-      borderColor: darkMode ? "#facc15" : "#3b82f6",
-      borderWidth: 1,
-    }]
+    labels: vehicles.length ? vehicles.map((v) => `${v.make} ${v.model}`) : ["No Data"],
+    datasets: [
+      {
+        label: "Mileage",
+        data: vehicles.length ? vehicles.map((v) => v.mileage || 0) : [0],
+        backgroundColor: darkMode ? "rgba(250, 204, 21, 0.7)" : "rgba(59, 130, 246, 0.7)",
+        borderColor: darkMode ? "#facc15" : "#3b82f6",
+        borderWidth: 1,
+      },
+    ],
   };
 
   const statusChartData = {
     labels: ["Active", "Inactive"],
-    datasets: [{
-      data: vehicles.length ? [analyticsData.activeVehicles, vehicles.length - analyticsData.activeVehicles] : [0, 0],
-      backgroundColor: [darkMode ? "#22c55e" : "#16a34a", darkMode ? "#ef4444" : "#dc2626"],
-    }]
+    datasets: [
+      {
+        data: vehicles.length
+          ? [analyticsData.activeVehicles, vehicles.length - analyticsData.activeVehicles]
+          : [0, 0],
+        backgroundColor: [darkMode ? "#22c55e" : "#16a34a", darkMode ? "#ef4444" : "#dc2626"],
+      },
+    ],
   };
 
   const chartOptions = {
     maintainAspectRatio: false,
     plugins: {
-      legend: { labels: { color: darkMode ? "#fff" : "#000" } },
+      legend: { labels: { color: darkMode ? "#fff" : "#000", font: { size: "clamp(10px, 2vw, 14px)" } } },
       tooltip: { backgroundColor: darkMode ? "#1f2937" : "#fff" },
     },
-    scales: darkMode ? {
-      x: { ticks: { color: "#fff" }, grid: { color: "rgba(255, 255, 255, 0.1)" } },
-      y: { ticks: { color: "#fff" }, grid: { color: "rgba(255, 255, 255, 0.1)" } }
-    } : {}
+    scales: darkMode
+      ? {
+          x: { ticks: { color: "#fff" }, grid: { color: "rgba(255, 255, 255, 0.1)" } },
+          y: { ticks: { color: "#fff" }, grid: { color: "rgba(255, 255, 255, 0.1)" } },
+        }
+      : {},
   };
 
   return (
-    <motion.div style={{ minHeight: "100vh", ...themeStyles }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
-      <header style={{ background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb", padding: "12px 16px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: "1280px", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h1 style={{ fontSize: "24px", fontWeight: "bold", display: "flex", alignItems: "center", color: darkMode ? "#facc15" : "#1f2937" }}>
-            <BarChart style={{ marginRight: "8px" }} /> Fleet Analytics
+    <motion.div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        ...themeStyles,
+        padding: "0 1rem", // Responsive padding
+      }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <header
+        style={{
+          background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
+          padding: "0.75rem 1rem",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1280px",
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap", // Allow wrapping on small screens
+            gap: "0.5rem",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: "clamp(1.25rem, 4vw, 1.5rem)", // Responsive font size
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              color: darkMode ? "#facc15" : "#1f2937",
+            }}
+          >
+            <BarChart style={{ marginRight: "0.5rem", width: "clamp(1rem, 3vw, 1.5rem)", height: "clamp(1rem, 3vw, 1.5rem)" }} /> Fleet Analytics
           </h1>
-          <Button onClick={() => navigate("/dashboard")}>Back to Dashboard</Button>
+          <Button
+            onClick={() => navigate("/dashboard")}
+            style={{ padding: "0.5rem 1rem", fontSize: "clamp(0.875rem, 2.5vw, 1rem)" }}
+          >
+            Back to Dashboard
+          </Button>
         </div>
       </header>
 
-      <main style={{ padding: "16px", flexGrow: 1 }}>
+      <main style={{ padding: "1rem", flexGrow: 1 }}>
         <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
           {loading ? (
-            <motion.div style={{ textAlign: "center", padding: "24px" }}>
+            <motion.div
+              style={{
+                textAlign: "center",
+                padding: "1.5rem",
+                fontSize: "clamp(1rem, 3vw, 1.125rem)",
+              }}
+            >
               <p>Loading analytics data...</p>
             </motion.div>
           ) : (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px", marginBottom: "24px" }}>
-                <motion.div style={{ background: themeStyles.cardBg, padding: "16px", borderRadius: "8px", border: themeStyles.cardBorder }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", // Responsive grid
+                  gap: "1rem",
+                  marginBottom: "1.5rem",
+                }}
+              >
+                <motion.div
+                  style={{
+                    background: themeStyles.cardBg,
+                    padding: "1rem",
+                    borderRadius: "0.5rem",
+                    border: themeStyles.cardBorder,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
                     <Truck size={20} />
-                    <h3 style={{ color: darkMode ? "#facc15" : "#1f2937" }}>Fleet Size</h3>
+                    <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: "clamp(0.875rem, 2.5vw, 1rem)" }}>
+                      Fleet Size
+                    </h3>
                   </div>
-                  <p style={{ fontSize: "24px", fontWeight: "bold" }}>{vehicles.length}</p>
-                  <p style={{ fontSize: "14px" }}>Active: {analyticsData.activeVehicles}</p>
+                  <p style={{ fontSize: "clamp(1.25rem, 4vw, 1.5rem)", fontWeight: "bold" }}>{vehicles.length}</p>
+                  <p style={{ fontSize: "clamp(0.75rem, 2vw, 0.875rem)" }}>
+                    Active: {analyticsData.activeVehicles}
+                  </p>
                 </motion.div>
 
-                <motion.div style={{ background: themeStyles.cardBg, padding: "16px", borderRadius: "8px", border: themeStyles.cardBorder }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                <motion.div
+                  style={{
+                    background: themeStyles.cardBg,
+                    padding: "1rem",
+                    borderRadius: "0.5rem",
+                    border: themeStyles.cardBorder,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
                     <Users size={20} />
-                    <h3 style={{ color: darkMode ? "#facc15" : "#1f2937" }}>Drivers</h3>
+                    <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: "clamp(0.875rem, 2.5vw, 1rem)" }}>
+                      Drivers
+                    </h3>
                   </div>
-                  <p style={{ fontSize: "24px", fontWeight: "bold" }}>{drivers.length}</p>
-                  <p style={{ fontSize: "14px" }}>Assigned: {drivers.filter(d => d.vehicleId).length}</p>
+                  <p style={{ fontSize: "clamp(1.25rem, 4vw, 1.5rem)", fontWeight: "bold" }}>{drivers.length}</p>
+                  <p style={{ fontSize: "clamp(0.75rem, 2vw, 0.875rem)" }}>
+                    Assigned: {drivers.filter((d) => d.vehicleId).length}
+                  </p>
                 </motion.div>
 
-
-                <motion.div style={{ background: themeStyles.cardBg, padding: "16px", borderRadius: "8px", border: themeStyles.cardBorder }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                <motion.div
+                  style={{
+                    background: themeStyles.cardBg,
+                    padding: "1rem",
+                    borderRadius: "0.5rem",
+                    border: themeStyles.cardBorder,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
                     <Clock size={20} />
-                    <h3 style={{ color: darkMode ? "#facc15" : "#1f2937" }}>Avg Utilization</h3>
+                    <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: "clamp(0.875rem, 2.5vw, 1rem)" }}>
+                      Avg Utilization
+                    </h3>
                   </div>
-                  <p style={{ fontSize: "24px", fontWeight: "bold" }}>{Math.round(analyticsData.avgUtilization)}%</p>
-                  <p style={{ fontSize: "14px" }}>Fleet usage rate</p>
+                  <p style={{ fontSize: "clamp(1.25rem, 4vw, 1.5rem)", fontWeight: "bold" }}>
+                    {Math.round(analyticsData.avgUtilization)}%
+                  </p>
+                  <p style={{ fontSize: "clamp(0.75rem, 2vw, 0.875rem)" }}>Fleet usage rate</p>
                 </motion.div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
-                <motion.div style={{ background: themeStyles.chartBg, padding: "16px", borderRadius: "8px", border: themeStyles.cardBorder }}>
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", marginBottom: "16px" }}>Vehicle Mileage Distribution</h3>
-                  <div style={{ height: "300px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: window.innerWidth < 768 ? "1fr" : "1fr 1fr", // Stack charts on small screens
+                  gap: "1.5rem",
+                }}
+              >
+                <motion.div
+                  style={{
+                    background: themeStyles.chartBg,
+                    padding: "1rem",
+                    borderRadius: "0.5rem",
+                    border: themeStyles.cardBorder,
+                  }}
+                >
+                  <h3
+                    style={{
+                      color: darkMode ? "#facc15" : "#1f2937",
+                      marginBottom: "1rem",
+                      fontSize: "clamp(1rem, 3vw, 1.125rem)",
+                    }}
+                  >
+                    Vehicle Mileage Distribution
+                  </h3>
+                  <div style={{ height: "calc(40vh - 2rem)", minHeight: "200px" }}>
                     <Bar data={mileageChartData} options={{ ...chartOptions, responsive: true }} />
                   </div>
                 </motion.div>
 
-                <motion.div style={{ background: themeStyles.chartBg, padding: "16px", borderRadius: "8px", border: themeStyles.cardBorder }}>
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", marginBottom: "16px" }}>Fleet Status</h3>
-                  <div style={{ height: "300px" }}>
+                <motion.div
+                  style={{
+                    background: themeStyles.chartBg,
+                    padding: "1rem",
+                    borderRadius: "0.5rem",
+                    border: themeStyles.cardBorder,
+                  }}
+                >
+                  <h3
+                    style={{
+                      color: darkMode ? "#facc15" : "#1f2937",
+                      marginBottom: "1rem",
+                      fontSize: "clamp(1rem, 3vw, 1.125rem)",
+                    }}
+                  >
+                    Fleet Status
+                  </h3>
+                  <div style={{ height: "calc(40vh - 2rem)", minHeight: "200px" }}>
                     <Pie data={statusChartData} options={{ ...chartOptions, responsive: true }} />
                   </div>
                 </motion.div>
@@ -153,7 +290,16 @@ const Analytics = () => {
         </div>
       </main>
 
-      <footer style={{ background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)", padding: "16px", textAlign: "center", color: darkMode ? "#9ca3af" : "#6b7280", fontSize: "14px" }}>
+      <footer
+        style={{
+          background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)",
+          padding: "1rem",
+          textAlign: "center",
+          color: darkMode ? "#9ca3af" : "#6b7280",
+          fontSize: "clamp(0.75rem, 2vw, 0.875rem)",
+          flexShrink: 0,
+        }}
+      >
         © {new Date().getFullYear()} FleetTraq • Data as of {new Date().toLocaleDateString()}
       </footer>
     </motion.div>
