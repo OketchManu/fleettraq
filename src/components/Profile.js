@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { User, LogOut, Trash2 } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { signOut, deleteUser } from "firebase/auth";
+import { signOut, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { auth, db } from "../firebase";
 import {
   collection,
@@ -27,6 +27,7 @@ const Profile = () => {
   const [deletionRequest, setDeletionRequest] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState(null);
+  const [password, setPassword] = useState(""); 
 
   localStorage.setItem("deviceId", deviceId);
 
@@ -69,13 +70,13 @@ const Profile = () => {
     const unsubscribeSessions = onSnapshot(sessionsQuery, (snapshot) => {
       const sessions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setActiveSessions(sessions);
-    });
+    }, (err) => setError("Failed to fetch sessions: " + err.message));
 
     const deletionQuery = query(collection(db, "deletionRequests"), where("accountId", "==", user.uid));
     const unsubscribeDeletion = onSnapshot(deletionQuery, (snapshot) => {
       const requests = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setDeletionRequest(requests[0] || null);
-    });
+    }, (err) => setError("Failed to fetch deletion requests: " + err.message));
 
     return () => {
       unsubscribeSessions();
@@ -84,9 +85,13 @@ const Profile = () => {
   }, [user, deviceId]);
 
   const handleLogout = async () => {
-    await signOut(auth);
-    localStorage.clear();
-    navigate("/login");
+    try {
+      await signOut(auth);
+      localStorage.clear();
+      navigate("/login");
+    } catch (err) {
+      setError("Failed to log out: " + err.message);
+    }
   };
 
   const initiateAccountDeletion = async () => {
@@ -145,7 +150,10 @@ const Profile = () => {
   };
 
   const deleteAccount = useCallback(async () => {
-    if (!user || !deletionRequest) return;
+    if (!user || !deletionRequest) {
+      setError("No user or deletion request found.");
+      return;
+    }
 
     const allApproved = activeSessions.every((session) => session.approvedDeletion);
     if (!allApproved) {
@@ -154,23 +162,39 @@ const Profile = () => {
     }
 
     try {
+      // Delete all user-related data from Firestore
       const collections = ["vehicles", "drivers", "reports", "tracking", "sessions", "deletionRequests"];
       for (const coll of collections) {
         const q = query(collection(db, coll), where("accountId", "==", user.uid));
         const snapshot = await getDocs(q);
-        snapshot.forEach(async (docSnapshot) => {
-          await deleteDoc(doc(db, coll, docSnapshot.id));
-        });
+        const deletePromises = snapshot.docs.map((docSnapshot) =>
+          deleteDoc(doc(db, coll, docSnapshot.id))
+        );
+        await Promise.all(deletePromises); // Wait for all deletions to complete
       }
 
+      // Reauthenticate user if needed (Firebase requires recent sign-in for deleteUser)
+      if (password) {
+        const credential = EmailAuthProvider.credential(user.email, password);
+        await reauthenticateWithCredential(auth.currentUser, credential);
+      }
+
+      // Delete the Firebase Auth user
       await deleteUser(auth.currentUser);
 
       localStorage.clear();
       navigate("/login");
+      setError(null);
     } catch (err) {
-      setError("Failed to delete account: " + err.message);
+      console.error("Deletion error:", err);
+      if (err.code === "auth/requires-recent-login") {
+        setError("Please provide your password to confirm account deletion (recent login required).");
+        setShowDeleteModal(true); // Show modal again to prompt for password
+      } else {
+        setError("Failed to delete account: " + err.message);
+      }
     }
-  }, [user, deletionRequest, activeSessions, navigate, setError]); // Dependencies for useCallback
+  }, [user, deletionRequest, activeSessions, navigate, password]);
 
   useEffect(() => {
     if (deletionRequest && activeSessions.length > 0) {
@@ -272,11 +296,33 @@ const Profile = () => {
             <p style={{ marginBottom: "16px" }}>
               Deleting your account will remove all associated data permanently. This action requires approval from all active sessions ({activeSessions.length} total). Are you sure you want to proceed?
             </p>
+            {error?.includes("recent login") && (
+              <div style={{ marginBottom: "16px" }}>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  style={{
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: themeStyles.cardBorder,
+                    background: darkMode ? "#1a0033" : "#fff",
+                    color: darkMode ? "#fff" : "#000",
+                    width: "100%",
+                  }}
+                />
+              </div>
+            )}
             <div style={{ display: "flex", gap: "8px" }}>
               <Button onClick={initiateAccountDeletion} className="bg-gradient-to-r from-red-600 to-red-800 border-red-400">
                 Yes, Initiate Deletion
               </Button>
-              <Button onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+              <Button onClick={() => {
+                setShowDeleteModal(false);
+                setPassword("");
+                setError(null);
+              }}>Cancel</Button>
             </div>
           </div>
         </motion.div>
