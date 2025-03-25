@@ -33,10 +33,16 @@ const Drivers = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    if (!auth.currentUser) {
+      setError("You must be logged in to add or edit a driver.");
+      return;
+    }
+
     try {
       const driverData = {
         ...formData,
-        userId: auth.currentUser.uid, // Add userId
+        accountId: auth.currentUser.uid, // Use accountId for consistency
       };
 
       if (editingDriver) {
@@ -52,22 +58,33 @@ const Drivers = () => {
       setShowAddForm(false);
     } catch (error) {
       console.error("Error saving driver:", error.message);
-      setError("Failed to save driver. Please check your input and try again.");
+      setError("Failed to save driver: " + error.message);
     }
   };
 
   const handleDelete = async (id) => {
+    if (!auth.currentUser) {
+      setError("You must be logged in to delete a driver.");
+      return;
+    }
+
     try {
       const driverRef = doc(db, "drivers", id);
       await deleteDoc(driverRef);
       await fetchDrivers();
     } catch (error) {
       console.error("Error deleting driver:", error.message);
-      setError("Failed to delete driver. Please try again.");
+      setError("Failed to delete driver: " + error.message);
     }
   };
 
   const handleEdit = (driver) => {
+    // Optional: Verify driver belongs to current user before editing
+    if (driver.accountId !== auth.currentUser?.uid) {
+      setError("You can only edit drivers from your account.");
+      return;
+    }
+
     setEditingDriver(driver);
     setFormData({
       name: driver.name || "",
