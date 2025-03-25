@@ -199,10 +199,13 @@ const Analytics = () => {
 
               <div 
                 style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "1fr", 
+                  display: "flex",
+                  flexDirection: "column",
                   gap: "20px",
-                  '@media (min-width: 768px)': { gridTemplateColumns: "1fr 1fr" }
+                  '@media (min-width: 768px)': { 
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr" 
+                  }
                 }}
               >
                 <motion.div 
