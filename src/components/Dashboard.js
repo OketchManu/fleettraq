@@ -6,7 +6,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { db, auth } from "../firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { collection, query, onSnapshot, where } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 
@@ -90,10 +90,13 @@ const Dashboard = () => {
     loadVehicles();
   }, [fetchVehicles]);
 
-  // Listen for real-time tracking updates
+  // Listen for real-time tracking updates for the current user's account
   useEffect(() => {
+    if (!auth.currentUser) return;
+
     const q = query(
       collection(db, "tracking"),
+      where("accountId", "==", auth.currentUser.uid),
       where("isTracking", "==", true)
     );
     
@@ -112,12 +115,26 @@ const Dashboard = () => {
       }));
       
       setTrackedVehicles(trackedArray);
+
+      // Update vehicle status to "On Route" when tracking data updates
+      trackedArray.forEach(async (track) => {
+        const vehicle = vehicles.find(v => v.id === track.vehicleId);
+        if (vehicle && vehicle.status?.toLowerCase() !== "on_route") {
+          try {
+            const vehicleRef = doc(db, "vehicles", track.vehicleId);
+            await updateDoc(vehicleRef, { status: "On Route" });
+            await fetchVehicles(); // Refresh vehicles to reflect status change
+          } catch (err) {
+            console.error("Failed to update vehicle status:", err.message);
+          }
+        }
+      });
     }, (err) => {
       setError("Failed to fetch tracking updates: " + err.message);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [vehicles, fetchVehicles]);
 
   const toggleDarkMode = async () => {
     const newMode = !darkMode;
