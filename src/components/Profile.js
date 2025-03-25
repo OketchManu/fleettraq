@@ -27,7 +27,7 @@ const Profile = () => {
   const [deletionRequest, setDeletionRequest] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState(null);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(""); 
 
   localStorage.setItem("deviceId", deviceId);
 
@@ -170,10 +170,10 @@ const Profile = () => {
         const deletePromises = snapshot.docs.map((docSnapshot) =>
           deleteDoc(doc(db, coll, docSnapshot.id))
         );
-        await Promise.all(deletePromises);
+        await Promise.all(deletePromises); // Wait for all deletions to complete
       }
 
-      // Reauthenticate user if needed
+      // Reauthenticate user if needed (Firebase requires recent sign-in for deleteUser)
       if (password) {
         const credential = EmailAuthProvider.credential(user.email, password);
         await reauthenticateWithCredential(auth.currentUser, credential);
@@ -189,7 +189,7 @@ const Profile = () => {
       console.error("Deletion error:", err);
       if (err.code === "auth/requires-recent-login") {
         setError("Please provide your password to confirm account deletion (recent login required).");
-        setShowDeleteModal(true);
+        setShowDeleteModal(true); // Show modal again to prompt for password
       } else {
         setError("Failed to delete account: " + err.message);
       }
@@ -318,15 +318,11 @@ const Profile = () => {
               <Button onClick={initiateAccountDeletion} className="bg-gradient-to-r from-red-600 to-red-800 border-red-400">
                 Yes, Initiate Deletion
               </Button>
-              <Button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setPassword("");
-                  setError(null);
-                }}
-              >
-                Cancel
-              </Button>
+              <Button onClick={() => {
+                setShowDeleteModal(false);
+                setPassword("");
+                setError(null);
+              }}>Cancel</Button>
             </div>
           </div>
         </motion.div>
