@@ -1,321 +1,490 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { auth, db } from "../firebase";
-import { collection, query, where, onSnapshot, doc, setDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { MapPin, Truck, Settings, Users, Activity, FileText, Car, User, Menu, X, Moon, Sun } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { db, auth } from "../firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { collection, query, onSnapshot, where } from "firebase/firestore";
+import { useFleet } from "../context/FleetContext";
 
-const FleetContext = createContext();
+// Fix Leaflet marker icon issue
+import icon from "leaflet/dist/images/marker-icon.png";
+import iconShadow from "leaflet/dist/images/marker-shadow.png";
+import carIcon from './assets/car-icon.png'; // Icon for tracked vehicles
+import activeCarIcon from './assets/active-car-icon.png'; // Add a new icon for active vehicles (create this asset)
 
-const FuturisticLoadingScreen = () => {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #050014 0%, #0c0033 30%, #140052 70%, #1a0066 100%)",
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      {/* Stars background */}
-      <div style={{ position: "absolute", width: "100%", height: "100%", overflow: "hidden" }}>
-        <div
-          style={{
-            position: "absolute",
-            width: "200%",
-            height: "4px",
-            background: "rgba(255, 255, 255, 0.2)",
-            top: "50%",
-            left: "-50%",
-            borderRadius: "2px",
-            transform: "translateY(-50%)",
-            animation: "roadMove 10s infinite linear",
-          }}
-        />
-      </div>
-      
-      {/* Space highway */}
-      <div style={{ position: "absolute", width: "100%", height: "100%", perspective: "1000px", zIndex: 1 }}>
-        <div
-          style={{
-            position: "absolute",
-            width: "200%",
-            height: "4px",
-            background: "linear-gradient(to right, rgba(0, 0, 0, 0), rgba(120, 0, 255, 0.5), rgba(0, 200, 255, 0.5), rgba(0, 0, 0, 0))",
-            top: "50%",
-            left: "-50%",
-            borderRadius: "2px",
-            transform: "translateY(-50%) rotateX(60deg)",
-            boxShadow: "0 0 20px rgba(120, 0, 255, 0.5), 0 0 40px rgba(0, 200, 255, 0.3)",
-            animation: "roadMove 10s infinite linear",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            width: "200%",
-            height: "4px",
-            background: "linear-gradient(to right, rgba(0, 0, 0, 0), rgba(120, 0, 255, 0.3), rgba(0, 200, 255, 0.3), rgba(0, 0, 0, 0))",
-            top: "60%",
-            left: "-50%",
-            borderRadius: "2px",
-            transform: "translateY(-50%) rotateX(60deg)",
-            boxShadow: "0 0 15px rgba(120, 0, 255, 0.4), 0 0 30px rgba(0, 200, 255, 0.2)",
-            animation: "roadMove 12s infinite linear",
-          }}
-        />
-      </div>
-      
-      {/* Fleet vehicles */}
-      <div style={{ position: "relative", display: "flex", gap: "40px", zIndex: 2 }}>
-        {[1, 2, 3].map((car) => (
-          <div
-            key={car}
-            style={{
-              width: "50px",
-              height: "24px",
-              background: `linear-gradient(90deg, #6b21a8, #8b5cf6)`,
-              borderRadius: "6px",
-              boxShadow: "0 0 15px rgba(139, 92, 246, 0.8), 0 0 30px rgba(107, 33, 168, 0.6)",
-              position: "relative",
-              animation: `carMove${car} 2.5s infinite ease-in-out`,
-              transformOrigin: "center",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-4px",
-                left: "10%",
-                width: "80%",
-                height: "4px",
-                background: "rgba(139, 92, 246, 0.5)",
-                borderRadius: "50%",
-                filter: "blur(4px)",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                top: "15%",
-                left: "10%",
-                width: "80%",
-                height: "30%",
-                background: "rgba(255, 255, 255, 0.7)",
-                borderRadius: "3px",
-              }}
-            />
-          </div>
-        ))}
-      </div>
-      
-      {/* Loading text */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "20%",
-          color: "#a78bfa",
-          fontSize: "28px",
-          fontWeight: "bold",
-          textShadow: "0 0 10px rgba(167, 139, 250, 0.8), 0 0 20px rgba(139, 92, 246, 0.6)",
-          animation: "pulse 1.5s infinite",
-          letterSpacing: "2px",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        Loading Fleet...
-      </div>
-      
-      {/* Animated styles */}
-      <style>
-        {`
-          @keyframes roadMove {
-            0% { transform: translateX(-50%) translateY(-50%) rotateX(60deg) rotate(0deg); }
-            25% { transform: translateX(-40%) translateY(-50%) rotateX(60deg) rotate(5deg); }
-            50% { transform: translateX(-30%) translateY(-50%) rotateX(60deg) rotate(0deg); }
-            75% { transform: translateX(-40%) translateY(-50%) rotateX(60deg) rotate(-5deg); }
-            100% { transform: translateX(-50%) translateY(-50%) rotateX(60deg) rotate(0deg); }
-          }
-          @keyframes carMove1 {
-            0%, 100% { transform: translateX(0) translateY(0); }
-            50% { transform: translateX(20px) translateY(-10px); }
-          }
-          @keyframes carMove2 {
-            0%, 100% { transform: translateX(0) translateY(0); }
-            50% { transform: translateX(-15px) translateY(15px); }
-          }
-          @keyframes carMove3 {
-            0%, 100% { transform: translateX(0) translateY(0); }
-            50% { transform: translateX(25px) translateY(-5px); }
-          }
-          @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-          }
-        `}
-      </style>
-    </div>
-  );
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+// Larger car icon for tracked ("On Route") vehicles
+let CarIcon = L.icon({
+  iconUrl: carIcon,
+  iconSize: [48, 48],
+  iconAnchor: [24, 24],
+  popupAnchor: [0, -24],
+});
+
+// Icon for active (not tracked) vehicles
+let ActiveCarIcon = L.icon({
+  iconUrl: activeCarIcon || icon, // Fallback to default if asset missing
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Map view controller component
+const MapViewController = ({ bounds }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (bounds && bounds.length > 0) {
+      const leafletBounds = L.latLngBounds(bounds.map(([lat, lng]) => [lat, lng]));
+      map.fitBounds(leafletBounds, { padding: [50, 50] });
+    }
+  }, [bounds, map]);
+  
+  return null;
 };
 
-export const FleetProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [drivers, setDrivers] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
-  const [reports, setReports] = useState([]);
-  const [trackingData, setTrackingData] = useState({ lat: -1.2864, lng: 36.8172 });
-  const [darkMode, setDarkMode] = useState(true);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-
-  const fetchDrivers = useCallback(() => {
-    if (!user) return () => {};
-
-    const q = query(collection(db, "drivers"), where("accountId", "==", user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const driverData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setDrivers(driverData);
-    }, (err) => {
-      console.error("Error fetching drivers:", err.message);
-    });
-
-    return unsubscribe;
-  }, [user]);
-
-  const fetchVehicles = useCallback(() => {
-    if (!user) return () => {};
-
-    const q = query(collection(db, "vehicles"), where("accountId", "==", user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const vehicleData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setVehicles(vehicleData);
-    }, (err) => {
-      console.error("Error fetching vehicles:", err.message);
-    });
-
-    return unsubscribe;
-  }, [user]);
-
-  const fetchReports = useCallback(() => {
-    if (!user) return () => {};
-
-    const q = query(collection(db, "reports"), where("accountId", "==", user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const reportData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setReports(reportData);
-    }, (err) => {
-      console.error("Error fetching reports:", err.message);
-    });
-
-    return unsubscribe;
-  }, [user]);
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const { vehicles, fetchVehicles, darkMode, setDarkMode } = useFleet();
+  const role = localStorage.getItem("role");
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [trackedVehicles, setTrackedVehicles] = useState([]);
+  const menuRef = useRef(null);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-      setLoadingAuth(true);
-      if (currentUser) {
-        setUser(currentUser);
-        localStorage.setItem("token", await currentUser.getIdToken());
-        await currentUser.getIdToken(true); // Force token refresh
-
-        // Fetch user role
-        const q = query(collection(db, "users"), where("uid", "==", currentUser.uid));
-        const unsubscribeUsers = onSnapshot(q, (snapshot) => {
-          const userDoc = snapshot.docs[0];
-          if (userDoc) {
-            localStorage.setItem("role", userDoc.data().role || "driver");
-          }
-        }, (err) => {
-          console.error("Error fetching user role:", err.message);
-        });
-
-        // Fetch data with real-time listeners
-        const unsubDrivers = fetchDrivers();
-        const unsubVehicles = fetchVehicles();
-        const unsubReports = fetchReports();
-
-        // Cleanup subscriptions
-        return () => {
-          unsubDrivers();
-          unsubVehicles();
-          unsubReports();
-          unsubscribeUsers();
-        };
-      } else {
-        setUser(null);
-        setDrivers([]);
-        setVehicles([]);
-        setReports([]);
-        setTrackingData({ lat: -1.2864, lng: 36.8172 });
-        localStorage.clear();
-      }
-      setLoadingAuth(false);
-    });
-
-    return () => unsubscribeAuth();
-  }, [fetchDrivers, fetchVehicles, fetchReports]);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) setMobileMenuOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
-    if (loadingAuth || !user) return;
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMobileMenuOpen(false);
+    };
+    if (mobileMenuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [mobileMenuOpen]);
 
-    const qTracking = query(collection(db, "tracking"), where("accountId", "==", user.uid));
-    const unsubTracking = onSnapshot(qTracking, (snapshot) => {
-      const tracking = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      if (tracking.length > 0) {
-        const latest = tracking[tracking.length - 1];
-        setTrackingData({ lat: Number(latest.lat) || -1.2864, lng: Number(latest.lng) || 36.8172 });
+  useEffect(() => {
+    const loadVehicles = async () => {
+      if (!auth.currentUser) {
+        setError("You must be logged in to view fleet data.");
+        setIsLoading(false);
+        return;
       }
+      try {
+        setIsLoading(true);
+        await fetchVehicles();
+      } catch (err) {
+        setError("Failed to load fleet data: " + err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadVehicles();
+  }, [fetchVehicles]);
+
+  // Listen for real-time tracking updates for the current user's account
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, "tracking"),
+      where("accountId", "==", auth.currentUser.uid),
+      where("isTracking", "==", true)
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const trackedData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        vehicleId: doc.data().vehicleId,
+        lat: Number(doc.data().lat) || -1.2864,
+        lng: Number(doc.data().lng) || 36.8172,
+        locationName: doc.data().locationName,
+        timestamp: doc.data().timestamp
+      }));
+      
+      setTrackedVehicles(trackedData);
     }, (err) => {
-      console.error("Tracking snapshot error:", err.message);
+      setError("Failed to fetch tracking updates: " + err.message);
     });
 
-    const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
-    const unsubSettings = onSnapshot(settingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setDarkMode(docSnap.data().darkMode ?? true);
-      } else {
-        setDoc(settingsRef, { darkMode: true }, { merge: true }).catch((err) =>
-          console.error("Error setting default settings:", err.message)
-        );
-      }
-    }, (err) => {
-      console.error("Settings snapshot error:", err.message);
-    });
+    return () => unsubscribe();
+  }, []);
+
+  const toggleDarkMode = async () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    const user = auth.currentUser;
+    if (user) {
+      const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
+      await setDoc(settingsRef, { darkMode: newMode }, { merge: true });
+    }
+  };
+
+  // Calculate fleet statistics
+  const getFleetStats = () => {
+    if (!vehicles || !Array.isArray(vehicles)) {
+      return {
+        total: 0,
+        active: 0,
+        onRoute: 0,
+        maintenance: 0
+      };
+    }
+
+    return {
+      total: vehicles.length,
+      active: vehicles.filter(v => v.status?.toLowerCase() === "active").length,
+      onRoute: vehicles.filter(v => v.status?.toLowerCase() === "on_route").length,
+      maintenance: vehicles.filter(v => v.status?.toLowerCase() === "maintenance").length
+    };
+  };
+
+  const fleetStats = getFleetStats();
+
+  const themeStyles = {
+    background: darkMode
+      ? "linear-gradient(135deg, #1a0033 0%, #330066 50%, #4d0099 100%)"
+      : "linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)",
+    color: darkMode ? "#fff" : "#000",
+  };
+
+  const navButtons = [
+    role === "admin" && { label: "Drivers", icon: <Users size={16} className="mr-1" />, path: "/drivers", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
+    { label: "Tracking", icon: <MapPin size={16} className="mr-1" />, path: "/tracking", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
+    { label: "Analytics", icon: <Activity size={16} className="mr-1" />, path: "/analytics", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
+    { label: "Reports", icon: <FileText size={16} className="mr-1" />, path: "/reports", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
+    { label: "Vehicles", icon: <Car size={16} className="mr-1" />, path: "/vehicle-management", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
+    { label: "Profile", icon: <User size={16} className="mr-1" />, path: "/profile", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
+    { label: "Settings", icon: <Settings size={16} className="mr-1" />, path: "/settings", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
+  ].filter(Boolean);
+
+  const MapComponent = useMemo(() => {
+    const defaultPosition = [-1.2864, 36.8172]; // Nairobi coordinates
 
     return () => {
-      unsubTracking();
-      unsubSettings();
-    };
-  }, [user, loadingAuth]);
+      // Filter active vehicles that aren't currently tracked
+      const activeVehicles = vehicles.filter(
+        v => v.status?.toLowerCase() === "active" && 
+             !trackedVehicles.some(t => t.vehicleId === v.id)
+      ).map(v => ({
+        id: v.id,
+        lat: Number(v.lat) || -1.2864,
+        lng: Number(v.lng) || 36.8172,
+        make: v.make,
+        model: v.model,
+        licensePlate: v.licensePlate || v.plateNumber,
+        timestamp: v.lastUpdated || null
+      }));
 
-  if (loadingAuth) {
-    return <FuturisticLoadingScreen />;
-  }
+      const center = trackedVehicles.length > 0 
+        ? [trackedVehicles[0].lat, trackedVehicles[0].lng] 
+        : activeVehicles.length > 0 
+          ? [activeVehicles[0].lat, activeVehicles[0].lng] 
+          : defaultPosition;
+
+      const bounds = [
+        ...trackedVehicles.map(track => [track.lat, track.lng]),
+        ...activeVehicles.map(v => [v.lat, v.lng])
+      ].length > 0 
+        ? [...trackedVehicles.map(track => [track.lat, track.lng]), ...activeVehicles.map(v => [v.lat, v.lng])]
+        : [defaultPosition];
+
+      return (
+        <MapContainer
+          center={center}
+          zoom={10}
+          style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
+          key={`${trackedVehicles.length}-${activeVehicles.length}`} // Re-render when either changes
+        >
+          <TileLayer
+            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+          {/* Tracked ("On Route") Vehicles */}
+          {trackedVehicles.map((track) => {
+            const vehicle = vehicles.find(v => v.id === track.vehicleId);
+            return (
+              <Marker
+                key={`tracked-${track.id}`}
+                position={[track.lat, track.lng]}
+                icon={CarIcon}
+              >
+                <Popup>
+                  <div style={{ 
+                    minWidth: "200px", 
+                    padding: "10px", 
+                    fontSize: "14px", 
+                    lineHeight: "1.5",
+                    fontFamily: "Arial, sans-serif"
+                  }}>
+                    <strong style={{ fontSize: "16px", color: "#333" }}>
+                      {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
+                    </strong>
+                    <br />
+                    <span style={{ color: "#666" }}>
+                      Plate: {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
+                    </span>
+                    <br />
+                    <strong>Status:</strong> On Route
+                    <br />
+                    {track.locationName && (
+                      <>
+                        <strong>Location:</strong> {track.locationName}
+                        <br />
+                      </>
+                    )}
+                    <strong>Coordinates:</strong> {track.lat.toFixed(6)}, {track.lng.toFixed(6)}
+                    <br />
+                    <strong>Last Update:</strong> {new Date(track.timestamp).toLocaleString()}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* Active (Not Tracked) Vehicles */}
+          {activeVehicles.map((vehicle) => (
+            <Marker
+              key={`active-${vehicle.id}`}
+              position={[vehicle.lat, vehicle.lng]}
+              icon={ActiveCarIcon}
+            >
+              <Popup>
+                <div style={{ 
+                  minWidth: "200px", 
+                  padding: "10px", 
+                  fontSize: "14px", 
+                  lineHeight: "1.5",
+                  fontFamily: "Arial, sans-serif"
+                }}>
+                  <strong style={{ fontSize: "16px", color: "#333" }}>
+                    {vehicle.make} {vehicle.model}
+                  </strong>
+                  <br />
+                  <span style={{ color: "#666" }}>
+                    Plate: {vehicle.licensePlate || "N/A"}
+                  </span>
+                  <br />
+                  <strong>Status:</strong> Active
+                  <br />
+                  <strong>Coordinates:</strong> {vehicle.lat.toFixed(6)}, {vehicle.lng.toFixed(6)}
+                  <br />
+                  {vehicle.timestamp && (
+                    <>
+                      <strong>Last Update:</strong> {new Date(vehicle.timestamp).toLocaleString()}
+                    </>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+          
+          <MapViewController bounds={bounds} />
+        </MapContainer>
+      );
+    };
+  }, [trackedVehicles, vehicles, isMobile]);
 
   return (
-    <FleetContext.Provider
-      value={{
-        user,
-        drivers,
-        vehicles,
-        reports,
-        trackingData,
-        setTrackingData,
-        darkMode,
-        setDarkMode,
-        fetchDrivers,
-        fetchVehicles,
-        fetchReports,
-      }}
+    <motion.div
+      className="min-h-screen flex flex-col"
+      style={themeStyles}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
     >
-      {children}
-    </FleetContext.Provider>
+      <header className={`px-4 py-3 shadow-lg sticky top-0 z-10 ${darkMode ? "bg-black bg-opacity-50" : "bg-gray-200 bg-opacity-70"}`}>
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <h1 className="text-2xl font-bold flex items-center">
+            <Truck className="mr-2 text-yellow-400" /> FleetTraq
+          </h1>
+          <div className="flex items-center gap-2">
+            {!isMobile && (
+              <div className="flex gap-2 mr-2">
+                {navButtons.map((btn, index) => (
+                  <motion.button
+                    key={index}
+                    onClick={() => navigate(btn.path)}
+                    className={`px-3 py-2 text-black rounded-md font-bold flex items-center text-sm ${btn.color} hover:brightness-110 shadow-lg border border-yellow-300`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    style={{ textShadow: "0px 0px 2px rgba(0,0,0,0.2)" }}
+                  >
+                    {btn.icon} {btn.label}
+                  </motion.button>
+                ))}
+              </div>
+            )}
+            <motion.button
+              onClick={toggleDarkMode}
+              className="p-2 bg-gradient-to-r from-yellow-500 to-amber-700 text-black rounded-md flex items-center justify-center shadow-lg border border-yellow-300"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </motion.button>
+            {isMobile && (
+              <motion.button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 bg-gradient-to-r from-yellow-500 to-amber-700 text-black rounded-md flex items-center justify-center shadow-lg border border-yellow-300"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </motion.button>
+            )}
+          </div>
+          <AnimatePresence>
+            {isMobile && mobileMenuOpen && (
+              <motion.div
+                ref={menuRef}
+                className={`absolute right-4 top-14 z-20 rounded-lg shadow-xl border py-2 w-48 ${darkMode ? "bg-gray-900 bg-opacity-95 border-gray-700" : "bg-gray-100 bg-opacity-95 border-gray-300"}`}
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+              >
+                {navButtons.map((btn, index) => (
+                  <motion.button
+                    key={index}
+                    onClick={() => {
+                      navigate(btn.path);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-black font-bold flex items-center text-sm ${btn.color} hover:brightness-110`}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {btn.icon} {btn.label}
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </header>
+      <main className="flex-grow p-4 md:p-6">
+        <div className="max-w-7xl mx-auto">
+          {isLoading ? (
+            <motion.div
+              className="text-center text-xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              Loading fleet data...
+            </motion.div>
+          ) : error ? (
+            <motion.div
+              className="mb-4 p-4 bg-red-600 rounded-lg shadow-lg"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              {error}
+            </motion.div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6">
+                <motion.div
+                  className="p-6 rounded-lg shadow-lg bg-opacity-15"
+                  style={{
+                    backgroundImage: darkMode
+                      ? "linear-gradient(135deg, rgba(75, 0, 130, 0.7) 0%, rgba(138, 43, 226, 0.4) 100%)"
+                      : "linear-gradient(135deg, rgba(200, 200, 200, 0.7) 0%, rgba(240, 240, 240, 0.4) 100%)",
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: "#facc15" }}>
+                    <Truck className="mr-2" /> Fleet Overview
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
+                      <p className={`text-3xl font-bold ${darkMode ? "text-white" : "text-black"}`}>
+                        {fleetStats.total}
+                      </p>
+                    </div>
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Active Vehicles</p>
+                      <p className="text-3xl font-bold text-green-400">
+                        {fleetStats.active}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div
+                  className="p-6 rounded-lg shadow-lg"
+                  style={{
+                    backgroundImage: darkMode
+                      ? "linear-gradient(135deg, rgba(0, 128, 128, 0.7) 0%, rgba(0, 179, 179, 0.4) 100%)"
+                      : "linear-gradient(135deg, rgba(180, 230, 230, 0.7) 0%, rgba(220, 255, 255, 0.4) 100%)",
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: "#facc15" }}>
+                    <Activity className="mr-2" /> Quick Stats
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>On Route</p>
+                      <p className="text-3xl font-bold text-blue-400">
+                        {fleetStats.onRoute}
+                      </p>
+                    </div>
+                    <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Maintenance</p>
+                      <p className="text-3xl font-bold" style={{ color: "#facc15" }}>
+                        {fleetStats.maintenance}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+              <motion.div
+                className="rounded-lg overflow-hidden shadow-xl mb-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className={`p-4 border-b ${darkMode ? "bg-gray-900 bg-opacity-80 border-gray-800" : "bg-gray-100 border-gray-300"}`}>
+                  <h2 className="text-xl font-semibold flex items-center" style={{ color: "#facc15" }}>
+                    <MapPin className="mr-2" /> Live Fleet Location
+                  </h2>
+                </div>
+                <MapComponent />
+              </motion.div>
+            </>
+          )}
+        </div>
+      </main>
+      <footer className={`p-4 text-center text-sm ${darkMode ? "bg-black bg-opacity-70 text-gray-400" : "bg-gray-200 text-gray-600"}`}>
+        © {new Date().getFullYear()} FleetTraq. All rights reserved.
+      </footer>
+    </motion.div>
   );
 };
 
-export const useFleet = () => {
-  const context = useContext(FleetContext);
-  if (!context) throw new Error("useFleet must be used within a FleetProvider");
-  return context;
-};
+export default Dashboard;
