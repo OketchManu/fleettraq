@@ -14,15 +14,23 @@ const Analytics = () => {
   const navigate = useNavigate();
   const { darkMode, vehicles, drivers, fetchVehicles, fetchDrivers } = useFleet();
   const [loading, setLoading] = useState(true);
+  const [screenWidth, setScreenWidth] = useState(window.innerWidth);
   const [analyticsData, setAnalyticsData] = useState({
     totalMileage: 0,
     activeVehicles: 0,
     avgUtilization: 0,
   });
 
+  // Update screen width on resize
+  useEffect(() => {
+    const handleResize = () => setScreenWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const themeStyles = {
-    background: darkMode
-      ? "linear-gradient(135deg, #080016 0%, #150025 100%)"
+    background: darkMode 
+      ? "linear-gradient(135deg, #080016 0%, #150025 100%)" 
       : "linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)",
     color: darkMode ? "#fff" : "#000",
     cardBg: darkMode ? "rgba(255, 255, 255, 0.1)" : "#fff",
@@ -38,15 +46,15 @@ const Analytics = () => {
         if (!drivers.length) await fetchDrivers();
 
         const totalMileage = vehicles.reduce((sum, v) => sum + (parseInt(v.mileage) || 0), 0);
-        const activeVehicles = vehicles.filter((v) => v.status === "Active").length;
-        const avgUtilization = vehicles.length
-          ? vehicles.reduce((sum, v) => sum + (v.utilizationRate || 0), 0) / vehicles.length
+        const activeVehicles = vehicles.filter(v => v.status === "Active").length;
+        const avgUtilization = vehicles.length 
+          ? (vehicles.reduce((sum, v) => sum + (v.utilizationRate || 0), 0) / vehicles.length) 
           : 0;
 
         setAnalyticsData({
           totalMileage,
           activeVehicles,
-          avgUtilization,
+          avgUtilization
         });
       } catch (error) {
         console.error("Error loading analytics data:", error);
@@ -58,339 +66,256 @@ const Analytics = () => {
   }, [vehicles, drivers, fetchVehicles, fetchDrivers]);
 
   const mileageChartData = {
-    labels: vehicles.length ? vehicles.map((v) => `${v.make} ${v.model}`) : ["No Data"],
-    datasets: [
-      {
-        label: "Mileage",
-        data: vehicles.length ? vehicles.map((v) => v.mileage || 0) : [0],
-        backgroundColor: darkMode ? "rgba(250, 204, 21, 0.7)" : "rgba(59, 130, 246, 0.7)",
-        borderColor: darkMode ? "#facc15" : "#3b82f6",
-        borderWidth: 1,
-      },
-    ],
+    labels: vehicles.length ? vehicles.map(v => `${v.make} ${v.model}`) : ["No Data"],
+    datasets: [{
+      label: "Mileage",
+      data: vehicles.length ? vehicles.map(v => v.mileage || 0) : [0],
+      backgroundColor: darkMode ? "rgba(250, 204, 21, 0.7)" : "rgba(59, 130, 246, 0.7)",
+      borderColor: darkMode ? "#facc15" : "#3b82f6",
+      borderWidth: 1,
+    }]
   };
 
   const statusChartData = {
     labels: ["Active", "Inactive"],
-    datasets: [
-      {
-        data: vehicles.length
-          ? [analyticsData.activeVehicles, vehicles.length - analyticsData.activeVehicles]
-          : [0, 0],
-        backgroundColor: [darkMode ? "#22c55e" : "#16a34a", darkMode ? "#ef4444" : "#dc2626"],
-      },
-    ],
+    datasets: [{
+      data: vehicles.length 
+        ? [analyticsData.activeVehicles, vehicles.length - analyticsData.activeVehicles] 
+        : [0, 0],
+      backgroundColor: [
+        darkMode ? "#22c55e" : "#16a34a", 
+        darkMode ? "#ef4444" : "#dc2626"
+      ],
+    }]
   };
 
   const chartOptions = {
     maintainAspectRatio: false,
+    responsive: true,
     plugins: {
-      legend: {
-        labels: {
+      legend: { 
+        labels: { 
           color: darkMode ? "#fff" : "#000",
-          font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" },
-        },
+          font: {
+            size: screenWidth < 640 ? 10 : 12
+          }
+        } 
       },
-      tooltip: { backgroundColor: darkMode ? "#1f2937" : "#fff" },
-    },
-    scales: darkMode
-      ? {
-          x: { ticks: { color: "#fff", font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" } }, grid: { color: "rgba(255, 255, 255, 0.1)" } },
-          y: { ticks: { color: "#fff", font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" } }, grid: { color: "rgba(255, 255, 255, 0.1)" } },
-        }
-      : {
-          x: { ticks: { font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" } } },
-          y: { ticks: { font: { size: "clamp(0.625rem, 1.5vw, 0.875rem)" } } },
+      tooltip: { 
+        backgroundColor: darkMode ? "#1f2937" : "#fff",
+        titleFont: {
+          size: screenWidth < 640 ? 10 : 12
         },
+        bodyFont: {
+          size: screenWidth < 640 ? 10 : 12
+        }
+      },
+    },
+    scales: darkMode ? {
+      x: { 
+        ticks: { 
+          color: "#fff",
+          font: {
+            size: screenWidth < 640 ? 8 : 10
+          }
+        }, 
+        grid: { color: "rgba(255, 255, 255, 0.1)" } 
+      },
+      y: { 
+        ticks: { 
+          color: "#fff",
+          font: {
+            size: screenWidth < 640 ? 8 : 10
+          }
+        }, 
+        grid: { color: "rgba(255, 255, 255, 0.1)" } 
+      }
+    } : {}
   };
 
-  const isSmallScreen = window.innerWidth < 768;
+  // Responsive container styles
+  const responsiveStyles = {
+    container: {
+      minHeight: '100vh',
+      width: '100%',
+      ...themeStyles
+    },
+    header: {
+      position: 'sticky',
+      top: 0,
+      zIndex: 10,
+      padding: '12px 16px',
+      background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      display: 'flex',
+      flexDirection: screenWidth < 640 ? 'column' : 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '10px'
+    },
+    headerTitle: {
+      fontSize: screenWidth < 640 ? '18px' : '24px',
+      fontWeight: 'bold',
+      display: 'flex',
+      alignItems: 'center',
+      color: darkMode ? "#facc15" : "#1f2937",
+      marginBottom: screenWidth < 640 ? '10px' : '0'
+    },
+    mainContent: {
+      padding: '16px',
+      width: '100%'
+    },
+    statsGrid: {
+      display: 'grid',
+      gridTemplateColumns: screenWidth < 640 ? '1fr' : screenWidth < 1024 ? '1fr 1fr' : '1fr 1fr 1fr',
+      gap: '16px',
+      marginBottom: '24px'
+    },
+    statsCard: {
+      background: themeStyles.cardBg,
+      padding: '16px',
+      borderRadius: '8px',
+      border: themeStyles.cardBorder,
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    },
+    chartsGrid: {
+      display: 'grid',
+      gridTemplateColumns: screenWidth < 1024 ? '1fr' : '1fr 1fr',
+      gap: '24px'
+    },
+    chartContainer: {
+      background: themeStyles.chartBg,
+      padding: '16px',
+      borderRadius: '8px',
+      border: themeStyles.cardBorder,
+      height: screenWidth < 640 ? '250px' : '300px'
+    },
+    footer: {
+      background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)",
+      padding: '16px',
+      textAlign: 'center',
+      color: darkMode ? "#9ca3af" : "#6b7280",
+      fontSize: screenWidth < 640 ? '12px' : '14px'
+    }
+  };
 
   return (
-    <motion.div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        ...themeStyles,
-      }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+    <motion.div 
+      style={responsiveStyles.container}
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }} 
       transition={{ duration: 0.5 }}
     >
-      <header
-        style={{
-          background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
-          padding: "clamp(0.5rem, 2vw, 1rem)",
-          boxShadow: "0 0.125rem 0.25rem rgba(0,0,0,0.1)",
-          position: "sticky",
-          top: 0,
-          zIndex: 10,
-          width: "100%",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "100%",
-            width: "min(1280px, 95%)",
-            margin: "0 auto",
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "clamp(0.25rem, 1vw, 0.5rem)",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: "clamp(1rem, 4vw, 1.5rem)",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              color: darkMode ? "#facc15" : "#1f2937",
-            }}
-          >
-            <BarChart
-              style={{
-                marginRight: "clamp(0.25rem, 1vw, 0.5rem)",
-                width: "clamp(1rem, 3vw, 1.5rem)",
-                height: "clamp(1rem, 3vw, 1.5rem)",
-              }}
-            />
-            Fleet Analytics
-          </h1>
-          <Button
-            onClick={() => navigate("/dashboard")}
-            style={{
-              padding: "clamp(0.375rem, 1.5vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)",
-              fontSize: "clamp(0.75rem, 2vw, 1rem)",
-            }}
-          >
-            Back to Dashboard
-          </Button>
-        </div>
+      {/* Header */}
+      <header style={responsiveStyles.header}>
+        <h1 style={responsiveStyles.headerTitle}>
+          <BarChart style={{ marginRight: '8px', width: screenWidth < 640 ? '20px' : '24px', height: screenWidth < 640 ? '20px' : '24px' }} /> 
+          Fleet Analytics
+        </h1>
+        <Button onClick={() => navigate("/dashboard")}>
+          Back to Dashboard
+        </Button>
       </header>
 
-      <main
-        style={{
-          padding: "clamp(0.75rem, 3vw, 1.5rem)",
-          flexGrow: 1,
-          width: "100%",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "100%",
-            width: "min(1280px, 95%)",
-            margin: "0 auto",
-          }}
-        >
-          {loading ? (
-            <motion.div
-              style={{
-                textAlign: "center",
-                padding: "clamp(1rem, 4vw, 2rem)",
-                fontSize: "clamp(0.875rem, 3vw, 1.25rem)",
-              }}
-            >
-              <p>Loading analytics data...</p>
-            </motion.div>
-          ) : (
-            <>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 40vw), 1fr))",
-                  gap: "clamp(0.5rem, 2vw, 1rem)",
-                  marginBottom: "clamp(1rem, 3vw, 1.5rem)",
-                }}
-              >
-                <motion.div
-                  style={{
-                    background: themeStyles.cardBg,
-                    padding: "clamp(0.75rem, 2vw, 1rem)",
-                    borderRadius: "0.5rem",
-                    border: themeStyles.cardBorder,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "clamp(0.25rem, 1vw, 0.5rem)",
-                      marginBottom: "clamp(0.25rem, 1vw, 0.5rem)",
-                    }}
-                  >
-                    <Truck style={{ width: "clamp(1rem, 2vw, 1.25rem)", height: "clamp(1rem, 2vw, 1.25rem)" }} />
-                    <h3
-                      style={{
-                        color: darkMode ? "#facc15" : "#1f2937",
-                        fontSize: "clamp(0.75rem, 2vw, 1rem)",
-                      }}
-                    >
-                      Fleet Size
-                    </h3>
-                  </div>
-                  <p style={{ fontSize: "clamp(1rem, 4vw, 1.5rem)", fontWeight: "bold" }}>{vehicles.length}</p>
-                  <p style={{ fontSize: "clamp(0.625rem, 1.5vw, 0.875rem)" }}>
-                    Active: {analyticsData.activeVehicles}
-                  </p>
-                </motion.div>
-
-                <motion.div
-                  style={{
-                    background: themeStyles.cardBg,
-                    padding: "clamp(0.75rem, 2vw, 1rem)",
-                    borderRadius: "0.5rem",
-                    border: themeStyles.cardBorder,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "clamp(0.25rem, 1vw, 0.5rem)",
-                      marginBottom: "clamp(0.25rem, 1vw, 0.5rem)",
-                    }}
-                  >
-                    <Users style={{ width: "clamp(1rem, 2vw, 1.25rem)", height: "clamp(1rem, 2vw, 1.25rem)" }} />
-                    <h3
-                      style={{
-                        color: darkMode ? "#facc15" : "#1f2937",
-                        fontSize: "clamp(0.75rem, 2vw, 1rem)",
-                      }}
-                    >
-                      Drivers
-                    </h3>
-                  </div>
-                  <p style={{ fontSize: "clamp(1rem, 4vw, 1.5rem)", fontWeight: "bold" }}>{drivers.length}</p>
-                  <p style={{ fontSize: "clamp(0.625rem, 1.5vw, 0.875rem)" }}>
-                    Assigned: {drivers.filter((d) => d.vehicleId).length}
-                  </p>
-                </motion.div>
-
-                <motion.div
-                  style={{
-                    background: themeStyles.cardBg,
-                    padding: "clamp(0.75rem, 2vw, 1rem)",
-                    borderRadius: "0.5rem",
-                    border: themeStyles.cardBorder,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "clamp(0.25rem, 1vw, 0.5rem)",
-                      marginBottom: "clamp(0.25rem, 1vw, 0.5rem)",
-                    }}
-                  >
-                    <Clock style={{ width: "clamp(1rem, 2vw, 1.25rem)", height: "clamp(1rem, 2vw, 1.25rem)" }} />
-                    <h3
-                      style={{
-                        color: darkMode ? "#facc15" : "#1f2937",
-                        fontSize: "clamp(0.75rem, 2vw, 1rem)",
-                      }}
-                    >
-                      Avg Utilization
-                    </h3>
-                  </div>
-                  <p style={{ fontSize: "clamp(1rem, 4vw, 1.5rem)", fontWeight: "bold" }}>
-                    {Math.round(analyticsData.avgUtilization)}%
-                  </p>
-                  <p style={{ fontSize: "clamp(0.625rem, 1.5vw, 0.875rem)" }}>Fleet usage rate</p>
-                </motion.div>
+      {/* Main Content */}
+      <main style={responsiveStyles.mainContent}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '24px' }}>
+            <p>Loading analytics data...</p>
+          </div>
+        ) : (
+          <>
+            {/* Stats Cards */}
+            <div style={responsiveStyles.statsGrid}>
+              {/* Fleet Size Card */}
+              <div style={responsiveStyles.statsCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Truck size={20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: '16px' }}>
+                    Fleet Size
+                  </h3>
+                </div>
+                <p style={{ fontSize: '20px', fontWeight: 'bold' }}>{vehicles.length}</p>
+                <p style={{ fontSize: '12px' }}>Active: {analyticsData.activeVehicles}</p>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: isSmallScreen ? "column" : "row", // Stack vertically on small screens
-                  gap: "clamp(0.75rem, 3vw, 1.5rem)",
-                  width: "100%",
-                  flexWrap: isSmallScreen ? "nowrap" : "wrap", // Prevent wrapping on small screens
-                }}
-              >
-                {/* Vehicle Mileage Distribution (first) */}
-                <motion.div
-                  style={{
-                    background: themeStyles.chartBg,
-                    padding: "clamp(0.75rem, 2vw, 1rem)",
-                    borderRadius: "0.5rem",
-                    border: themeStyles.cardBorder,
-                    width: isSmallScreen ? "100%" : "calc(50% - clamp(0.375rem, 1.5vw, 0.75rem))", // Full width on small, half on large with gap adjustment
-                    maxWidth: "100%", // Prevent overflow
-                  }}
-                >
-                  <h3
-                    style={{
-                      color: darkMode ? "#facc15" : "#1f2937",
-                      marginBottom: "clamp(0.5rem, 2vw, 1rem)",
-                      fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
-                    }}
-                  >
-                    Vehicle Mileage Distribution
+              {/* Drivers Card */}
+              <div style={responsiveStyles.statsCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Users size={20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: '16px' }}>
+                    Drivers
                   </h3>
-                  <div
-                    style={{
-                      height: "clamp(200px, 40vh, 400px)",
-                      width: "100%",
-                      overflow: "hidden", // Prevent chart from spilling out
-                    }}
-                  >
-                    <Bar data={mileageChartData} options={{ ...chartOptions, responsive: true }} />
-                  </div>
-                </motion.div>
-
-                {/* Fleet Status (below Mileage on small screens) */}
-                <motion.div
-                  style={{
-                    background: themeStyles.chartBg,
-                    padding: "clamp(0.75rem, 2vw, 1rem)",
-                    borderRadius: "0.5rem",
-                    border: themeStyles.cardBorder,
-                    width: isSmallScreen ? "100%" : "calc(50% - clamp(0.375rem, 1.5vw, 0.75rem))", // Full width on small, half on large with gap adjustment
-                    maxWidth: "100%", // Prevent overflow
-                  }}
-                >
-                  <h3
-                    style={{
-                      color: darkMode ? "#facc15" : "#1f2937",
-                      marginBottom: "clamp(0.5rem, 2vw, 1rem)",
-                      fontSize: "clamp(0.875rem, 2.5vw, 1.125rem)",
-                    }}
-                  >
-                    Fleet Status
-                  </h3>
-                  <div
-                    style={{
-                      height: "clamp(200px, 40vh, 400px)",
-                      width: "100%",
-                      overflow: "hidden", // Prevent chart from spilling out
-                    }}
-                  >
-                    <Pie data={statusChartData} options={{ ...chartOptions, responsive: true }} />
-                  </div>
-                </motion.div>
+                </div>
+                <p style={{ fontSize: '20px', fontWeight: 'bold' }}>{drivers.length}</p>
+                <p style={{ fontSize: '12px' }}>Assigned: {drivers.filter(d => d.vehicleId).length}</p>
               </div>
-            </>
-          )}
-        </div>
+
+              {/* Utilization Card */}
+              <div style={responsiveStyles.statsCard}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <Clock size={20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: '16px' }}>
+                    Avg Utilization
+                  </h3>
+                </div>
+                <p style={{ fontSize: '20px', fontWeight: 'bold' }}>{Math.round(analyticsData.avgUtilization)}%</p>
+                <p style={{ fontSize: '12px' }}>Fleet usage rate</p>
+              </div>
+            </div>
+
+            {/* Charts */}
+            <div style={responsiveStyles.chartsGrid}>
+              {/* Mileage Chart */}
+              <div style={responsiveStyles.chartContainer}>
+                <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", marginBottom: '16px', fontSize: '16px' }}>
+                  Vehicle Mileage Distribution
+                </h3>
+                <div style={{ height: '100%' }}>
+                  <Bar 
+                    data={mileageChartData} 
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        legend: {
+                          ...chartOptions.plugins.legend,
+                          display: screenWidth >= 640
+                        }
+                      }
+                    }} 
+                  />
+                </div>
+              </div>
+
+              {/* Status Chart */}
+              <div style={responsiveStyles.chartContainer}>
+                <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", marginBottom: '16px', fontSize: '16px' }}>
+                  Fleet Status
+                </h3>
+                <div style={{ height: '100%' }}>
+                  <Pie 
+                    data={statusChartData} 
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        legend: {
+                          ...chartOptions.plugins.legend,
+                          position: screenWidth < 640 ? 'bottom' : 'right'
+                        }
+                      }
+                    }} 
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </main>
 
-      <footer
-        style={{
-          background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)",
-          padding: "clamp(0.5rem, 2vw, 1rem)",
-          textAlign: "center",
-          color: darkMode ? "#9ca3af" : "#6b7280",
-          fontSize: "clamp(0.625rem, 1.5vw, 0.875rem)",
-          flexShrink: 0,
-          width: "100%",
-        }}
-      >
+      {/* Footer */}
+      <footer style={responsiveStyles.footer}>
         © {new Date().getFullYear()} FleetTraq • Data as of {new Date().toLocaleDateString()}
       </footer>
     </motion.div>
