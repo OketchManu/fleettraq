@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, Truck, Settings, Users, Activity, FileText, Car, User, Menu, X, Moon, Sun } from "lucide-react";
@@ -50,7 +50,7 @@ const MapViewController = ({ bounds }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, trackingData, darkMode, setDarkMode } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, setDarkMode } = useFleet();
   const role = localStorage.getItem("role");
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,6 +78,11 @@ const Dashboard = () => {
 
   useEffect(() => {
     const loadVehicles = async () => {
+      if (!auth.currentUser) {
+        setError("You must be logged in to view fleet data.");
+        setIsLoading(false);
+        return;
+      }
       try {
         setIsLoading(true);
         await fetchVehicles();
@@ -103,23 +108,19 @@ const Dashboard = () => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const trackedData = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        vehicleId: doc.data().vehicleId,
+        lat: Number(doc.data().lat) || -1.2864,
+        lng: Number(doc.data().lng) || 36.8172,
+        locationName: doc.data().locationName,
+        timestamp: doc.data().timestamp
       }));
       
-      const trackedArray = trackedData.map(track => ({
-        vehicleId: track.vehicleId,
-        lat: track.lat,
-        lng: track.lng,
-        locationName: track.locationName,
-        timestamp: track.timestamp
-      }));
-      
-      setTrackedVehicles(trackedArray);
+      setTrackedVehicles(trackedData);
 
       // Update vehicle status to "On Route" when tracking data updates
-      trackedArray.forEach(async (track) => {
+      trackedData.forEach(async (track) => {
         const vehicle = vehicles.find(v => v.id === track.vehicleId);
-        if (vehicle && vehicle.status?.toLowerCase() !== "on_route") {
+        if (vehicle && vehicle.status?.toLowerCase() !== "on route") {
           try {
             const vehicleRef = doc(db, "vehicles", track.vehicleId);
             await updateDoc(vehicleRef, { status: "On Route" });
@@ -160,7 +161,7 @@ const Dashboard = () => {
     return {
       total: vehicles.length,
       active: vehicles.filter(v => v.status?.toLowerCase() === "active").length,
-      onRoute: vehicles.filter(v => v.status?.toLowerCase() === "on_route").length,
+      onRoute: vehicles.filter(v => v.status?.toLowerCase() === "on route").length,
       maintenance: vehicles.filter(v => v.status?.toLowerCase() === "maintenance").length
     };
   };
@@ -184,67 +185,73 @@ const Dashboard = () => {
     { label: "Settings", icon: <Settings size={16} className="mr-1" />, path: "/settings", color: "bg-gradient-to-r from-yellow-500 to-amber-700" },
   ].filter(Boolean);
 
-  const MapComponent = () => {
+  const MapComponent = useMemo(() => {
     const defaultPosition = [-1.2864, 36.8172]; // Nairobi coordinates
-    const center = trackingData ? [trackingData.lat, trackingData.lng] : defaultPosition;
-    const bounds = trackedVehicles.length > 0 
-      ? trackedVehicles.map(track => [track.lat, track.lng])
-      : [center];
 
-    return (
-      <MapContainer
-        center={center}
-        zoom={10}
-        style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
-      >
-        <TileLayer
-          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        
-        {trackedVehicles.map((track) => {
-          const vehicle = vehicles.find(v => v.id === track.vehicleId);
-          return (
-            <Marker
-              key={`tracked-${track.id}`}
-              position={[track.lat, track.lng]}
-              icon={CarIcon}
-            >
-              <Popup>
-                <div style={{ 
-                  minWidth: "200px", 
-                  padding: "10px", 
-                  fontSize: "14px", 
-                  lineHeight: "1.5",
-                  fontFamily: "Arial, sans-serif"
-                }}>
-                  <strong style={{ fontSize: "16px", color: "#333" }}>
-                    {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
-                  </strong>
-                  <br />
-                  <span style={{ color: "#666" }}>
-                    Plate: {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
-                  </span>
-                  <br />
-                  {track.locationName && (
-                    <>
-                      <strong>Location:</strong> {track.locationName}
-                      <br />
-                    </>
-                  )}
-                  <strong>Coordinates:</strong> {track.lat.toFixed(6)}, {track.lng.toFixed(6)}
-                  <br />
-                  <strong>Last Update:</strong> {new Date(track.timestamp).toLocaleString()}
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-        
-        <MapViewController bounds={bounds} />
-      </MapContainer>
-    );
-  };
+    return () => {
+      const center = trackedVehicles.length > 0 
+        ? [trackedVehicles[0].lat, trackedVehicles[0].lng] 
+        : defaultPosition;
+      const bounds = trackedVehicles.length > 0 
+        ? trackedVehicles.map(track => [track.lat, track.lng])
+        : [defaultPosition];
+
+      return (
+        <MapContainer
+          center={center}
+          zoom={10}
+          style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
+          key={trackedVehicles.length} // Forces re-render only when number of vehicles changes
+        >
+          <TileLayer
+            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+          {trackedVehicles.map((track) => {
+            const vehicle = vehicles.find(v => v.id === track.vehicleId);
+            return (
+              <Marker
+                key={`tracked-${track.id}`}
+                position={[track.lat, track.lng]}
+                icon={CarIcon}
+              >
+                <Popup>
+                  <div style={{ 
+                    minWidth: "200px", 
+                    padding: "10px", 
+                    fontSize: "14px", 
+                    lineHeight: "1.5",
+                    fontFamily: "Arial, sans-serif"
+                  }}>
+                    <strong style={{ fontSize: "16px", color: "#333" }}>
+                      {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
+                    </strong>
+                    <br />
+                    <span style={{ color: "#666" }}>
+                      Plate: {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
+                    </span>
+                    <br />
+                    {track.locationName && (
+                      <>
+                        <strong>Location:</strong> {track.locationName}
+                        <br />
+                      </>
+                    )}
+                    <strong>Coordinates:</strong> {track.lat.toFixed(6)}, {track.lng.toFixed(6)}
+                    <br />
+                    <strong>Last Update:</strong> {new Date(track.timestamp).toLocaleString()}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+          
+          <MapViewController bounds={bounds} />
+        </MapContainer>
+      );
+    };
+  }, [trackedVehicles, vehicles, isMobile]);
 
   return (
     <motion.div
