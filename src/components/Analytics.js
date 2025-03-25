@@ -23,8 +23,13 @@ const Analytics = () => {
 
   // Update screen width on resize
   useEffect(() => {
-    const handleResize = () => setScreenWidth(window.innerWidth);
+    const handleResize = () => {
+      const newWidth = window.innerWidth;
+      setScreenWidth(newWidth);
+      console.log("Screen width updated:", newWidth); // Debug log
+    };
     window.addEventListener('resize', handleResize);
+    handleResize(); // Initial call to set width
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -97,18 +102,18 @@ const Analytics = () => {
         labels: { 
           color: darkMode ? "#fff" : "#000",
           font: {
-            size: screenWidth < 640 ? 10 : 12
+            size: screenWidth < 480 ? 8 : 12 // Smaller font for very small screens
           }
         },
-        position: screenWidth < 640 ? 'bottom' : 'right', // Move legend to bottom on small screens
+        position: screenWidth < 480 ? 'bottom' : 'right', // Move legend to bottom on small screens
       },
       tooltip: { 
         backgroundColor: darkMode ? "#1f2937" : "#fff",
         titleFont: {
-          size: screenWidth < 640 ? 10 : 12
+          size: screenWidth < 480 ? 8 : 12
         },
         bodyFont: {
-          size: screenWidth < 640 ? 10 : 12
+          size: screenWidth < 480 ? 8 : 12
         }
       },
     },
@@ -117,7 +122,7 @@ const Analytics = () => {
         ticks: { 
           color: "#fff",
           font: {
-            size: screenWidth < 640 ? 8 : 10
+            size: screenWidth < 480 ? 6 : 10
           }
         }, 
         grid: { color: "rgba(255, 255, 255, 0.1)" } 
@@ -126,7 +131,7 @@ const Analytics = () => {
         ticks: { 
           color: "#fff",
           font: {
-            size: screenWidth < 640 ? 8 : 10
+            size: screenWidth < 480 ? 6 : 10
           }
         }, 
         grid: { color: "rgba(255, 255, 255, 0.1)" } 
@@ -135,14 +140,14 @@ const Analytics = () => {
       x: { 
         ticks: { 
           font: {
-            size: screenWidth < 640 ? 8 : 10
+            size: screenWidth < 480 ? 6 : 10
           }
         }
       },
       y: { 
         ticks: { 
           font: {
-            size: screenWidth < 640 ? 8 : 10
+            size: screenWidth < 480 ? 6 : 10
           }
         }
       }
@@ -157,78 +162,78 @@ const Analytics = () => {
       minHeight: '100vh',
       width: '100vw',
       maxWidth: '100%',
-      overflowX: 'hidden', // Prevent horizontal overflow
+      overflowX: 'hidden',
       ...themeStyles
     },
     header: {
       position: 'sticky',
       top: 0,
       zIndex: 10,
-      padding: screenWidth < 640 ? '8px 12px' : '12px 16px',
+      padding: screenWidth < 480 ? '6px 10px' : '12px 16px',
       background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       display: 'flex',
-      flexDirection: screenWidth < 640 ? 'column' : 'row',
+      flexDirection: screenWidth < 480 ? 'column' : 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: '10px'
+      gap: '8px'
     },
     headerTitle: {
-      fontSize: screenWidth < 640 ? '16px' : '24px',
+      fontSize: screenWidth < 480 ? '14px' : '24px',
       fontWeight: 'bold',
       display: 'flex',
       alignItems: 'center',
       color: darkMode ? "#facc15" : "#1f2937",
-      marginBottom: screenWidth < 640 ? '8px' : '0'
+      marginBottom: screenWidth < 480 ? '6px' : '0'
     },
     mainContent: {
       flex: 1,
-      padding: screenWidth < 640 ? '12px' : '16px',
+      padding: screenWidth < 480 ? '10px' : '16px',
       width: '100%',
       overflowX: 'hidden'
     },
     statsGrid: {
       display: 'grid',
-      gridTemplateColumns: screenWidth < 640 ? '1fr' : screenWidth < 1024 ? '1fr 1fr' : '1fr 1fr 1fr',
-      gap: screenWidth < 640 ? '12px' : '16px',
-      marginBottom: screenWidth < 640 ? '16px' : '24px'
+      gridTemplateColumns: screenWidth < 480 ? '1fr' : screenWidth < 1024 ? '1fr 1fr' : '1fr 1fr 1fr',
+      gap: screenWidth < 480 ? '10px' : '16px',
+      marginBottom: screenWidth < 480 ? '12px' : '24px'
     },
     statsCard: {
       background: themeStyles.cardBg,
-      padding: screenWidth < 640 ? '12px' : '16px',
+      padding: screenWidth < 480 ? '10px' : '16px',
       borderRadius: '8px',
       border: themeStyles.cardBorder,
       boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
     },
     chartsContainer: {
       display: 'flex',
-      flexDirection: screenWidth < 640 ? 'column' : 'row', // Stack on phones (< 640px)
-      gap: screenWidth < 640 ? '16px' : '24px',
+      flexDirection: screenWidth < 480 ? 'column' : 'row', // Stack on phones (< 480px)
+      gap: screenWidth < 480 ? '12px' : '24px',
       width: '100%',
       maxWidth: '100%',
       overflowX: 'hidden'
     },
     chartContainer: {
       background: themeStyles.chartBg,
-      padding: screenWidth < 640 ? '12px' : '16px',
+      padding: screenWidth < 480 ? '10px' : '16px',
       borderRadius: '8px',
       border: themeStyles.cardBorder,
-      height: screenWidth < 640 ? '200px' : '300px',
+      height: screenWidth < 480 ? '180px' : '300px', // Smaller height on phones
       width: '100%',
       maxWidth: '100%',
       overflow: 'hidden'
     },
     chartTitle: {
       color: darkMode ? "#facc15" : "#1f2937",
-      marginBottom: screenWidth < 640 ? '12px' : '16px',
-      fontSize: screenWidth < 640 ? '14px' : '16px'
+      marginBottom: screenWidth < 480 ? '10px' : '16px',
+      fontSize: screenWidth < 480 ? '12px' : '16px'
     },
     footer: {
       background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)",
-      padding: screenWidth < 640 ? '12px' : '16px',
+      padding: screenWidth < 480 ? '10px' : '16px',
       textAlign: 'center',
       color: darkMode ? "#9ca3af" : "#6b7280",
-      fontSize: screenWidth < 640 ? '12px' : '14px'
+      fontSize: screenWidth < 480 ? '10px' : '14px'
     }
   };
 
@@ -242,7 +247,7 @@ const Analytics = () => {
       {/* Header */}
       <header style={responsiveStyles.header}>
         <h1 style={responsiveStyles.headerTitle}>
-          <BarChart style={{ marginRight: '8px', width: screenWidth < 640 ? '18px' : '24px', height: screenWidth < 640 ? '18px' : '24px' }} /> 
+          <BarChart style={{ marginRight: '8px', width: screenWidth < 480 ? '16px' : '24px', height: screenWidth < 480 ? '16px' : '24px' }} /> 
           Fleet Analytics
         </h1>
         <Button onClick={() => navigate("/dashboard")}>
@@ -253,8 +258,8 @@ const Analytics = () => {
       {/* Main Content */}
       <main style={responsiveStyles.mainContent}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: screenWidth < 640 ? '16px' : '24px' }}>
-            <p style={{ fontSize: screenWidth < 640 ? '14px' : '16px' }}>Loading analytics data...</p>
+          <div style={{ textAlign: 'center', padding: screenWidth < 480 ? '12px' : '24px' }}>
+            <p style={{ fontSize: screenWidth < 480 ? '12px' : '16px' }}>Loading analytics data...</p>
           </div>
         ) : (
           <>
@@ -263,37 +268,37 @@ const Analytics = () => {
               {/* Fleet Size Card */}
               <div style={responsiveStyles.statsCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <Truck size={screenWidth < 640 ? 18 : 20} />
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 640 ? '14px' : '16px' }}>
+                  <Truck size={screenWidth < 480 ? 16 : 20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 480 ? '12px' : '16px' }}>
                     Fleet Size
                   </h3>
                 </div>
-                <p style={{ fontSize: screenWidth < 640 ? '18px' : '20px', fontWeight: 'bold' }}>{vehicles.length}</p>
-                <p style={{ fontSize: screenWidth < 640 ? '10px' : '12px' }}>Active: {analyticsData.activeVehicles}</p>
+                <p style={{ fontSize: screenWidth < 480 ? '16px' : '20px', fontWeight: 'bold' }}>{vehicles.length}</p>
+                <p style={{ fontSize: screenWidth < 480 ? '10px' : '12px' }}>Active: {analyticsData.activeVehicles}</p>
               </div>
 
               {/* Drivers Card */}
               <div style={responsiveStyles.statsCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <Users size={screenWidth < 640 ? 18 : 20} />
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 640 ? '14px' : '16px' }}>
+                  <Users size={screenWidth < 480 ? 16 : 20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 480 ? '12px' : '16px' }}>
                     Drivers
                   </h3>
                 </div>
-                <p style={{ fontSize: screenWidth < 640 ? '18px' : '20px', fontWeight: 'bold' }}>{drivers.length}</p>
-                <p style={{ fontSize: screenWidth < 640 ? '10px' : '12px' }}>Assigned: {drivers.filter(d => d.vehicleId).length}</p>
+                <p style={{ fontSize: screenWidth < 480 ? '16px' : '20px', fontWeight: 'bold' }}>{drivers.length}</p>
+                <p style={{ fontSize: screenWidth < 480 ? '10px' : '12px' }}>Assigned: {drivers.filter(d => d.vehicleId).length}</p>
               </div>
 
               {/* Utilization Card */}
               <div style={responsiveStyles.statsCard}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <Clock size={screenWidth < 640 ? 18 : 20} />
-                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 640 ? '14px' : '16px' }}>
+                  <Clock size={screenWidth < 480 ? 16 : 20} />
+                  <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontSize: screenWidth < 480 ? '12px' : '16px' }}>
                     Avg Utilization
                   </h3>
                 </div>
-                <p style={{ fontSize: screenWidth < 640 ? '18px' : '20px', fontWeight: 'bold' }}>{Math.round(analyticsData.avgUtilization)}%</p>
-                <p style={{ fontSize: screenWidth < 640 ? '10px' : '12px' }}>Fleet usage rate</p>
+                <p style={{ fontSize: screenWidth < 480 ? '16px' : '20px', fontWeight: 'bold' }}>{Math.round(analyticsData.avgUtilization)}%</p>
+                <p style={{ fontSize: screenWidth < 480 ? '10px' : '12px' }}>Fleet usage rate</p>
               </div>
             </div>
 
@@ -313,7 +318,7 @@ const Analytics = () => {
                         ...chartOptions.plugins,
                         legend: {
                           ...chartOptions.plugins.legend,
-                          display: screenWidth >= 640
+                          display: screenWidth >= 480
                         }
                       }
                     }} 
