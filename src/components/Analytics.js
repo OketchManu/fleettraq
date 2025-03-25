@@ -306,21 +306,20 @@ const Analytics = () => {
 
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: isSmallScreen ? "column" : "row", // Stack on small screens, row on large
+                  display: "grid",
+                  gridTemplateColumns: isSmallScreen ? "1fr" : "repeat(2, 1fr)", // Single column on small screens, two on large
                   gap: "clamp(0.75rem, 3vw, 1.5rem)",
                   width: "100%",
                 }}
               >
-                {/* Vehicle Mileage Distribution (always first) */}
+                {/* Vehicle Mileage Distribution (first) */}
                 <motion.div
                   style={{
                     background: themeStyles.chartBg,
                     padding: "clamp(0.75rem, 2vw, 1rem)",
                     borderRadius: "0.5rem",
                     border: themeStyles.cardBorder,
-                    width: isSmallScreen ? "100%" : "50%", // Full width on small screens, half on large
-                    flexShrink: 0,
+                    width: "100%",
                   }}
                 >
                   <h3
@@ -349,8 +348,7 @@ const Analytics = () => {
                     padding: "clamp(0.75rem, 2vw, 1rem)",
                     borderRadius: "0.5rem",
                     border: themeStyles.cardBorder,
-                    width: isSmallScreen ? "100%" : "50%", // Full width on small screens, half on large
-                    flexShrink: 0,
+                    width: "100%",
                   }}
                 >
                   <h3
