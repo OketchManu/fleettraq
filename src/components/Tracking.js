@@ -41,7 +41,7 @@ const MapViewController = ({ center, zoom }) => {
 
   useEffect(() => {
     if (center) {
-      map.setView(center, zoom);
+      map.setView(center, zoom, { animate: true });
     }
   }, [center, zoom, map]);
 
@@ -160,6 +160,7 @@ const Tracking = () => {
             locationName: name,
             timestamp: new Date().toISOString(),
             method,
+            isTracking: true, // Ensure isTracking remains true during updates
           });
         }
       } catch (err) {
@@ -194,7 +195,7 @@ const Tracking = () => {
   useEffect(() => {
     let watchId = null;
 
-    if (isTracking && !useManualCoordinates && navigator.geolocation && (!controllingDeviceId || controllingDeviceId === deviceId)) {
+    if (isTracking && !useManualCoordinates && navigator.geolocation && controllingDeviceId === deviceId) {
       watchId = navigator.geolocation.watchPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
@@ -340,10 +341,10 @@ const Tracking = () => {
         center={[position.lat, position.lng]}
         zoom={13}
         style={{
-          height: "calc(50vh - 60px)", // Responsive height
+          height: "calc(50vh - 60px)",
           width: "100%",
           borderRadius: "0.5rem",
-          minHeight: "200px", // Minimum height for small screens
+          minHeight: "200px",
         }}
       >
         <TileLayer
@@ -404,7 +405,7 @@ const Tracking = () => {
         flexDirection: "column",
         justifyContent: "space-between",
         ...themeStyles,
-        padding: "0 1rem", // Responsive padding
+        padding: "0 1rem",
       }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -429,7 +430,7 @@ const Tracking = () => {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "space-between",
-              flexWrap: "wrap", // Allow wrapping on small screens
+              flexWrap: "wrap",
               gap: "0.5rem",
             }}
           >
@@ -445,7 +446,7 @@ const Tracking = () => {
               <div>
                 <h1
                   style={{
-                    fontSize: "clamp(1.25rem, 4vw, 1.5rem)", // Responsive font size
+                    fontSize: "clamp(1.25rem, 4vw, 1.5rem)",
                     fontWeight: "bold",
                     color: darkMode ? "#facc15" : "#1f2937",
                   }}
@@ -483,7 +484,6 @@ const Tracking = () => {
               </motion.div>
             )}
 
-            {/* Tracked Vehicles List */}
             <div style={{ marginBottom: "1.5rem" }}>
               <h2
                 style={{
@@ -513,7 +513,7 @@ const Tracking = () => {
                       {track.deviceId === deviceId ? "This Device" : "Another Device"})
                       {track.isTracking && (
                         <Button
-                          onClick={() => stopTracking(track.vehicleId, track.id)}
+                          onClick={() => stopTracking()}
                           style={{
                             background: "#dc2626",
                             marginLeft: "0.5rem",
@@ -561,9 +561,9 @@ const Tracking = () => {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr)", // Single column by default
+                  gridTemplateColumns: "minmax(0, 1fr)",
                   gap: "1.5rem",
-                  ...(window.innerWidth >= 768 && { gridTemplateColumns: "1fr 2fr" }), // Two columns on larger screens
+                  ...(window.innerWidth >= 768 && { gridTemplateColumns: "1fr 2fr" }),
                 }}
               >
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
