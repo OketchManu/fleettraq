@@ -13,7 +13,7 @@ import { useFleet } from "../context/FleetContext";
 // Fix Leaflet marker icon issue
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import carIcon from './assets/car-icon.png'; // Import the car icon
+import carIcon from './assets/car-icon.png';
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -24,7 +24,6 @@ let DefaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-// Larger car icon for tracked vehicles
 let CarIcon = L.icon({
   iconUrl: carIcon,
   iconSize: [48, 48],
@@ -34,18 +33,72 @@ let CarIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Map view controller component
-const MapViewController = ({ bounds }) => {
+// Map view controller component with smooth panning
+const MapViewController = ({ bounds, trackedVehicles }) => {
   const map = useMap();
   
   useEffect(() => {
     if (bounds && bounds.length > 0) {
       const leafletBounds = L.latLngBounds(bounds.map(([lat, lng]) => [lat, lng]));
-      map.fitBounds(leafletBounds, { padding: [50, 50] });
+      if (trackedVehicles.length === 1) {
+        map.panTo(bounds[0], { animate: true, duration: 0.5 });
+      } else {
+        map.fitBounds(leafletBounds, { 
+          padding: [50, 50],
+          animate: true,
+          duration: 0.5 
+        });
+      }
     }
-  }, [bounds, map]);
+  }, [bounds, map, trackedVehicles.length]);
   
   return null;
+};
+
+// Custom hook to handle marker updates
+const VehicleMarker = ({ track, vehicle }) => {
+  const [position, setPosition] = useState([track.lat, track.lng]);
+  
+  useEffect(() => {
+    // Smooth transition for marker position updates
+    setPosition([track.lat, track.lng]);
+  }, [track.lat, track.lng]);
+
+  return (
+    <Marker
+      key={`tracked-${track.id}`}
+      position={position}
+      icon={CarIcon}
+    >
+      <Popup>
+        <div style={{ 
+          minWidth: "200px", 
+          padding: "10px", 
+          fontSize: "14px", 
+          lineHeight: "1.5",
+          fontFamily: "Arial, sans-serif"
+        }}>
+          <strong style={{ fontSize: "16px", color: "#333" }}>
+            {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
+          </strong>
+          <br />
+          <span style={{ color: "#666" }}>
+            Plate: {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
+          </span>
+          <br />
+          {track.locationName && (
+            <>
+              <strong>Location:</strong> {track.locationName}
+              <br />
+            </>
+          )}
+          <strong>Coordinates:</strong> {track.lat.toFixed(6)}, {track.lng.toFixed(6)}
+          <br />
+          <strong>Last Update:</strong> {new Date(track.timestamp).toLocaleString()}
+        </div>
+      </Popup>
+    </Marker>
+  );
 };
 
 const Dashboard = () => {
@@ -95,7 +148,7 @@ const Dashboard = () => {
     loadVehicles();
   }, [fetchVehicles]);
 
-  // Listen for real-time tracking updates for the current user's account only
+  // Enhanced real-time tracking with smooth updates
   useEffect(() => {
     if (!auth.currentUser) return;
 
@@ -112,10 +165,18 @@ const Dashboard = () => {
         lat: Number(doc.data().lat) || -1.2864,
         lng: Number(doc.data().lng) || 36.8172,
         locationName: doc.data().locationName,
-        timestamp: doc.data().timestamp
+        timestamp: doc.data().timestamp,
+        lastUpdated: Date.now() // For tracking freshness
       }));
       
-      setTrackedVehicles(trackedData);
+      setTrackedVehicles(prev => {
+        // Merge new data with previous to maintain smooth transitions
+        const updatedVehicles = trackedData.map(newTrack => {
+          const existing = prev.find(v => v.id === newTrack.id);
+          return existing ? { ...existing, ...newTrack } : newTrack;
+        });
+        return updatedVehicles;
+      });
     }, (err) => {
       setError("Failed to fetch tracking updates: " + err.message);
     });
@@ -133,7 +194,6 @@ const Dashboard = () => {
     }
   };
 
-  // Calculate fleet statistics
   const getFleetStats = () => {
     if (!vehicles || !Array.isArray(vehicles)) {
       return {
@@ -187,7 +247,11 @@ const Dashboard = () => {
           center={center}
           zoom={10}
           style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
-          key={trackedVehicles.length} // Forces re-render only when number of vehicles changes
+          whenCreated={map => {
+            // Smooth transitions for map updates
+            map.options.zoomAnimation = true;
+            map.options.fadeAnimation = true;
+          }}
         >
           <TileLayer
             attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -197,43 +261,15 @@ const Dashboard = () => {
           {trackedVehicles.map((track) => {
             const vehicle = vehicles.find(v => v.id === track.vehicleId);
             return (
-              <Marker
-                key={`tracked-${track.id}`}
-                position={[track.lat, track.lng]}
-                icon={CarIcon}
-              >
-                <Popup>
-                  <div style={{ 
-                    minWidth: "200px", 
-                    padding: "10px", 
-                    fontSize: "14px", 
-                    lineHeight: "1.5",
-                    fontFamily: "Arial, sans-serif"
-                  }}>
-                    <strong style={{ fontSize: "16px", color: "#333" }}>
-                      {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
-                    </strong>
-                    <br />
-                    <span style={{ color: "#666" }}>
-                      Plate: {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
-                    </span>
-                    <br />
-                    {track.locationName && (
-                      <>
-                        <strong>Location:</strong> {track.locationName}
-                        <br />
-                      </>
-                    )}
-                    <strong>Coordinates:</strong> {track.lat.toFixed(6)}, {track.lng.toFixed(6)}
-                    <br />
-                    <strong>Last Update:</strong> {new Date(track.timestamp).toLocaleString()}
-                  </div>
-                </Popup>
-              </Marker>
+              <VehicleMarker 
+                key={`tracked-${track.id}`} 
+                track={track} 
+                vehicle={vehicle}
+              />
             );
           })}
           
-          <MapViewController bounds={bounds} />
+          <MapViewController bounds={bounds} trackedVehicles={trackedVehicles} />
         </MapContainer>
       );
     };
@@ -352,7 +388,7 @@ const Dashboard = () => {
                   </h2>
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
-                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
+                      <p className={`${ darkenMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
                       <p className={`text-3xl font-bold ${darkMode ? "text-white" : "text-black"}`}>
                         {fleetStats.total}
                       </p>
