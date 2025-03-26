@@ -7,13 +7,12 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { db, auth } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
-import { collection, query, onSnapshot, where } from "firebase/firestore";
+import { collection, query, onSnapshot, where, orderBy } from "firebase/firestore"; // Added 'orderBy' to imports
 import { useFleet } from "../context/FleetContext";
 
-// Fix Leaflet marker icon issue
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import carIcon from './assets/car-icon.png';
+import carIcon from "./assets/car-icon.png";
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -35,46 +34,32 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 const MapViewController = ({ bounds, trackedVehicles }) => {
   const map = useMap();
-  
+
   useEffect(() => {
     if (bounds && bounds.length > 0) {
       const leafletBounds = L.latLngBounds(bounds.map(([lat, lng]) => [lat, lng]));
       if (trackedVehicles.length === 1) {
-        map.panTo(bounds[0], { animate: true, duration: 0.5 });
+        map.setView(bounds[0], 13, { animate: true });
       } else {
-        map.fitBounds(leafletBounds, { 
-          padding: [50, 50],
-          animate: true,
-          duration: 0.5 
-        });
+        map.fitBounds(leafletBounds, { padding: [50, 50], animate: true });
       }
     }
   }, [bounds, map, trackedVehicles.length]);
-  
+
   return null;
 };
 
 const VehicleMarker = ({ track, vehicle }) => {
   const [position, setPosition] = useState([track.lat, track.lng]);
-  
+
   useEffect(() => {
     setPosition([track.lat, track.lng]);
   }, [track.lat, track.lng]);
 
   return (
-    <Marker
-      key={`tracked-${track.id}`}
-      position={position}
-      icon={CarIcon}
-    >
+    <Marker position={position} icon={CarIcon}>
       <Popup>
-        <div style={{ 
-          minWidth: "200px", 
-          padding: "10px", 
-          fontSize: "14px", 
-          lineHeight: "1.5",
-          fontFamily: "Arial, sans-serif"
-        }}>
+        <div style={{ minWidth: "200px", padding: "10px", fontSize: "14px", lineHeight: "1.5", fontFamily: "Arial, sans-serif" }}>
           <strong style={{ fontSize: "16px", color: "#333" }}>
             {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
           </strong>
@@ -145,37 +130,34 @@ const Dashboard = () => {
     loadVehicles();
   }, [fetchVehicles]);
 
-  // Real-time tracking from Firebase
   useEffect(() => {
     if (!auth.currentUser) return;
 
     const q = query(
       collection(db, "tracking"),
       where("accountId", "==", auth.currentUser.uid),
-      where("isTracking", "==", true)
+      orderBy("timestamp", "desc") // Now properly defined
     );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const trackedData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        vehicleId: doc.data().vehicleId,
-        lat: Number(doc.data().lat) || -1.2864,
-        lng: Number(doc.data().lng) || 36.8172,
-        locationName: doc.data().locationName,
-        timestamp: doc.data().timestamp,
-        lastUpdated: Date.now(),
-      }));
-      
-      setTrackedVehicles(prev => {
-        const updatedVehicles = trackedData.map(newTrack => {
-          const existing = prev.find(v => v.id === newTrack.id);
-          return existing ? { ...existing, ...newTrack } : newTrack;
-        });
-        return updatedVehicles;
-      });
-    }, (err) => {
-      setError("Failed to fetch tracking updates: " + err.message);
-    });
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const trackedData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          vehicleId: doc.data().vehicleId,
+          lat: Number(doc.data().lat) || -1.2864,
+          lng: Number(doc.data().lng) || 36.8172,
+          locationName: doc.data().locationName,
+          timestamp: doc.data().timestamp,
+          isTracking: doc.data().isTracking,
+          deviceId: doc.data().deviceId,
+        }));
+        setTrackedVehicles(trackedData.filter((track) => track.isTracking));
+      },
+      (err) => {
+        setError("Failed to fetch tracking updates: " + err.message);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
@@ -192,19 +174,13 @@ const Dashboard = () => {
 
   const getFleetStats = () => {
     if (!vehicles || !Array.isArray(vehicles)) {
-      return {
-        total: 0,
-        active: 0,
-        onRoute: 0,
-        maintenance: 0
-      };
+      return { total: 0, active: 0, onRoute: 0, maintenance: 0 };
     }
-
     return {
       total: vehicles.length,
-      active: vehicles.filter(v => v.status?.toLowerCase() === "active").length,
-      onRoute: vehicles.filter(v => v.status?.toLowerCase() === "on_route").length,
-      maintenance: vehicles.filter(v => v.status?.toLowerCase() === "maintenance").length
+      active: vehicles.filter((v) => v.status?.toLowerCase() === "active").length,
+      onRoute: vehicles.filter((v) => v.status?.toLowerCase() === "on_route").length,
+      maintenance: vehicles.filter((v) => v.status?.toLowerCase() === "maintenance").length,
     };
   };
 
@@ -231,19 +207,15 @@ const Dashboard = () => {
     const defaultPosition = [-1.2864, 36.8172];
 
     return () => {
-      const center = trackedVehicles.length > 0 
-        ? [trackedVehicles[0].lat, trackedVehicles[0].lng] 
-        : defaultPosition;
-      const bounds = trackedVehicles.length > 0 
-        ? trackedVehicles.map(track => [track.lat, track.lng])
-        : [defaultPosition];
+      const center = trackedVehicles.length > 0 ? [trackedVehicles[0].lat, trackedVehicles[0].lng] : defaultPosition;
+      const bounds = trackedVehicles.length > 0 ? trackedVehicles.map((track) => [track.lat, track.lng]) : [defaultPosition];
 
       return (
         <MapContainer
           center={center}
           zoom={10}
           style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
-          whenCreated={map => {
+          whenCreated={(map) => {
             map.options.zoomAnimation = true;
             map.options.fadeAnimation = true;
           }}
@@ -252,18 +224,10 @@ const Dashboard = () => {
             attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          
           {trackedVehicles.map((track) => {
-            const vehicle = vehicles.find(v => v.id === track.vehicleId);
-            return (
-              <VehicleMarker 
-                key={`tracked-${track.id}`} 
-                track={track} 
-                vehicle={vehicle}
-              />
-            );
+            const vehicle = vehicles.find((v) => v.id === track.vehicleId);
+            return <VehicleMarker key={track.id} track={track} vehicle={vehicle} />;
           })}
-          
           <MapViewController bounds={bounds} trackedVehicles={trackedVehicles} />
         </MapContainer>
       );
@@ -350,19 +314,11 @@ const Dashboard = () => {
       <main className="flex-grow p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           {isLoading ? (
-            <motion.div
-              className="text-center text-xl"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
+            <motion.div className="text-center text-xl" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               Loading fleet data...
             </motion.div>
           ) : error ? (
-            <motion.div
-              className="mb-4 p-4 bg-red-600 rounded-lg shadow-lg"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div className="mb-4 p-4 bg-red-600 rounded-lg shadow-lg" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
               {error}
             </motion.div>
           ) : (
@@ -384,15 +340,11 @@ const Dashboard = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
                       <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
-                      <p className={`text-3xl font-bold ${darkMode ? "text-white" : "text-black"}`}>
-                        {fleetStats.total}
-                      </p>
+                      <p className={`text-3xl font-bold ${darkMode ? "text-white" : "text-black"}`}>{fleetStats.total}</p>
                     </div>
                     <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
                       <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Active Vehicles</p>
-                      <p className="text-3xl font-bold text-green-400">
-                        {fleetStats.active}
-                      </p>
+                      <p className="text-3xl font-bold text-green-400">{fleetStats.active}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -412,15 +364,11 @@ const Dashboard = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
                       <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>On Route</p>
-                      <p className="text-3xl font-bold text-blue-400">
-                        {fleetStats.onRoute}
-                      </p>
+                      <p className="text-3xl font-bold text-blue-400">{fleetStats.onRoute}</p>
                     </div>
                     <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
                       <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Maintenance</p>
-                      <p className="text-3xl font-bold" style={{ color: "#facc15" }}>
-                        {fleetStats.maintenance}
-                      </p>
+                      <p className="text-3xl font-bold" style={{ color: "#facc15" }}>{fleetStats.maintenance}</p>
                     </div>
                   </div>
                 </motion.div>
