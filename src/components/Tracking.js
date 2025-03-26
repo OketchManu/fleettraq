@@ -15,7 +15,6 @@ import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import carIcon from "./assets/car-icon.png";
 
-// Default marker icon
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -25,7 +24,6 @@ let DefaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-// Car icon for vehicle location
 let CarIcon = L.icon({
   iconUrl: carIcon,
   iconSize: [32, 32],
@@ -35,7 +33,6 @@ let CarIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Map view controller component
 const MapViewController = ({ center, zoom }) => {
   const map = useMap();
 
@@ -62,8 +59,7 @@ const Tracking = () => {
   const [trackingHistory, setTrackingHistory] = useState([]);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
   const [deviceId] = useState(() => localStorage.getItem("deviceId") || uuidv4());
-  const [controllingDeviceId, setControllingDeviceId] = useState(null);
-  const [trackingDocId, setTrackingDocId] = useState(null);
+  const [trackingDocId, setTrackingDocId] = useState(null); // Track active document
 
   localStorage.setItem("deviceId", deviceId);
 
@@ -91,6 +87,45 @@ const Tracking = () => {
     );
     return () => unsubscribe();
   }, []);
+
+  const saveLocation = useCallback(
+    async (lat, lng, name, method) => {
+      const newLocation = { lat, lng, name };
+      setCurrentLocation(newLocation);
+      setTrackingData(newLocation);
+
+      try {
+        if (!trackingDocId) {
+          const docRef = await addDoc(collection(db, "tracking"), {
+            vehicleId: selectedVehicle,
+            lat,
+            lng,
+            locationName: name,
+            timestamp: new Date().toISOString(),
+            method,
+            deviceId,
+            accountId: auth.currentUser.uid,
+            isTracking: true,
+          });
+          setTrackingDocId(docRef.id);
+        } else {
+          const trackingRef = doc(db, "tracking", trackingDocId);
+          await updateDoc(trackingRef, {
+            lat,
+            lng,
+            locationName: name,
+            timestamp: new Date().toISOString(),
+            method,
+            isTracking: true,
+          });
+        }
+      } catch (err) {
+        setError("Failed to save location: " + err.message);
+        throw err;
+      }
+    },
+    [selectedVehicle, deviceId, trackingDocId, setTrackingData]
+  );
 
   const handleTrackVehicle = async () => {
     if (!selectedVehicle) {
@@ -125,69 +160,25 @@ const Tracking = () => {
       }
 
       await saveLocation(lat, lng, locationName || "Manual Location", "manual");
+      setIsTracking(true); // Enable tracking state for manual input
     } else {
       setIsTracking(true);
-      startTracking();
-    }
-  };
-
-  const saveLocation = useCallback(
-    async (lat, lng, name, method) => {
-      const newLocation = { lat, lng, name };
-      setCurrentLocation(newLocation);
-      setTrackingData(newLocation);
-
-      try {
-        if (!trackingDocId) {
-          const docRef = await addDoc(collection(db, "tracking"), {
-            vehicleId: selectedVehicle,
-            lat,
-            lng,
-            locationName: name,
-            timestamp: new Date().toISOString(),
-            method,
-            deviceId: deviceId,
-            accountId: auth.currentUser.uid,
-            isTracking: true,
-          });
-          setTrackingDocId(docRef.id);
-          setControllingDeviceId(deviceId);
-        } else {
-          const trackingRef = doc(db, "tracking", trackingDocId);
-          await updateDoc(trackingRef, {
-            lat,
-            lng,
-            locationName: name,
-            timestamp: new Date().toISOString(),
-            method,
-            isTracking: true, // Ensure isTracking remains true during updates
-          });
-        }
-      } catch (err) {
-        setError("Failed to save location: " + err.message);
-        throw err;
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            await saveLocation(latitude, longitude, "Current Location", "gps");
+          },
+          (err) => {
+            setIsTracking(false);
+            setError("Unable to get your location: " + err.message);
+          },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        setError("Geolocation is not supported by your browser.");
+        setIsTracking(false);
       }
-    },
-    [selectedVehicle, deviceId, trackingDocId, setTrackingData]
-  );
-
-  const startTracking = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setLocationName("Current Location");
-          await saveLocation(latitude, longitude, "Current Location", "gps");
-        },
-        (err) => {
-          setIsTracking(false);
-          setError("Unable to get your location: " + err.message);
-        },
-        { enableHighAccuracy: true }
-      );
-    } else {
-      setError("Geolocation is not supported by your browser.");
-      setIsTracking(false);
     }
   };
 
@@ -195,15 +186,15 @@ const Tracking = () => {
   useEffect(() => {
     let watchId = null;
 
-    if (isTracking && !useManualCoordinates && navigator.geolocation && controllingDeviceId === deviceId) {
+    if (isTracking && !useManualCoordinates && navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
-          setLocationName("Current Location");
           await saveLocation(latitude, longitude, "Current Location", "gps");
         },
         (err) => {
           setError("Tracking error: " + err.message);
+          setIsTracking(false);
         },
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
       );
@@ -214,14 +205,13 @@ const Tracking = () => {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [isTracking, useManualCoordinates, saveLocation, controllingDeviceId, deviceId]);
+  }, [isTracking, useManualCoordinates, saveLocation]);
 
   // Listen for tracking updates for selected vehicle
   useEffect(() => {
     if (!selectedVehicle || !auth.currentUser) {
       setCurrentLocation(null);
       setTrackingHistory([]);
-      setControllingDeviceId(null);
       setTrackingDocId(null);
       return;
     }
@@ -241,7 +231,6 @@ const Tracking = () => {
 
         if (updates.length > 0) {
           const latest = updates[0];
-          setControllingDeviceId(latest.deviceId);
           setTrackingDocId(latest.id);
           const newLocation = {
             lat: latest.lat,
@@ -255,7 +244,6 @@ const Tracking = () => {
         } else {
           setCurrentLocation(null);
           setTrackingHistory([]);
-          setControllingDeviceId(null);
           setTrackingDocId(null);
         }
       },
@@ -290,15 +278,16 @@ const Tracking = () => {
     try {
       await updateDoc(trackingRef, { isTracking: false });
       setIsTracking(false);
-      setControllingDeviceId(null);
+      setTrackingDocId(null);
+      setCurrentLocation(null);
       setError(null);
     } catch (err) {
       setError("Failed to stop tracking: " + err.message);
     }
   };
 
-  const removeVehicleFromTracking = async (trackingDocId) => {
-    if (!trackingDocId) {
+  const removeVehicleFromTracking = async (trackingId) => {
+    if (!trackingId) {
       setError("No tracking entry selected for removal.");
       return;
     }
@@ -308,8 +297,8 @@ const Tracking = () => {
       return;
     }
 
-    const trackingRef = doc(db, "tracking", trackingDocId);
-    const vehicleTracking = trackedVehicles.find((v) => v.id === trackingDocId);
+    const trackingRef = doc(db, "tracking", trackingId);
+    const vehicleTracking = trackedVehicles.find((v) => v.id === trackingId);
 
     if (!vehicleTracking) {
       setError("Tracking entry not found.");
@@ -322,12 +311,11 @@ const Tracking = () => {
       if (selectedVehicle === vehicleTracking.vehicleId) {
         setCurrentLocation(null);
         setTrackingHistory([]);
-        setControllingDeviceId(null);
+        setTrackingDocId(null);
         setIsTracking(false);
         setSelectedVehicle("");
-        setTrackingDocId(null);
       }
-      setTrackedVehicles((prev) => prev.filter((v) => v.id !== trackingDocId));
+      setTrackedVehicles((prev) => prev.filter((v) => v.id !== trackingId));
     } catch (err) {
       setError("Failed to remove vehicle from tracking: " + err.message);
     }
@@ -372,7 +360,7 @@ const Tracking = () => {
                   <br />
                   <strong>Last Update:</strong> {new Date(trackingHistory[0].timestamp).toLocaleString()}
                   <br />
-                  <strong>Tracking Device:</strong> {controllingDeviceId === deviceId ? "This Device" : "Another Device"}
+                  <strong>Tracking Device:</strong> {trackingHistory[0].deviceId === deviceId ? "This Device" : "Another Device"}
                 </>
               )}
             </Popup>
@@ -511,7 +499,7 @@ const Tracking = () => {
                       {vehicles.find((v) => v.id === track.vehicleId)?.make || "Unknown"}{" "}
                       {vehicles.find((v) => v.id === track.vehicleId)?.model || "Vehicle"} (
                       {track.deviceId === deviceId ? "This Device" : "Another Device"})
-                      {track.isTracking && (
+                      {track.isTracking && track.deviceId === deviceId && (
                         <Button
                           onClick={() => stopTracking()}
                           style={{
@@ -621,7 +609,7 @@ const Tracking = () => {
                         borderRadius: "0.25rem",
                         fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
                       }}
-                      disabled={controllingDeviceId && controllingDeviceId !== deviceId}
+                      disabled={trackingHistory.length > 0 && trackingHistory[0]?.deviceId !== deviceId}
                     />
                   </div>
 
@@ -632,7 +620,7 @@ const Tracking = () => {
                       checked={useManualCoordinates}
                       onChange={() => setUseManualCoordinates(!useManualCoordinates)}
                       style={{ accentColor: darkMode ? "#facc15" : "#3b82f6" }}
-                      disabled={controllingDeviceId && controllingDeviceId !== deviceId}
+                      disabled={trackingHistory.length > 0 && trackingHistory[0]?.deviceId !== deviceId}
                     />
                     <label
                       htmlFor="manualCoords"
@@ -679,7 +667,7 @@ const Tracking = () => {
                             borderRadius: "0.25rem",
                             fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
                           }}
-                          disabled={controllingDeviceId && controllingDeviceId !== deviceId}
+                          disabled={trackingHistory.length > 0 && trackingHistory[0]?.deviceId !== deviceId}
                         />
                         <input
                           type="text"
@@ -695,7 +683,7 @@ const Tracking = () => {
                             borderRadius: "0.25rem",
                             fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
                           }}
-                          disabled={controllingDeviceId && controllingDeviceId !== deviceId}
+                          disabled={trackingHistory.length > 0 && trackingHistory[0]?.deviceId !== deviceId}
                         />
                       </div>
                       <p
@@ -711,7 +699,7 @@ const Tracking = () => {
 
                   <Button
                     onClick={handleTrackVehicle}
-                    disabled={!selectedVehicle || (controllingDeviceId && controllingDeviceId !== deviceId) || !auth.currentUser}
+                    disabled={!selectedVehicle || !auth.currentUser}
                     style={{
                       padding: "0.5rem 1rem",
                       fontSize: "clamp(0.875rem, 2.5vw, 1rem)",
@@ -725,9 +713,9 @@ const Tracking = () => {
                       : "Start Tracking"}
                   </Button>
 
-                  {isTracking && !useManualCoordinates && controllingDeviceId === deviceId && (
+                  {isTracking && !useManualCoordinates && trackingHistory[0]?.deviceId === deviceId && (
                     <Button
-                      onClick={() => stopTracking()}
+                      onClick={stopTracking}
                       style={{
                         background: "#dc2626",
                         padding: "0.5rem 1rem",
@@ -803,11 +791,11 @@ const Tracking = () => {
                             }}
                           >
                             <strong>Tracking Device:</strong>{" "}
-                            {controllingDeviceId === deviceId ? "This Device" : "Another Device"}
+                            {trackingHistory[0].deviceId === deviceId ? "This Device" : "Another Device"}
                           </p>
                         </>
                       )}
-                      {isTracking && !useManualCoordinates && controllingDeviceId === deviceId && (
+                      {isTracking && !useManualCoordinates && trackingHistory[0]?.deviceId === deviceId && (
                         <p
                           style={{
                             color: darkMode ? "#facc15" : "#3b82f6",
