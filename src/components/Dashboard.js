@@ -131,7 +131,6 @@ const Dashboard = () => {
     loadVehicles();
   }, [fetchVehicles]);
 
-  // Updated useEffect block to align with new security rules
   useEffect(() => {
     if (!auth.currentUser) return;
 
@@ -162,7 +161,7 @@ const Dashboard = () => {
     );
 
     return () => unsubscribe();
-  }, [auth.currentUser]); // Added dependency to ensure re-run on user change
+  }, []);
 
   const toggleDarkMode = async () => {
     const newMode = !darkMode;
@@ -207,32 +206,28 @@ const Dashboard = () => {
 
   const MapComponent = useMemo(() => {
     const defaultPosition = [-1.2864, 36.8172]; // Nairobi coordinates
+    const bounds =
+      trackedVehicles.length > 0
+        ? trackedVehicles.map((track) => [track.lat, track.lng])
+        : [defaultPosition];
 
-    return () => {
-      const bounds =
-        trackedVehicles.length > 0
-          ? trackedVehicles.map((track) => [track.lat, track.lng])
-          : [defaultPosition];
-
-      return (
-        <MapContainer
-          center={defaultPosition}
-          zoom={10}
-          style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
-          key={trackedVehicles.length} // Forces re-render only when number of vehicles changes
-        >
-          <TileLayer
-            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          {trackedVehicles.map((track) => {
-            const vehicle = vehicles.find((v) => v.id === track.vehicleId);
-            return <VehicleMarker key={track.id} track={track} vehicle={vehicle} />;
-          })}
-          <MapViewController bounds={bounds} />
-        </MapContainer>
-      );
-    };
+    return (
+      <MapContainer
+        center={defaultPosition}
+        zoom={10}
+        style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
+      >
+        <TileLayer
+          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {trackedVehicles.map((track) => {
+          const vehicle = vehicles.find((v) => v.id === track.vehicleId);
+          return <VehicleMarker key={track.id} track={track} vehicle={vehicle} />;
+        })}
+        <MapViewController bounds={bounds} />
+      </MapContainer>
+    );
   }, [trackedVehicles, vehicles, isMobile]);
 
   return (
@@ -385,7 +380,7 @@ const Dashboard = () => {
                     <MapPin className="mr-2" /> Live Fleet Location
                   </h2>
                 </div>
-                <MapComponent />
+                {MapComponent}
               </motion.div>
             </>
           )}
