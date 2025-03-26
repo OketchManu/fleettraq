@@ -7,7 +7,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { db, auth } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
-import { collection, query, onSnapshot, where, orderBy } from "firebase/firestore"; // Added 'orderBy' to imports
+import { collection, query, onSnapshot, where, orderBy } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 
 import icon from "leaflet/dist/images/marker-icon.png";
@@ -32,32 +32,33 @@ let CarIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const MapViewController = ({ bounds, trackedVehicles }) => {
+const MapViewController = ({ bounds }) => {
   const map = useMap();
 
   useEffect(() => {
     if (bounds && bounds.length > 0) {
       const leafletBounds = L.latLngBounds(bounds.map(([lat, lng]) => [lat, lng]));
-      if (trackedVehicles.length === 1) {
-        map.setView(bounds[0], 13, { animate: true });
-      } else {
-        map.fitBounds(leafletBounds, { padding: [50, 50], animate: true });
-      }
+      map.fitBounds(leafletBounds, { padding: [50, 50], animate: true });
     }
-  }, [bounds, map, trackedVehicles.length]);
+  }, [bounds, map]);
 
   return null;
 };
 
 const VehicleMarker = ({ track, vehicle }) => {
   const [position, setPosition] = useState([track.lat, track.lng]);
+  const markerRef = useRef(null);
 
   useEffect(() => {
-    setPosition([track.lat, track.lng]);
+    const newPosition = [track.lat, track.lng];
+    setPosition(newPosition);
+    if (markerRef.current) {
+      markerRef.current.setLatLng(newPosition);
+    }
   }, [track.lat, track.lng]);
 
   return (
-    <Marker position={position} icon={CarIcon}>
+    <Marker ref={markerRef} position={position} icon={CarIcon}>
       <Popup>
         <div style={{ minWidth: "200px", padding: "10px", fontSize: "14px", lineHeight: "1.5", fontFamily: "Arial, sans-serif" }}>
           <strong style={{ fontSize: "16px", color: "#333" }}>
@@ -136,7 +137,8 @@ const Dashboard = () => {
     const q = query(
       collection(db, "tracking"),
       where("accountId", "==", auth.currentUser.uid),
-      orderBy("timestamp", "desc") // Now properly defined
+      where("isTracking", "==", true),
+      orderBy("timestamp", "desc")
     );
 
     const unsubscribe = onSnapshot(
@@ -150,9 +152,8 @@ const Dashboard = () => {
           locationName: doc.data().locationName,
           timestamp: doc.data().timestamp,
           isTracking: doc.data().isTracking,
-          deviceId: doc.data().deviceId,
         }));
-        setTrackedVehicles(trackedData.filter((track) => track.isTracking));
+        setTrackedVehicles([...new Map(trackedData.map((item) => [item.vehicleId, item])).values()]);
       },
       (err) => {
         setError("Failed to fetch tracking updates: " + err.message);
@@ -204,21 +205,20 @@ const Dashboard = () => {
   ].filter(Boolean);
 
   const MapComponent = useMemo(() => {
-    const defaultPosition = [-1.2864, 36.8172];
+    const defaultPosition = [-1.2864, 36.8172]; // Nairobi coordinates
 
     return () => {
-      const center = trackedVehicles.length > 0 ? [trackedVehicles[0].lat, trackedVehicles[0].lng] : defaultPosition;
-      const bounds = trackedVehicles.length > 0 ? trackedVehicles.map((track) => [track.lat, track.lng]) : [defaultPosition];
+      const bounds =
+        trackedVehicles.length > 0
+          ? trackedVehicles.map((track) => [track.lat, track.lng])
+          : [defaultPosition];
 
       return (
         <MapContainer
-          center={center}
+          center={defaultPosition}
           zoom={10}
           style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
-          whenCreated={(map) => {
-            map.options.zoomAnimation = true;
-            map.options.fadeAnimation = true;
-          }}
+          key={trackedVehicles.length} // Forces re-render only when number of vehicles changes
         >
           <TileLayer
             attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -228,7 +228,7 @@ const Dashboard = () => {
             const vehicle = vehicles.find((v) => v.id === track.vehicleId);
             return <VehicleMarker key={track.id} track={track} vehicle={vehicle} />;
           })}
-          <MapViewController bounds={bounds} trackedVehicles={trackedVehicles} />
+          <MapViewController bounds={bounds} />
         </MapContainer>
       );
     };
