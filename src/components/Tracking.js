@@ -63,6 +63,7 @@ const Tracking = () => {
   const [trackedVehicles, setTrackedVehicles] = useState([]);
   const [deviceId] = useState(() => localStorage.getItem("deviceId") || uuidv4());
   const [controllingDeviceId, setControllingDeviceId] = useState(null);
+  const [trackingDocId, setTrackingDocId] = useState(null);
 
   localStorage.setItem("deviceId", deviceId);
 
@@ -137,25 +138,36 @@ const Tracking = () => {
       setTrackingData(newLocation);
 
       try {
-        const docRef = await addDoc(collection(db, "tracking"), {
-          vehicleId: selectedVehicle,
-          lat,
-          lng,
-          locationName: name,
-          timestamp: new Date().toISOString(),
-          method,
-          deviceId: deviceId,
-          accountId: auth.currentUser.uid, // Use authenticated user's UID
-          isTracking: true,
-        });
-        setControllingDeviceId(deviceId);
-        return docRef.id;
+        if (!trackingDocId) {
+          const docRef = await addDoc(collection(db, "tracking"), {
+            vehicleId: selectedVehicle,
+            lat,
+            lng,
+            locationName: name,
+            timestamp: new Date().toISOString(),
+            method,
+            deviceId: deviceId,
+            accountId: auth.currentUser.uid,
+            isTracking: true,
+          });
+          setTrackingDocId(docRef.id);
+          setControllingDeviceId(deviceId);
+        } else {
+          const trackingRef = doc(db, "tracking", trackingDocId);
+          await updateDoc(trackingRef, {
+            lat,
+            lng,
+            locationName: name,
+            timestamp: new Date().toISOString(),
+            method,
+          });
+        }
       } catch (err) {
         setError("Failed to save location: " + err.message);
         throw err;
       }
     },
-    [selectedVehicle, deviceId, setCurrentLocation, setTrackingData, setError]
+    [selectedVehicle, deviceId, trackingDocId, setTrackingData]
   );
 
   const startTracking = () => {
@@ -182,12 +194,7 @@ const Tracking = () => {
   useEffect(() => {
     let watchId = null;
 
-    if (
-      isTracking &&
-      !useManualCoordinates &&
-      navigator.geolocation &&
-      (!controllingDeviceId || controllingDeviceId === deviceId)
-    ) {
+    if (isTracking && !useManualCoordinates && navigator.geolocation && (!controllingDeviceId || controllingDeviceId === deviceId)) {
       watchId = navigator.geolocation.watchPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
@@ -214,6 +221,7 @@ const Tracking = () => {
       setCurrentLocation(null);
       setTrackingHistory([]);
       setControllingDeviceId(null);
+      setTrackingDocId(null);
       return;
     }
 
@@ -233,6 +241,7 @@ const Tracking = () => {
         if (updates.length > 0) {
           const latest = updates[0];
           setControllingDeviceId(latest.deviceId);
+          setTrackingDocId(latest.id);
           const newLocation = {
             lat: latest.lat,
             lng: latest.lng,
@@ -246,6 +255,7 @@ const Tracking = () => {
           setCurrentLocation(null);
           setTrackingHistory([]);
           setControllingDeviceId(null);
+          setTrackingDocId(null);
         }
       },
       (err) => {
@@ -263,7 +273,7 @@ const Tracking = () => {
     }
   }, [trackingData, setTrackingData, nairobiCoordinates]);
 
-  const stopTracking = async (vehicleId, trackingDocId) => {
+  const stopTracking = async () => {
     if (!trackingDocId) {
       setError("No active tracking session found.");
       return;
@@ -314,6 +324,7 @@ const Tracking = () => {
         setControllingDeviceId(null);
         setIsTracking(false);
         setSelectedVehicle("");
+        setTrackingDocId(null);
       }
       setTrackedVehicles((prev) => prev.filter((v) => v.id !== trackingDocId));
     } catch (err) {
@@ -552,8 +563,7 @@ const Tracking = () => {
                   display: "grid",
                   gridTemplateColumns: "minmax(0, 1fr)", // Single column by default
                   gap: "1.5rem",
-                  // For larger screens (tablets and up), switch to two columns
-                  ...(window.innerWidth >= 768 && { gridTemplateColumns: "1fr 2fr" }),
+                  ...(window.innerWidth >= 768 && { gridTemplateColumns: "1fr 2fr" }), // Two columns on larger screens
                 }}
               >
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -651,7 +661,7 @@ const Tracking = () => {
                       <div
                         style={{
                           display: "flex",
-                          flexDirection: window.innerWidth < 640 ? "column" : "row", // Stack on small screens
+                          flexDirection: window.innerWidth < 640 ? "column" : "row",
                           gap: "0.5rem",
                         }}
                       >
@@ -717,7 +727,7 @@ const Tracking = () => {
 
                   {isTracking && !useManualCoordinates && controllingDeviceId === deviceId && (
                     <Button
-                      onClick={() => stopTracking(selectedVehicle, trackingHistory[0]?.id)}
+                      onClick={() => stopTracking()}
                       style={{
                         background: "#dc2626",
                         padding: "0.5rem 1rem",
