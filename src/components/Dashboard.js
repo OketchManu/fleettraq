@@ -33,7 +33,6 @@ let CarIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Map view controller component with smooth panning
 const MapViewController = ({ bounds, trackedVehicles }) => {
   const map = useMap();
   
@@ -55,12 +54,10 @@ const MapViewController = ({ bounds, trackedVehicles }) => {
   return null;
 };
 
-// Custom hook to handle marker updates
 const VehicleMarker = ({ track, vehicle }) => {
   const [position, setPosition] = useState([track.lat, track.lng]);
   
   useEffect(() => {
-    // Smooth transition for marker position updates
     setPosition([track.lat, track.lng]);
   }, [track.lat, track.lng]);
 
@@ -148,7 +145,6 @@ const Dashboard = () => {
     loadVehicles();
   }, [fetchVehicles]);
 
-  // Enhanced real-time tracking with smooth updates
   useEffect(() => {
     if (!auth.currentUser) return;
 
@@ -166,11 +162,10 @@ const Dashboard = () => {
         lng: Number(doc.data().lng) || 36.8172,
         locationName: doc.data().locationName,
         timestamp: doc.data().timestamp,
-        lastUpdated: Date.now() // For tracking freshness
+        lastUpdated: Date.now()
       }));
       
       setTrackedVehicles(prev => {
-        // Merge new data with previous to maintain smooth transitions
         const updatedVehicles = trackedData.map(newTrack => {
           const existing = prev.find(v => v.id === newTrack.id);
           return existing ? { ...existing, ...newTrack } : newTrack;
@@ -232,7 +227,7 @@ const Dashboard = () => {
   ].filter(Boolean);
 
   const MapComponent = useMemo(() => {
-    const defaultPosition = [-1.2864, 36.8172]; // Nairobi coordinates
+    const defaultPosition = [-1.2864, 36.8172];
 
     return () => {
       const center = trackedVehicles.length > 0 
@@ -248,7 +243,6 @@ const Dashboard = () => {
           zoom={10}
           style={{ height: isMobile ? "60vh" : "80vh", width: "100%", borderRadius: "0.5rem" }}
           whenCreated={map => {
-            // Smooth transitions for map updates
             map.options.zoomAnimation = true;
             map.options.fadeAnimation = true;
           }}
@@ -388,7 +382,7 @@ const Dashboard = () => {
                   </h2>
                   <div className="grid grid-cols-2 gap-4">
                     <div className={`p-4 rounded-lg ${darkMode ? "bg-black bg-opacity-30" : "bg-gray-200"}`}>
-                      <p className={`${ darkenMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
+                      <p className={`${darkMode ? "text-gray-300" : "text-gray-600"} text-sm`}>Total Vehicles</p>
                       <p className={`text-3xl font-bold ${darkMode ? "text-white" : "text-black"}`}>
                         {fleetStats.total}
                       </p>
