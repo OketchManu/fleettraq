@@ -145,6 +145,7 @@ const Dashboard = () => {
     loadVehicles();
   }, [fetchVehicles]);
 
+  // Real-time tracking from Firebase
   useEffect(() => {
     if (!auth.currentUser) return;
 
@@ -162,7 +163,7 @@ const Dashboard = () => {
         lng: Number(doc.data().lng) || 36.8172,
         locationName: doc.data().locationName,
         timestamp: doc.data().timestamp,
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       }));
       
       setTrackedVehicles(prev => {
