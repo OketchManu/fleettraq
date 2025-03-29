@@ -446,7 +446,7 @@ const WelcomeScreen = () => {
                 e.target.style.outlineOffset = "2px";
               }}
             >
-              Launch Control Center
+              LOGIN
             </button>
             <button
               onClick={() => navigate("/signup")}
@@ -476,7 +476,7 @@ const WelcomeScreen = () => {
                 e.target.style.outlineOffset = "2px";
               }}
             >
-              Start Your Journey
+              SIGNUP
             </button>
           </div>
           
