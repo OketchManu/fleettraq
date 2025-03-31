@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { Eye, EyeOff } from "lucide-react";
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithPopup, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Signup = () => {
@@ -39,10 +39,8 @@ const Signup = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Update user profile with name
       await updateProfile(user, { displayName: name });
       
-      // Store additional user data in Firestore
       await setDoc(doc(db, "users", user.uid), {
         name,
         email,
@@ -56,12 +54,8 @@ const Signup = () => {
       localStorage.setItem("profilePicture", "https://via.placeholder.com/150");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Signup error:", err);
-      setError(
-        err.code === "auth/email-already-in-use"
-          ? "Email already in use"
-          : "Signup failed. Please try again."
-      );
+      console.error("Signup error:", err.message, err.code);
+      setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
     }
@@ -78,13 +72,11 @@ const Signup = () => {
     }
 
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      // Store additional user data in Firestore
       await setDoc(doc(db, "users", user.uid), {
-        name: user.displayName,
+        name: user.displayName || "Unknown",
         email: user.email,
         role,
         createdAt: new Date().toISOString()
@@ -99,14 +91,29 @@ const Signup = () => {
       );
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Google signup error:", err);
-      setError(
-        err.code === "auth/popup-closed-by-user"
-          ? "Google signup cancelled."
-          : "Google signup failed. Please try again."
-      );
+      console.error("Google signup error:", err.message, err.code);
+      setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getFirebaseErrorMessage = (code) => {
+    switch (code) {
+      case "auth/email-already-in-use":
+        return "Email already in use";
+      case "auth/invalid-email":
+        return "Invalid email format";
+      case "auth/weak-password":
+        return "Password should be at least 6 characters";
+      case "auth/popup-closed-by-user":
+        return "Google signup cancelled";
+      case "auth/popup-blocked":
+        return "Popup blocked by browser. Please allow popups";
+      case "auth/network-request-failed":
+        return "Network error. Please check your connection";
+      default:
+        return "Signup failed. Please try again";
     }
   };
 
