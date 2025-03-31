@@ -98,6 +98,8 @@ const Login = () => {
         return "Popup blocked by browser. Please allow popups";
       case "auth/network-request-failed":
         return "Network error. Please check your connection";
+      case "auth/unauthorized-domain":
+        return "This domain is not authorized for Google login. Please contact support.";
       default:
         return "Login failed. Please try again";
     }
@@ -340,7 +342,7 @@ const Login = () => {
         >
           Forgot Password?
         </button>
-        <p style={{ fontSize: "16px", marginTop: "20px" }}>
+        <p style={{ fontSize: "16px", marginTop: "20px", color: "white" }}>
           Don't have an account?{" "}
           <button
             style={{ color: "#FFD700", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
