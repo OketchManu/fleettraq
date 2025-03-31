@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { Eye, EyeOff } from "lucide-react";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "../firebase";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Login = () => {
@@ -45,12 +45,8 @@ const Login = () => {
       console.log("Navigating to /dashboard from email login");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Login error:", err);
-      setError(
-        err.code === "auth/wrong-password" || err.code === "auth/user-not-found"
-          ? "Invalid email or password"
-          : "Login failed. Please try again."
-      );
+      console.error("Login error:", err.message, err.code);
+      setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
     }
@@ -67,8 +63,7 @@ const Login = () => {
     }
 
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       const idToken = await user.getIdToken();
 
@@ -81,14 +76,30 @@ const Login = () => {
       console.log("Navigating to /dashboard from Google login");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Google login error:", err);
-      setError(
-        err.code === "auth/popup-closed-by-user"
-          ? "Google login cancelled."
-          : "Google login failed. Please try again."
-      );
+      console.error("Google login error:", err.message, err.code);
+      setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getFirebaseErrorMessage = (code) => {
+    switch (code) {
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        return "Invalid email or password";
+      case "auth/invalid-email":
+        return "Invalid email format";
+      case "auth/user-disabled":
+        return "Account has been disabled";
+      case "auth/popup-closed-by-user":
+        return "Google login cancelled";
+      case "auth/popup-blocked":
+        return "Popup blocked by browser. Please allow popups";
+      case "auth/network-request-failed":
+        return "Network error. Please check your connection";
+      default:
+        return "Login failed. Please try again";
     }
   };
 
