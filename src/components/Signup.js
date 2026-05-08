@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Shield } from "lucide-react";
 import { createUserWithEmailAndPassword, signInWithPopup, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../firebase";
@@ -34,6 +34,11 @@ const Signup = () => {
       setIsLoading(false);
       return;
     }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -51,10 +56,11 @@ const Signup = () => {
       const idToken = await user.getIdToken();
       localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
-      localStorage.setItem("profilePicture", "https://via.placeholder.com/150");
+      localStorage.setItem("profilePicture", `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`);
+      
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Signup error:", err.message, err.code);
+      console.error("Signup error:", err.message);
       setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
@@ -76,7 +82,7 @@ const Signup = () => {
       const user = result.user;
       
       await setDoc(doc(db, "users", user.uid), {
-        name: user.displayName || "Unknown",
+        name: user.displayName,
         email: user.email,
         role,
         createdAt: new Date().toISOString()
@@ -85,13 +91,11 @@ const Signup = () => {
       const idToken = await user.getIdToken();
       localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
-      localStorage.setItem(
-        "profilePicture",
-        user.photoURL || "https://via.placeholder.com/150"
-      );
+      localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
+      
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Google signup error:", err.message, err.code);
+      console.error("Google signup error:", err.message);
       setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
@@ -101,7 +105,7 @@ const Signup = () => {
   const getFirebaseErrorMessage = (code) => {
     switch (code) {
       case "auth/email-already-in-use":
-        return "Email already in use";
+        return "Email already in use. Please login instead.";
       case "auth/invalid-email":
         return "Invalid email format";
       case "auth/weak-password":
@@ -112,279 +116,176 @@ const Signup = () => {
         return "Popup blocked by browser. Please allow popups";
       case "auth/network-request-failed":
         return "Network error. Please check your connection";
-      case "auth/unauthorized-domain":
-        return "This domain is not authorized for Google signup. Please contact support.";
       default:
         return "Signup failed. Please try again";
     }
   };
 
-  const inputStyle = {
-    width: "100%",
-    padding: "18px",
-    marginBottom: "16px",
-    borderRadius: "8px",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
-    background: "rgba(255, 255, 255, 0.9)",
-    color: "#333",
-    fontSize: "16px",
-    outline: "none",
-    transition: "border-color 0.3s",
-    boxSizing: "border-box",
-  };
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(to right, #4A00E0, #8E2DE2)",
-        padding: "20px",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(to right, #6a00f4, #ff0080, #ff8c00)",
-          opacity: 0.3,
-          filter: "blur(50px)",
-        }}
-      />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-4">
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full filter blur-3xl opacity-20"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl opacity-20"></div>
+      </div>
+      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{
-          width: "650px",
-          padding: "60px",
-          background: "rgba(20, 20, 20, 0.9)",
-          borderRadius: "20px",
-          boxShadow: "0px 6px 15px rgba(0, 0, 0, 0.4)",
-          textAlign: "center",
-          position: "relative",
-          zIndex: 10,
-        }}
+        className="relative w-full max-w-md"
       >
-        <button
-          style={{
-            position: "absolute",
-            top: "20px",
-            left: "20px",
-            background: "none",
-            border: "none",
-            color: "white",
-            fontSize: "24px",
-            cursor: "pointer",
-            transition: "color 0.3s",
-          }}
-          onClick={() => navigate("/")}
-          onMouseOver={(e) => (e.target.style.color = "#FFD700")}
-          onMouseOut={(e) => (e.target.style.color = "white")}
-          disabled={isLoading}
-        >
-          ←
-        </button>
-        <h1 style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "30px", color: "#FFD700" }}>
-          Sign Up
-        </h1>
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              style={{
-                background: "rgba(255, 0, 0, 0.2)",
-                color: "#ff9999",
-                padding: "10px",
-                borderRadius: "8px",
-                marginBottom: "20px",
-                fontSize: "14px",
-              }}
-            >
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <form onSubmit={handleSignup}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <input
-              style={inputStyle}
-              type="text"
-              placeholder="Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-              disabled={isLoading}
-              required
-            />
-            <input
-              style={inputStyle}
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-              disabled={isLoading}
-              required
-            />
-            <div style={{ position: "relative" }}>
-              <input
-                style={{ ...inputStyle, paddingRight: "48px" }}
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-                disabled={isLoading}
-                required
-              />
-              <button
-                type="button"
-                style={{
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#333",
-                  padding: "0",
-                  width: "24px",
-                  height: "24px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onClick={() => setShowPassword(!showPassword)}
+        <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-8 h-8 text-black" />
+            </div>
+            <h1 className="text-3xl font-bold text-white">Create Account</h1>
+            <p className="text-gray-400 mt-2">Start managing your fleet today</p>
+          </div>
+
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm text-center"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Full Name</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 transition-all"
+                  placeholder="John Doe"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 transition-all"
+                  placeholder="you@example.com"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Select Role</label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-yellow-500 transition-all"
                 disabled={isLoading}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+                <option value="" disabled className="text-gray-800">Select your role</option>
+                <option value="admin" className="text-gray-800">Administrator</option>
+                <option value="manager" className="text-gray-800">Fleet Manager</option>
+                <option value="driver" className="text-gray-800">Driver</option>
+              </select>
             </div>
-            <div style={{ position: "relative" }}>
-              <input
-                style={{ ...inputStyle, paddingRight: "48px" }}
-                type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-                disabled={isLoading}
-                required
-              />
-              <button
-                type="button"
-                style={{
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#333",
-                  padding: "0",
-                  width: "24px",
-                  height: "24px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                disabled={isLoading}
-              >
-                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 transition-all"
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-              disabled={isLoading}
-            >
-              <option value="" disabled>
-                Select Role
-              </option>
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="driver">Driver</option>
-            </select>
+
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Confirm Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 transition-all"
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
             <button
               type="submit"
-              style={{
-                width: "100%",
-                padding: "18px",
-                fontSize: "18px",
-                fontWeight: "bold",
-                color: "white",
-                background: "linear-gradient(to right, #4A00E0, #8E2DE2)",
-                borderRadius: "8px",
-                border: "none",
-                cursor: isLoading ? "not-allowed" : "pointer",
-                transition: "transform 0.2s",
-                opacity: isLoading ? 0.7 : 1,
-              }}
-              onMouseOver={(e) => !isLoading && (e.target.style.transform = "scale(1.05)")}
-              onMouseOut={(e) => (e.target.style.transform = "scale(1)")}
               disabled={isLoading}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-black font-semibold hover:shadow-lg hover:shadow-yellow-500/25 transition-all disabled:opacity-50"
             >
-              {isLoading ? "Signing Up..." : "Sign Up with Email"}
+              {isLoading ? "Creating account..." : "Create Account"}
             </button>
+          </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/20"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-transparent text-gray-400">Or sign up with</span>
+            </div>
           </div>
-        </form>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "20px 0" }}>
-          <div style={{ height: "1px", width: "40%", background: "rgba(255, 255, 255, 0.3)" }}></div>
-          <span style={{ fontSize: "14px", color: "rgba(255, 255, 255, 0.7)" }}>or Sign up with</span>
-          <div style={{ height: "1px", width: "40%", background: "rgba(255, 255, 255, 0.3)" }}></div>
-        </div>
-        <button
-          style={{
-            width: "100%",
-            padding: "18px",
-            fontSize: "18px",
-            fontWeight: "bold",
-            color: "white",
-            background: "linear-gradient(to right, #4285f4, #3267d6)",
-            borderRadius: "8px",
-            border: "none",
-            cursor: isLoading ? "not-allowed" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "10px",
-            transition: "transform 0.2s",
-            opacity: isLoading ? 0.7 : 1,
-          }}
-          onClick={handleGoogleSignup}
-          onMouseOver={(e) => !isLoading && (e.target.style.transform = "scale(1.05)")}
-          onMouseOut={(e) => (e.target.style.transform = "scale(1)")}
-          disabled={isLoading}
-        >
-          <FcGoogle style={{ fontSize: "24px" }} />
-          Google
-        </button>
-        <p style={{ fontSize: "16px", marginTop: "20px", color: "white" }}>
-          Already have an account?{" "}
+
           <button
-            style={{ color: "#FFD700", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-            onClick={() => navigate("/login")}
-            disabled={isLoading}
+            onClick={handleGoogleSignup}
+            disabled={isLoading || !role}
+            className="w-full py-3 rounded-xl bg-white/10 border border-white/20 text-white font-semibold flex items-center justify-center gap-3 hover:bg-white/20 transition-all disabled:opacity-50"
           >
-            Login
+            <FcGoogle className="w-5 h-5" />
+            Google
           </button>
-        </p>
+
+          <p className="mt-6 text-center text-gray-400 text-sm">
+            Already have an account?{" "}
+            <button
+              onClick={() => navigate("/login")}
+              className="text-yellow-400 hover:text-yellow-300 font-semibold"
+            >
+              Sign in
+            </button>
+          </p>
+        </div>
       </motion.div>
     </div>
   );

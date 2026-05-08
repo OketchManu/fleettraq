@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { FileText, Plus, Edit, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FileText, Plus, Edit, Trash2, X, Check, AlertCircle, Calendar, Download, Eye } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
@@ -11,59 +11,85 @@ const Reports = () => {
   const navigate = useNavigate();
   const { darkMode, reports, fetchReports } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
   const [editingReport, setEditingReport] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     date: "",
     description: "",
+    type: "Maintenance",
     status: "Pending",
   });
   const [error, setError] = useState(null);
 
-  const themeStyles = {
-    background: darkMode ? "linear-gradient(135deg, #080016 0%, #150025 100%)" : "linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)",
-    color: darkMode ? "#fff" : "#000",
-    cardBg: darkMode ? "rgba(20, 10, 40, 0.7)" : "rgba(255, 255, 255, 0.9)",
-    cardBorder: darkMode ? "2px solid rgba(250, 204, 21, 0.5)" : "2px solid rgba(59, 130, 246, 0.5)",
-    cardGlow: darkMode ? "0 0 15px rgba(250, 204, 21, 0.3)" : "0 0 15px rgba(59, 130, 246, 0.2)",
+  const reportTypes = ["Maintenance", "Fuel", "Incident", "Performance", "Driver", "Monthly Summary"];
+  const statusOptions = ["Pending", "Completed", "In Progress", "Archived"];
+  const statusColors = {
+    Pending: "text-yellow-400",
+    Completed: "text-green-400",
+    "In Progress": "text-cyan-400",
+    Archived: "text-gray-400"
   };
-
-  const statusOptions = ["Pending", "Completed", "In Progress", "Canceled"];
+  const typeColors = {
+    Maintenance: "bg-blue-500/20 text-blue-400",
+    Fuel: "bg-green-500/20 text-green-400",
+    Incident: "bg-red-500/20 text-red-400",
+    Performance: "bg-purple-500/20 text-purple-400",
+    Driver: "bg-orange-500/20 text-orange-400",
+    "Monthly Summary": "bg-pink-500/20 text-pink-400"
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    if (!auth.currentUser) {
+      setError("You must be logged in to manage reports.");
+      return;
+    }
+
     try {
       const reportData = {
         ...formData,
         date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(),
-        userId: auth.currentUser.uid, // Add userId
+        accountId: auth.currentUser.uid,
+        updatedAt: new Date().toISOString(),
       };
 
       if (editingReport) {
         const reportRef = doc(db, "reports", editingReport.id);
         await updateDoc(reportRef, reportData);
-        setEditingReport(null);
       } else {
-        await addDoc(collection(db, "reports"), reportData);
+        await addDoc(collection(db, "reports"), {
+          ...reportData,
+          createdAt: new Date().toISOString(),
+        });
       }
 
       await fetchReports();
-      setFormData({ title: "", date: "", description: "", status: "Pending" });
+      resetForm();
       setShowAddForm(false);
-    } catch (error) {
-      console.error("Error saving report:", error.message);
-      setError("Failed to save report. Please check your input and try again.");
+    } catch (err) {
+      console.error("Error saving report:", err);
+      setError("Failed to save report. Please try again.");
     }
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this report?")) return;
+
+    if (!auth.currentUser) {
+      setError("You must be logged in to delete reports.");
+      return;
+    }
+
     try {
       const reportRef = doc(db, "reports", id);
       await deleteDoc(reportRef);
       await fetchReports();
-    } catch (error) {
-      console.error("Error deleting report:", error.message);
+    } catch (err) {
+      console.error("Error deleting report:", err);
       setError("Failed to delete report. Please try again.");
     }
   };
@@ -74,231 +100,348 @@ const Reports = () => {
       title: report.title || "",
       date: report.date ? new Date(report.date).toISOString().split("T")[0] : "",
       description: report.description || "",
+      type: report.type || "Maintenance",
       status: report.status || "Pending",
     });
     setShowAddForm(true);
   };
 
+  const handleView = (report) => {
+    setSelectedReport(report);
+    setShowViewModal(true);
+  };
+
+  const handleExportPDF = (report) => {
+    // Create a simple text export of the report
+    const reportContent = `
+      FLEETRAQ REPORT
+      ================
+      Title: ${report.title}
+      Type: ${report.type}
+      Date: ${new Date(report.date).toLocaleDateString()}
+      Status: ${report.status}
+      
+      Description:
+      ${report.description}
+      
+      Generated: ${new Date().toLocaleString()}
+    `;
+    
+    const blob = new Blob([reportContent], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${report.title.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().split("T")[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const resetForm = () => {
+    setEditingReport(null);
+    setFormData({
+      title: "",
+      date: "",
+      description: "",
+      type: "Maintenance",
+      status: "Pending",
+    });
+    setError(null);
+  };
+
   return (
-    <motion.div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        ...themeStyles,
-      }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div style={{ flex: "1 0 auto" }}>
-        <header
-          style={{
-            background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
-            padding: "12px 16px",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <div
-            style={{
-              maxWidth: "1280px",
-              margin: "0 auto",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <h1
-              style={{
-                fontSize: "24px",
-                fontWeight: "bold",
-                display: "flex",
-                alignItems: "center",
-                color: darkMode ? "#facc15" : "#1f2937",
-              }}
-            >
-              <FileText style={{ marginRight: "8px" }} /> Report Management
-            </h1>
-            <div style={{ display: "flex", gap: "8px" }}>
+    <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
+      {/* Header */}
+      <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <FileText className="w-8 h-8 text-yellow-500" />
+              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                Report Management
+              </h1>
+            </div>
+            <div className="flex gap-2">
               <Button onClick={() => setShowAddForm(true)}>
-                <Plus size={16} /> Create New Report
+                <Plus size={18} />
+                Create Report
               </Button>
-              <Button onClick={() => navigate("/dashboard")}>Back to Dashboard</Button>
+              <Button variant="secondary" onClick={() => navigate("/dashboard")}>
+                Back
+              </Button>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {showAddForm && (
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-sm flex items-center gap-2">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        )}
+
+        {reports.length === 0 ? (
+          <div className={`text-center py-16 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"}`}>
+            <FileText className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+            <h3 className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-800"} mb-2`}>No Reports Yet</h3>
+            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>Create your first report to track fleet activities.</p>
+            <Button onClick={() => setShowAddForm(true)}>
+              <Plus size={18} />
+              Create First Report
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {reports.map((report, index) => (
+              <motion.div
+                key={report.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ y: -5 }}
+                className={`group rounded-2xl overflow-hidden ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg transition-all cursor-pointer`}
+                onClick={() => handleView(report)}
+              >
+                <div className="relative h-28 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 p-4">
+                  <FileText className="w-12 h-12 text-yellow-500 opacity-50" />
+                  <div className="absolute top-4 right-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleEdit(report)}
+                      className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+                    >
+                      <Edit size={16} className="text-yellow-500" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(report.id)}
+                      className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
+                    >
+                      <Trash2 size={16} className="text-red-400" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="p-5">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className={`text-lg font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                        {report.title}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${typeColors[report.type] || "bg-gray-500/20 text-gray-400"}`}>
+                          {report.type}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[report.status]}`}>
+                          {report.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Calendar size={14} className="text-gray-500" />
+                      <span className={darkMode ? "text-gray-400" : "text-gray-600"}>
+                        {report.date ? new Date(report.date).toLocaleDateString() : "No date"}
+                      </span>
+                    </div>
+                    {report.description && (
+                      <p className={`text-xs line-clamp-2 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                        {report.description.substring(0, 100)}...
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t border-white/10 flex justify-end">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExportPDF(report);
+                      }}
+                      className="text-xs text-yellow-500 hover:text-yellow-400 flex items-center gap-1"
+                    >
+                      <Download size={12} />
+                      Export
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* View Report Modal */}
+      <AnimatePresence>
+        {showViewModal && selectedReport && (
           <motion.div
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 20 }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowViewModal(false)}
           >
-            <div
-              style={{
-                background: themeStyles.cardBg,
-                maxWidth: "500px",
-                margin: "40px auto",
-                padding: "24px",
-                borderRadius: "8px",
-                border: themeStyles.cardBorder,
-                boxShadow: themeStyles.cardGlow,
-              }}
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-2xl rounded-2xl ${darkMode ? "bg-[#0f0f2a] border-white/20" : "bg-white border-gray-200"} border shadow-2xl`}
+              onClick={(e) => e.stopPropagation()}
             >
-              <h2 style={{ color: darkMode ? "#facc15" : "#1f2937", marginBottom: "16px" }}>
-                {editingReport ? "Edit Report Details" : "Create a New Report"}
-              </h2>
-              {error && <p style={{ color: "#ef4444", marginBottom: "12px" }}>{error}</p>}
-              <form onSubmit={handleSubmit} style={{ display: "grid", gap: "12px" }}>
+              <div className={`p-5 border-b ${darkMode ? "border-white/10" : "border-gray-200"} flex justify-between items-center`}>
+                <div>
+                  <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                    {selectedReport.title}
+                  </h2>
+                  <div className="flex gap-2 mt-1">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${typeColors[selectedReport.type] || "bg-gray-500/20 text-gray-400"}`}>
+                      {selectedReport.type}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[selectedReport.status]}`}>
+                      {selectedReport.status}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setShowViewModal(false)} className="p-1 rounded-lg hover:bg-white/10">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-5 space-y-4">
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={14} className="text-gray-500" />
+                    <span className={darkMode ? "text-gray-300" : "text-gray-600"}>
+                      Date: {new Date(selectedReport.date).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className={`font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-800"}`}>Description</h3>
+                  <div className={`p-4 rounded-xl ${darkMode ? "bg-white/5" : "bg-gray-50"} text-sm`}>
+                    <p className={darkMode ? "text-gray-300" : "text-gray-600"}>
+                      {selectedReport.description || "No description provided."}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className={`p-4 rounded-xl ${darkMode ? "bg-yellow-500/10 border border-yellow-500/20" : "bg-yellow-50 border border-yellow-200"}`}>
+                  <p className={`text-sm ${darkMode ? "text-yellow-400" : "text-yellow-700"}`}>
+                    📄 Report generated on {new Date(selectedReport.createdAt || selectedReport.date).toLocaleString()}
+                  </p>
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <Button onClick={() => handleExportPDF(selectedReport)}>
+                    <Download size={16} />
+                    Export Report
+                  </Button>
+                  <Button variant="secondary" onClick={() => setShowViewModal(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add/Edit Modal */}
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowAddForm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-md rounded-2xl ${darkMode ? "bg-[#0f0f2a] border-white/20" : "bg-white border-gray-200"} border shadow-2xl`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={`p-5 border-b ${darkMode ? "border-white/10" : "border-gray-200"} flex justify-between items-center`}>
+                <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                  {editingReport ? "Edit Report" : "Create New Report"}
+                </h2>
+                <button onClick={() => setShowAddForm(false)} className="p-1 rounded-lg hover:bg-white/10">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <form onSubmit={handleSubmit} className="p-5 space-y-4">
                 <input
-                  style={{ padding: "8px", borderRadius: "4px", border: themeStyles.cardBorder, background: darkMode ? "#1a0033" : "#fff" }}
-                  placeholder="Report Title"
+                  type="text"
+                  placeholder="Report Title *"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                   required
                 />
-                <input
-                  style={{ padding: "8px", borderRadius: "4px", border: themeStyles.cardBorder, background: darkMode ? "#1a0033" : "#fff" }}
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  required
-                />
-                <textarea
-                  style={{ padding: "8px", borderRadius: "4px", border: themeStyles.cardBorder, background: darkMode ? "#1a0033" : "#fff", minHeight: "100px" }}
-                  placeholder="Description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  required
-                />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  >
+                    {reportTypes.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                    required
+                  />
+                </div>
+                
                 <select
-                  style={{ padding: "8px", borderRadius: "4px", border: themeStyles.cardBorder, background: darkMode ? "#1a0033" : "#fff", color: darkMode ? "#fff" : "#000" }}
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  required
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                 >
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status} style={{ color: darkMode ? "#fff" : "#000" }}>
-                      {status}
-                    </option>
+                  {statusOptions.map(status => (
+                    <option key={status} value={status}>{status}</option>
                   ))}
                 </select>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <Button type="submit">{editingReport ? "Update Report" : "Add Report"}</Button>
-                  <Button
-                    onClick={() => {
-                      setShowAddForm(false);
-                      setEditingReport(null);
-                      setFormData({ title: "", date: "", description: "", status: "Pending" });
-                      setError(null);
-                    }}
-                  >
-                    Cancel
+                
+                <textarea
+                  placeholder="Description *"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={4}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none`}
+                  required
+                />
+                
+                <div className="flex gap-3 pt-2">
+                  <Button type="submit">
+                    <Check size={16} />
+                    {editingReport ? "Update Report" : "Create Report"}
+                  </Button>
+                  <Button variant="secondary" type="button" onClick={resetForm}>
+                    Reset
                   </Button>
                 </div>
               </form>
-            </div>
+            </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
 
-        <main style={{ padding: "16px", flexGrow: 1 }}>
-          <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-            {reports.length ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-                {reports.map((report) => (
-                  <motion.div
-                    key={report.id}
-                    style={{
-                      background: darkMode
-                        ? "linear-gradient(135deg, #1a0033 0%, #330066 70%)"
-                        : "linear-gradient(135deg, #e5e7eb 0%, #ffffff 100%)",
-                      border: themeStyles.cardBorder,
-                      borderRadius: "12px",
-                      padding: "20px",
-                      boxShadow: themeStyles.cardGlow,
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
-                    whileHover={{ scale: 1.05, boxShadow: darkMode ? "0 0 25px rgba(250, 204, 21, 0.5)" : "0 0 25px rgba(59, 130, 246, 0.4)" }}
-                    transition={{ type: "spring", stiffness: 400 }}
-                  >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        height: "100%",
-                        background: darkMode ? "rgba(250, 204, 21, 0.1)" : "rgba(59, 130, 246, 0.1)",
-                        clipPath: "polygon(0 0, 100% 0, 85% 100%, 0% 100%)",
-                        opacity: 0.3,
-                      }}
-                    />
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", position: "relative", zIndex: 1 }}>
-                      <h3 style={{ color: darkMode ? "#facc15" : "#1f2937", fontWeight: "700", fontSize: "18px", textShadow: darkMode ? "0 0 5px rgba(250, 204, 21, 0.5)" : "none" }}>
-                        {report.title}
-                      </h3>
-                      <div style={{ display: "flex", gap: "12px" }}>
-                        <Edit size={22} style={{ cursor: "pointer", color: darkMode ? "#facc15" : "#3b82f6" }} onClick={() => handleEdit(report)} />
-                        <Trash2 size={22} style={{ cursor: "pointer", color: "#dc2626" }} onClick={() => handleDelete(report.id)} />
-                      </div>
-                    </div>
-                    <div style={{ display: "grid", gap: "10px", fontSize: "14px", position: "relative", zIndex: 1 }}>
-                      <p style={{ color: darkMode ? "#d1d5db" : "#4b5563" }}>
-                        Date: <span style={{ color: darkMode ? "#fff" : "#000" }}>{report.date ? new Date(report.date).toLocaleDateString() : "N/A"}</span>
-                      </p>
-                      <p style={{ color: darkMode ? "#d1d5db" : "#4b5563" }}>
-                        Description: <span style={{ color: darkMode ? "#fff" : "#000" }}>{report.description || "N/A"}</span>
-                      </p>
-                      <p style={{ color: darkMode ? "#d1d5db" : "#4b5563" }}>
-                        Status:{" "}
-                        <span
-                          style={{
-                            color:
-                              report.status === "Completed"
-                                ? "#22c55e"
-                                : report.status === "Pending"
-                                ? "#facc15"
-                                : report.status === "In Progress"
-                                ? "#3b82f6"
-                                : "#ef4444",
-                            fontWeight: "600",
-                            textShadow: darkMode ? "0 0 3px rgba(255, 255, 255, 0.2)" : "none",
-                          }}
-                        >
-                          {report.status || "N/A"}
-                        </span>
-                      </p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <motion.div style={{ background: themeStyles.cardBg, padding: "24px", borderRadius: "8px", textAlign: "center", border: themeStyles.cardBorder }}>
-                <p style={{ color: darkMode ? "#facc15" : "#1f2937" }}>No reports available. Click "Create New Report" to get started!</p>
-              </motion.div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      <footer
-        style={{
-          background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)",
-          padding: "16px",
-          textAlign: "center",
-          color: darkMode ? "#9ca3af" : "#6b7280",
-          fontSize: "14px",
-          flexShrink: 0,
-        }}
-      >
-        © {new Date().getFullYear()} FleetTraq
+      {/* Footer */}
+      <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
+        <p>© 2024 FleetTraq. All rights reserved.</p>
       </footer>
-    </motion.div>
+    </div>
   );
 };
 

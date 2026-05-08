@@ -1,20 +1,20 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "./index.css";
-import { FleetProvider } from "./context/FleetContext";
-import { BrowserRouter } from "react-router-dom";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+import { BrowserRouter } from 'react-router-dom';
+import { FleetProvider } from './context/FleetContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
-const container = document.getElementById("root");
-const root = createRoot(container);
-
+const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <FleetProvider>
-        <App />
-      </FleetProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <FleetProvider>
+          <App />
+        </FleetProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -1,24 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Shield } from "lucide-react";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
-import { auth, googleProvider } from "../firebase";
+import { auth, googleProvider, db } from "../firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 
 const Login = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
-  const [error, setError] = useState(location.state?.error || "");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  useEffect(() => {
-    console.log("Current path:", location.pathname);
-  }, [location.pathname]);
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -34,18 +30,23 @@ const Login = () => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      
+      // Verify role matches
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists() && userDoc.data().role !== role) {
+        setError(`You are registered as ${userDoc.data().role}, not ${role}`);
+        setIsLoading(false);
+        return;
+      }
+      
       const idToken = await user.getIdToken();
-
       localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
-      localStorage.setItem(
-        "profilePicture",
-        user.photoURL || "https://via.placeholder.com/150"
-      );
-      console.log("Navigating to /dashboard from email login");
+      localStorage.setItem("profilePicture", user.photoURL || "https://ui-avatars.com/api/?name=" + encodeURIComponent(email));
+      
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Login error:", err.message, err.code);
+      console.error("Login error:", err.message);
       setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
@@ -65,18 +66,33 @@ const Login = () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      const idToken = await user.getIdToken();
+      
+      // Check if user exists, if not create with selected role
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) {
+        await setDoc(doc(db, "users", user.uid), {
+          name: user.displayName,
+          email: user.email,
+          role: role,
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        // Verify role matches
+        if (userDoc.data().role !== role) {
+          setError(`You are registered as ${userDoc.data().role}, not ${role}`);
+          setIsLoading(false);
+          return;
+        }
+      }
 
+      const idToken = await user.getIdToken();
       localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
-      localStorage.setItem(
-        "profilePicture",
-        user.photoURL || "https://via.placeholder.com/150"
-      );
-      console.log("Navigating to /dashboard from Google login");
+      localStorage.setItem("profilePicture", user.photoURL || "https://ui-avatars.com/api/?name=" + encodeURIComponent(user.displayName || "User"));
+      
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Google login error:", err.message, err.code);
+      console.error("Google login error:", err.message);
       setError(getFirebaseErrorMessage(err.code));
     } finally {
       setIsLoading(false);
@@ -98,260 +114,145 @@ const Login = () => {
         return "Popup blocked by browser. Please allow popups";
       case "auth/network-request-failed":
         return "Network error. Please check your connection";
-      case "auth/unauthorized-domain":
-        return "This domain is not authorized for Google login. Please contact support.";
       default:
         return "Login failed. Please try again";
     }
   };
 
-  const handleBackToWelcome = () => {
-    console.log("Back arrow clicked, isLoading:", isLoading);
-    console.log("Navigating to /");
-    navigate("/");
-  };
-
-  const handleSignupNavigation = () => {
-    console.log("Sign up clicked, isLoading:", isLoading);
-    console.log("Navigating to /signup");
-    navigate("/signup");
-  };
-
-  const inputStyle = {
-    width: "100%",
-    padding: "18px",
-    marginBottom: "16px",
-    borderRadius: "8px",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
-    background: "rgba(255, 255, 255, 0.9)",
-    color: "#333",
-    fontSize: "16px",
-    outline: "none",
-    transition: "border-color 0.3s",
-    boxSizing: "border-box",
-  };
-
-  console.log("Rendering Login, isLoading:", isLoading);
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(to right, #4A00E0, #8E2DE2)",
-        padding: "20px",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          inset: "0",
-          background: "linear-gradient(to right, #6a00f4, #ff0080, #ff8c00)",
-          opacity: 0.3,
-          filter: "blur(50px)",
-        }}
-      />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-4">
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full filter blur-3xl opacity-20"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl opacity-20"></div>
+      </div>
+      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{
-          width: "650px",
-          padding: "60px",
-          background: "rgba(20, 20, 20, 0.9)",
-          borderRadius: "20px",
-          boxShadow: "0px 6px 15px rgba(0, 0, 0, 0.4)",
-          textAlign: "center",
-          position: "relative",
-          zIndex: 10,
-        }}
+        className="relative w-full max-w-md"
       >
-        <button
-          style={{
-            position: "absolute",
-            top: "20px",
-            left: "20px",
-            background: "none",
-            border: "none",
-            color: "white",
-            fontSize: "24px",
-            cursor: isLoading ? "not-allowed" : "pointer",
-            transition: "color 0.3s",
-          }}
-          onClick={handleBackToWelcome}
-          onMouseOver={(e) => !isLoading && (e.target.style.color = "#FFD700")}
-          onMouseOut={(e) => (e.target.style.color = "white")}
-          disabled={isLoading}
-        >
-          ←
-        </button>
-        <h1 style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "30px", color: "#FFD700" }}>
-          Login
-        </h1>
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              style={{
-                background: "rgba(255, 0, 0, 0.2)",
-                color: "#ff9999",
-                padding: "10px",
-                borderRadius: "8px",
-                marginBottom: "20px",
-              }}
-            >
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <form onSubmit={handleEmailLogin}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              style={inputStyle}
-              onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-              disabled={isLoading}
-            >
-              <option value="" disabled>
-                Select Role
-              </option>
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="driver">Driver</option>
-            </select>
-            <input
-              style={inputStyle}
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-              disabled={isLoading}
-              required
-            />
-            <div style={{ position: "relative" }}>
-              <input
-                style={{ ...inputStyle, paddingRight: "48px" }}
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-                onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
-                disabled={isLoading}
-                required
-              />
-              <button
-                type="button"
-                style={{
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "#333",
-                  padding: "0",
-                  width: "24px",
-                  height: "24px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-                onClick={() => setShowPassword(!showPassword)}
+        <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-8 h-8 text-black" />
+            </div>
+            <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
+            <p className="text-gray-400 mt-2">Sign in to your FleetTraq account</p>
+          </div>
+
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm text-center"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Select Role</label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-yellow-500 transition-all"
                 disabled={isLoading}
               >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+                <option value="" disabled className="text-gray-800">Select your role</option>
+                <option value="admin" className="text-gray-800">Administrator</option>
+                <option value="manager" className="text-gray-800">Fleet Manager</option>
+                <option value="driver" className="text-gray-800">Driver</option>
+              </select>
             </div>
+
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 transition-all"
+                  placeholder="you@example.com"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-gray-300 text-sm mb-2">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500 transition-all"
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
             <button
               type="submit"
-              style={{
-                width: "100%",
-                padding: "18px",
-                fontSize: "18px",
-                fontWeight: "bold",
-                color: "white",
-                background: "linear-gradient(to right, #4A00E0, #8E2DE2)",
-                borderRadius: "8px",
-                border: "none",
-                cursor: isLoading ? "not-allowed" : "pointer",
-                transition: "transform 0.2s",
-                opacity: isLoading ? 0.7 : 1,
-              }}
-              onMouseOver={(e) => !isLoading && (e.target.style.transform = "scale(1.05)")}
-              onMouseOut={(e) => (e.target.style.transform = "scale(1)")}
               disabled={isLoading}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-black font-semibold hover:shadow-lg hover:shadow-yellow-500/25 transition-all disabled:opacity-50"
             >
-              {isLoading ? "Logging In..." : "Login with Email"}
+              {isLoading ? "Signing in..." : "Sign In"}
             </button>
+          </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/20"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-4 bg-transparent text-gray-400">Or continue with</span>
+            </div>
           </div>
-        </form>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", margin: "20px 0" }}>
-          <div style={{ height: "1px", width: "40%", background: "rgba(255, 255, 255, 0.3)" }}></div>
-          <span style={{ fontSize: "14px", color: "rgba(255, 255, 255, 0.7)" }}>or Login with</span>
-          <div style={{ height: "1px", width: "40%", background: "rgba(255, 255, 255, 0.3)" }}></div>
-        </div>
-        <button
-          style={{
-            width: "100%",
-            padding: "18px",
-            fontSize: "18px",
-            fontWeight: "bold",
-            color: "white",
-            background: "linear-gradient(to right, #4285f4, #3267d6)",
-            borderRadius: "8px",
-            border: "none",
-            cursor: isLoading ? "not-allowed" : "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "10px",
-            transition: "transform 0.2s",
-            opacity: isLoading ? 0.7 : 1,
-          }}
-          onClick={handleGoogleLogin}
-          onMouseOver={(e) => !isLoading && (e.target.style.transform = "scale(1.05)")}
-          onMouseOut={(e) => (e.target.style.transform = "scale(1)")}
-          disabled={isLoading}
-        >
-          <FcGoogle style={{ fontSize: "24px" }} />
-          Google
-        </button>
-        <button
-          style={{
-            fontSize: "16px",
-            color: "#00BFFF",
-            background: "none",
-            border: "none",
-            marginTop: "20px",
-            cursor: "pointer",
-            textDecoration: "underline",
-          }}
-          onClick={() => navigate("/forgot-password")}
-          disabled={isLoading}
-        >
-          Forgot Password?
-        </button>
-        <p style={{ fontSize: "16px", marginTop: "20px", color: "white" }}>
-          Don't have an account?{" "}
+
           <button
-            style={{ color: "#FFD700", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-            onClick={handleSignupNavigation}
-            disabled={isLoading}
+            onClick={handleGoogleLogin}
+            disabled={isLoading || !role}
+            className="w-full py-3 rounded-xl bg-white/10 border border-white/20 text-white font-semibold flex items-center justify-center gap-3 hover:bg-white/20 transition-all disabled:opacity-50"
           >
-            Sign up
+            <FcGoogle className="w-5 h-5" />
+            Google
           </button>
-        </p>
+
+          <div className="mt-6 text-center space-y-2">
+            <button
+              onClick={() => navigate("/forgot-password")}
+              className="text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
+            >
+              Forgot password?
+            </button>
+            <p className="text-gray-400 text-sm">
+              Don't have an account?{" "}
+              <button
+                onClick={() => navigate("/signup")}
+                className="text-yellow-400 hover:text-yellow-300 font-semibold"
+              >
+                Sign up
+              </button>
+            </p>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

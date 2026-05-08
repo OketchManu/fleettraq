@@ -1,523 +1,269 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, Truck, Bus, Map, BarChart, Clock, Users, AlertTriangle, Fuel } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Car, Truck, Map, BarChart, Clock, Users, 
+  AlertTriangle, Fuel, Shield, Zap, Globe, Target,
+  ArrowRight, Menu, X, Sun, Moon
+} from "lucide-react";
 
 const WelcomeScreen = () => {
   const navigate = useNavigate();
   const [isLightMode, setIsLightMode] = useState(false);
-  const [screenSize, setScreenSize] = useState({
-    isMobile: false,
-    isTablet: false,
-    isDesktop: true
-  });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [activeFeature, setActiveFeature] = useState(0);
 
-  // Responsive screen size detection
   useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      setScreenSize({
-        isMobile: width <= 640,
-        isTablet: width > 640 && width <= 1024,
-        isDesktop: width > 1024
-      });
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
     };
-
-    // Initial check
-    handleResize();
-
-    // Add event listener
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const { isMobile, isTablet, isDesktop } = screenSize;
+  const features = [
+    { icon: <Map className="w-6 h-6" />, title: "Real-Time GPS Tracking", description: "Monitor vehicle locations with pinpoint accuracy and live updates.", color: "#22D3EE", gradient: "from-cyan-500 to-blue-500" },
+    { icon: <BarChart className="w-6 h-6" />, title: "Advanced Analytics", description: "Get deep insights into fleet performance and operational efficiency.", color: "#E879F9", gradient: "from-pink-500 to-purple-500" },
+    { icon: <Clock className="w-6 h-6" />, title: "Predictive Maintenance", description: "Prevent breakdowns with AI-powered maintenance alerts.", color: "#34D399", gradient: "from-green-500 to-emerald-500" },
+    { icon: <Users className="w-6 h-6" />, title: "Driver Management", description: "Track driver performance, behavior, and compliance.", color: "#FBBF24", gradient: "from-yellow-500 to-amber-500" },
+    { icon: <Fuel className="w-6 h-6" />, title: "Fuel Efficiency", description: "Optimize fuel consumption and reduce operational costs.", color: "#10B981", gradient: "from-teal-500 to-green-500" },
+    { icon: <Shield className="w-6 h-6" />, title: "Security & Compliance", description: "Enterprise-grade security with full compliance tracking.", color: "#818CF8", gradient: "from-indigo-500 to-blue-500" },
+  ];
 
-  const darkModeStyles = {
-    background: "#090212",
-    textColor: "#d1d5db",
-    cardBg: "#0f172a",
-    gradient: "linear-gradient(to bottom, #090212, #120218, #090212)",
-    buttonHover: "rgba(34, 211, 238, 0.2)",
-    secondaryButtonHover: "rgba(232, 121, 249, 0.2)",
-  };
+  const stats = [
+    { value: "500+", label: "Fleets Tracked", color: "#22D3EE" },
+    { value: "1M+", label: "Miles Optimized", color: "#E879F9" },
+    { value: "99.9%", label: "Uptime", color: "#34D399" },
+    { value: "24/7", label: "Support", color: "#FBBF24" },
+  ];
 
-  const lightModeStyles = {
-    background: "linear-gradient(to right, #E2E8F0, #F1F5F9)",
-    textColor: "#1E293B",
-    cardBg: "#FFFFFF",
-    gradient: "linear-gradient(to right, #E2E8F0, #F1F5F9)",
-    buttonHover: "#DBEAFE",
-    secondaryButtonHover: "#EDE9FE",
-  };
-
-  const currentTheme = isLightMode ? lightModeStyles : darkModeStyles;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveFeature((prev) => (prev + 1) % features.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [features.length]);
 
   return (
-    <>
-      <style>{`
-        @keyframes slide {
-          0% { transform: translateX(100vw); }
-          100% { transform: translateX(-100vw); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.2); }
-        }
-        
-        /* Responsive Base Styles */
-        body, html {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-          width: 100%;
-          height: 100%;
-          overflow-x: hidden;
-        }
-        
-        /* Improved accessibility */
-        button:focus, input:focus {
-          outline: 2px solid #22D3EE;
-          outline-offset: 2px;
-        }
-      `}</style>
-      <div
-        style={{
-          position: "relative",
-          minHeight: "100vh",
-          width: "100%",
-          overflow: "hidden",
-          background: currentTheme.background,
-          transition: "background 0.3s ease",
-          maxWidth: "100vw",
-        }}
-      >
-        {/* Theme Toggle */}
-        <div
-          style={{
-            position: "absolute",
-            top: isMobile ? "0.5rem" : isTablet ? "0.75rem" : "1rem",
-            right: isMobile ? "0.5rem" : isTablet ? "0.75rem" : "1rem",
-            zIndex: 20,
-            display: "flex",
-            alignItems: "center",
-            gap: isMobile ? "0.25rem" : "0.5rem",
-          }}
-        >
-          <label
-            style={{
-              color: currentTheme.textColor,
-              fontSize: isMobile ? "0.75rem" : isTablet ? "0.85rem" : "0.9rem",
-              fontWeight: "500",
-            }}
-          >
-            {isLightMode ? "Light" : "Dark"}
-          </label>
-          <input
-            type="checkbox"
-            checked={isLightMode}
-            onChange={() => setIsLightMode(!isLightMode)}
-            style={{
-              appearance: "none",
-              width: isMobile ? "30px" : isTablet ? "36px" : "40px",
-              height: isMobile ? "16px" : isTablet ? "18px" : "20px",
-              background: isLightMode ? "#64748B" : "#0f172a",
-              borderRadius: "999px",
-              position: "relative",
-              cursor: "pointer",
-              outline: "none",
-              border: `2px solid ${isLightMode ? "#64748B" : "#E879F9"}`,
-              transition: "all 0.3s ease",
-            }}
-            onMouseOver={(e) => (e.target.style.opacity = "0.8")}
-            onMouseOut={(e) => (e.target.style.opacity = "1")}
-          />
-          <span
-            style={{
-              position: "absolute",
-              width: isMobile ? "12px" : isTablet ? "14px" : "16px",
-              height: isMobile ? "12px" : isTablet ? "14px" : "16px",
-              background: isLightMode ? "#1E293B" : "#E879F9",
-              borderRadius: "50%",
-              top: isMobile ? "0.75rem" : isTablet ? "1rem" : "1.5rem",
-              right: isLightMode 
-                ? (isMobile ? "0.75rem" : isTablet ? "1rem" : "1.25rem") 
-                : (isMobile ? "1.75rem" : isTablet ? "2rem" : "2.25rem"),
-              transition: "all 0.3s ease",
-            }}
-          />
-        </div>
+    <div className={`min-h-screen relative overflow-x-hidden ${isLightMode ? "bg-gray-50" : "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]"}`}>
+      {/* Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-cyan-500 rounded-full filter blur-3xl opacity-10 animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-500 rounded-full filter blur-3xl opacity-10 animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-yellow-500 rounded-full filter blur-3xl opacity-5"></div>
+      </div>
 
-        {/* Background gradient */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: currentTheme.gradient,
-            transition: "background 0.3s ease",
-          }}
-        />
-        
-        {/* Animated vehicle icons - hidden on mobile and tablet for performance */}
-        {isDesktop && (
-          <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-            <Car
-              style={{
-                position: "absolute",
-                top: "15%",
-                left: "100%",
-                color: "#22D3EE",
-                animation: "slide 18s linear infinite",
-              }}
-            />
-            <Truck
-              style={{
-                position: "absolute",
-                top: "45%",
-                left: "100%",
-                color: "#E879F9",
-                animation: "slide 25s linear infinite",
-              }}
-            />
-            <Bus
-              style={{
-                position: "absolute",
-                top: "75%",
-                left: "100%",
-                color: "#34D399",
-                animation: "slide 22s linear infinite",
-              }}
-            />
-          </div>
-        )}
-        
-        {/* Main content */}
-        <div
-          style={{
-            position: "relative",
-            zIndex: 10,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "100vh",
-            padding: isMobile ? "1rem" : isTablet ? "1.5rem" : "2rem",
-            textAlign: "center",
-            maxWidth: "100%",
-          }}
-        >
-          <h1
-            style={{
-              fontSize: isMobile ? "clamp(1.5rem, 8vw, 2.5rem)" : isTablet ? "clamp(2.5rem, 6vw, 3rem)" : "3.5rem",
-              fontWeight: "bold",
-              color: isLightMode ? "#1E293B" : "white",
-              background: "linear-gradient(to right, #22D3EE, #E879F9, #34D399)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              animation: "fadeIn 1s ease-in-out",
-              lineHeight: isMobile ? "1.2" : isTablet ? "1.15" : "1.1",
-              margin: isMobile ? "1rem 0" : "1.5rem 0",
-              maxWidth: "100%",
-              padding: "0 1rem",
-            }}
-          >
-            FleetTraq: Command Your Fleet
-          </h1>
-          <p
-            style={{
-              marginTop: isMobile ? "0.5rem" : isTablet ? "1rem" : "1.5rem",
-              fontSize: isMobile ? "0.9rem" : isTablet ? "1.2rem" : "1.5rem",
-              color: currentTheme.textColor,
-              maxWidth: isMobile ? "95%" : isTablet ? "90%" : "800px",
-              animation: "fadeIn 1.5s ease-in-out",
-              padding: "0 1rem",
-            }}
-          >
-            Harness the power of advanced fleet tracking to optimize operations, enhance safety, and drive efficiency.
-          </p>
-          <p
-            style={{
-              marginTop: "0.5rem",
-              fontSize: isMobile ? "0.8rem" : isTablet ? "0.9rem" : "1rem",
-              color: isLightMode ? "#64748B" : "#a1a1aa",
-              animation: "fadeIn 2s ease-in-out",
-              padding: "0 1rem",
-            }}
-          >
-            "Navigate the future of fleet management with precision."
-          </p>
-          
-          {/* Stats Section */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: isMobile ? "0.75rem" : isTablet ? "1.5rem" : "2rem",
-              marginTop: isMobile ? "1rem" : isTablet ? "1.5rem" : "2rem",
-              flexWrap: "wrap",
-              animation: "fadeIn 2.5s ease-in-out",
-              width: "100%",
-              padding: "0 1rem",
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <h3 style={{ fontSize: isMobile ? "1.25rem" : isTablet ? "1.75rem" : "2rem", color: "#22D3EE", fontWeight: "bold" }}>
-                500+
-              </h3>
-              <p style={{ color: currentTheme.textColor, fontSize: isMobile ? "0.75rem" : isTablet ? "0.85rem" : "1rem" }}>
-                Fleets Tracked
-              </p>
+      {/* Navigation */}
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? "bg-black/80 backdrop-blur-lg shadow-lg" : "bg-transparent"}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-2">
+              <Truck className="w-8 h-8 text-yellow-500" />
+              <span className="text-xl font-bold bg-gradient-to-r from-yellow-500 to-amber-500 bg-clip-text text-transparent">
+                FleetTraq
+              </span>
             </div>
-            <div style={{ textAlign: "center" }}>
-              <h3 style={{ fontSize: isMobile ? "1.25rem" : isTablet ? "1.75rem" : "2rem", color: "#E879F9", fontWeight: "bold" }}>
-                1M+
-              </h3>
-              <p style={{ color: currentTheme.textColor, fontSize: isMobile ? "0.75rem" : isTablet ? "0.85rem" : "1rem" }}>
-                Miles Optimized
-              </p>
+            
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center gap-8">
+              <a href="#features" className={`${isLightMode ? "text-gray-700 hover:text-yellow-600" : "text-gray-300 hover:text-yellow-400"} transition-colors`}>Features</a>
+              <a href="#stats" className={`${isLightMode ? "text-gray-700 hover:text-yellow-600" : "text-gray-300 hover:text-yellow-400"} transition-colors`}>Stats</a>
+              <a href="#about" className={`${isLightMode ? "text-gray-700 hover:text-yellow-600" : "text-gray-300 hover:text-yellow-400"} transition-colors`}>About</a>
             </div>
-            <div style={{ textAlign: "center" }}>
-              <h3 style={{ fontSize: isMobile ? "1.25rem" : isTablet ? "1.75rem" : "2rem", color: "#34D399", fontWeight: "bold" }}>
-                99.9%
-              </h3>
-              <p style={{ color: currentTheme.textColor, fontSize: isMobile ? "0.75rem" : isTablet ? "0.85rem" : "1rem" }}>
-                Uptime
-              </p>
-            </div>
-          </div>
-          
-          {/* Feature cards */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: isMobile 
-                ? "1fr" 
-                : isTablet 
-                  ? "repeat(auto-fit, minmax(200px, 1fr))" 
-                  : "repeat(auto-fit, minmax(250px, 1fr))",
-              gap: isMobile ? "0.75rem" : isTablet ? "1rem" : "1.5rem",
-              marginTop: isMobile ? "1.5rem" : isTablet ? "2.5rem" : "4rem",
-              maxWidth: "1200px",
-              width: isMobile ? "95%" : isTablet ? "90%" : "85%",
-              animation: "fadeIn 2s ease-in-out",
-            }}
-          >
-            {[
-              {
-                icon: <Car size={isMobile ? 20 : isTablet ? 24 : 32} />,
-                title: "Real-Time GPS Tracking",
-                description: "Monitor vehicle locations with pinpoint accuracy.",
-                color: "#22D3EE",
-              },
-              {
-                icon: <Map size={isMobile ? 20 : isTablet ? 24 : 32} />,
-                title: "Dynamic Route Planning",
-                description: "Reduce costs with AI-optimized routes.",
-                color: "#E879F9",
-              },
-              {
-                icon: <BarChart size={isMobile ? 20 : isTablet ? 24 : 32} />,
-                title: "Fleet Performance Insights",
-                description: "Analyze data to boost productivity.",
-                color: "#34D399",
-              },
-              {
-                icon: <Clock size={isMobile ? 20 : isTablet ? 24 : 32} />,
-                title: "Predictive Maintenance",
-                description: "Prevent downtime with proactive alerts.",
-                color: "#818CF8",
-              },
-              {
-                icon: <Users size={isMobile ? 20 : isTablet ? 24 : 32} />,
-                title: "Driver Behavior Monitoring",
-                description: "Enhance safety by tracking driver habits.",
-                color: "#FBBF24",
-              },
-              {
-                icon: <AlertTriangle size={isMobile ? 20 : isTablet ? 24 : 32} />,
-                title: "Incident Reporting",
-                description: "Manage incidents to maintain reliability.",
-                color: "#EF4444",
-              },
-              {
-                icon: <Fuel size={isMobile ? 20 : isTablet ? 24 : 32} />,
-                title: "Fuel Efficiency Tracking",
-                description: "Reduce waste with fuel analytics.",
-                color: "#10B981",
-              },
-            ].map((feature, i) => (
-              <div
-                key={i}
-                style={{
-                  background: currentTheme.cardBg,
-                  padding: isMobile ? "0.75rem" : isTablet ? "1.25rem" : "1.5rem",
-                  borderRadius: "12px",
-                  textAlign: "center",
-                  border: `2px solid ${feature.color}`,
-                  transition: "all 0.3s ease",
-                  boxShadow: isLightMode ? "0 4px 6px rgba(0, 0, 0, 0.05)" : "none",
-                  transform: "translateY(0)",
-                  "&:hover": {
-                    transform: "translateY(-5px)",
-                  }
-                }}
-                onMouseOver={(e) => {
-                  if (!isMobile) {
-                    e.currentTarget.style.transform = "translateY(-5px)";
-                    e.currentTarget.style.boxShadow = isLightMode 
-                      ? "0 10px 15px rgba(0, 0, 0, 0.1)" 
-                      : "0 10px 15px rgba(0, 0, 0, 0.3)";
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!isMobile) {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = isLightMode 
-                      ? "0 4px 6px rgba(0, 0, 0, 0.05)" 
-                      : "none";
-                  }
-                }}
+            
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsLightMode(!isLightMode)}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
               >
-                <div style={{ color: feature.color, marginBottom: "0.5rem" }}>{feature.icon}</div>
-                <h3
-                  style={{
-                    color: isLightMode ? "#1E293B" : "white",
-                    fontSize: isMobile ? "0.9rem" : isTablet ? "1.1rem" : "1.2rem",
-                    marginTop: "0.5rem",
-                  }}
+                {isLightMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5 text-yellow-400" />}
+              </button>
+              
+              <div className="hidden md:flex gap-3">
+                <button
+                  onClick={() => navigate("/login")}
+                  className="px-4 py-2 rounded-lg border-2 border-yellow-500 text-yellow-500 hover:bg-yellow-500 hover:text-black transition-all font-semibold"
                 >
-                  {feature.title}
-                </h3>
-                <p
-                  style={{
-                    color: isLightMode ? "#64748B" : "#a1a1aa",
-                    marginTop: "0.5rem",
-                    fontSize: isMobile ? "0.75rem" : isTablet ? "0.85rem" : "0.95rem",
-                  }}
+                  Login
+                </button>
+                <button
+                  onClick={() => navigate("/signup")}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-600 text-black font-semibold hover:shadow-lg hover:shadow-yellow-500/25 transition-all"
                 >
-                  {feature.description}
-                </p>
+                  Get Started
+                </button>
               </div>
+              
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 rounded-lg bg-white/10"
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden bg-black/95 backdrop-blur-lg border-t border-gray-800"
+            >
+              <div className="flex flex-col p-4 gap-3">
+                <a href="#features" className="text-gray-300 hover:text-yellow-400 py-2" onClick={() => setMobileMenuOpen(false)}>Features</a>
+                <a href="#stats" className="text-gray-300 hover:text-yellow-400 py-2" onClick={() => setMobileMenuOpen(false)}>Stats</a>
+                <a href="#about" className="text-gray-300 hover:text-yellow-400 py-2" onClick={() => setMobileMenuOpen(false)}>About</a>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => navigate("/login")} className="flex-1 px-4 py-2 rounded-lg border-2 border-yellow-500 text-yellow-500">Login</button>
+                  <button onClick={() => navigate("/signup")} className="flex-1 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-600 text-black">Sign Up</button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 px-4">
+        <div className="max-w-7xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="inline-flex items-center gap-2 bg-yellow-500/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6 border border-yellow-500/30">
+              <Zap className="w-4 h-4 text-yellow-500" />
+              <span className="text-sm text-yellow-400">Enterprise Fleet Management</span>
+            </div>
+            
+            <h1 className="text-5xl md:text-7xl font-bold mb-6">
+              <span className="bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-500 bg-clip-text text-transparent">
+                Command Your Fleet
+              </span>
+              <br />
+              <span className={isLightMode ? "text-gray-800" : "text-white"}>With Precision</span>
+            </h1>
+            
+            <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-10">
+              Harness the power of advanced fleet tracking to optimize operations, 
+              enhance safety, and drive efficiency across your entire vehicle network.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => navigate("/signup")}
+                className="group px-8 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-black font-semibold text-lg flex items-center justify-center gap-2 hover:shadow-xl hover:shadow-yellow-500/25 transition-all"
+              >
+                Start Free Trial
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button
+                onClick={() => navigate("/login")}
+                className="px-8 py-3 rounded-xl border-2 border-yellow-500 text-yellow-500 font-semibold text-lg hover:bg-yellow-500/10 transition-all"
+              >
+                View Demo
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section id="stats" className="py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 text-center border border-white/10 hover:border-yellow-500/50 transition-all"
+              >
+                <h3 className="text-3xl md:text-4xl font-bold" style={{ color: stat.color }}>{stat.value}</h3>
+                <p className="text-gray-400 mt-2">{stat.label}</p>
+              </motion.div>
             ))}
           </div>
-          
-          {/* Navigation buttons */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: isMobile ? "column" : "row",
-              gap: isMobile ? "0.75rem" : isTablet ? "1rem" : "1.5rem",
-              marginTop: isMobile ? "1.5rem" : isTablet ? "3rem" : "4rem",
-              animation: "fadeIn 2s ease-in-out",
-              width: isMobile ? "95%" : isTablet ? "auto" : "auto",
-              padding: "0 1rem",
-            }}
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            className="text-center mb-12"
           >
-            <button
-              onClick={() => navigate("/login")}
-              style={{
-                padding: isMobile ? "0.5rem 1.25rem" : isTablet ? "0.6rem 2rem" : "0.75rem 2.5rem",
-                fontSize: isMobile ? "0.9rem" : isTablet ? "1rem" : "1.1rem",
-                fontWeight: "bold",
-                color: isLightMode ? "#1E293B" : "white",
-                background: currentTheme.cardBg,
-                border: "2px solid #22D3EE",
-                borderRadius: "8px",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                boxShadow: isLightMode ? "0 2px 4px rgba(0, 0, 0, 0.05)" : "none",
-                width: isMobile ? "100%" : "auto",
-              }}
-              onMouseOver={(e) => {
-                e.target.style.background = currentTheme.buttonHover;
-                e.target.style.transform = "translateY(-2px)";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = currentTheme.cardBg;
-                e.target.style.transform = "translateY(0)";
-              }}
-              onFocus={(e) => {
-                e.target.style.outline = "2px solid #22D3EE";
-                e.target.style.outlineOffset = "2px";
-              }}
-            >
-              LOGIN
-            </button>
-            <button
-              onClick={() => navigate("/signup")}
-              style={{
-                padding: isMobile ? "0.5rem 1.25rem" : isTablet ? "0.6rem 2rem" : "0.75rem 2.5rem",
-                fontSize: isMobile ? "0.9rem" : isTablet ? "1rem" : "1.1rem",
-                fontWeight: "bold",
-                color: isLightMode ? "#1E293B" : "white",
-                background: currentTheme.cardBg,
-                border: "2px solid #E879F9",
-                borderRadius: "8px",
-                cursor: "pointer",
-                transition: "all 0.3s ease",
-                boxShadow: isLightMode ? "0 2px 4px rgba(0, 0, 0, 0.05)" : "none",
-                width: isMobile ? "100%" : "auto",
-              }}
-              onMouseOver={(e) => {
-                e.target.style.background = currentTheme.secondaryButtonHover;
-                e.target.style.transform = "translateY(-2px)";
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = currentTheme.cardBg;
-                e.target.style.transform = "translateY(0)";
-              }}
-              onFocus={(e) => {
-                e.target.style.outline = "2px solid #E879F9";
-                e.target.style.outlineOffset = "2px";
-              }}
-            >
-              SIGNUP
-            </button>
-          </div>
-          
-          {/* Additional Info */}
-          <div
-            style={{
-              marginTop: isMobile ? "1.5rem" : isTablet ? "2.5rem" : "3rem",
-              marginBottom: isMobile ? "1.5rem" : isTablet ? "2rem" : "2rem",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "1rem",
-              animation: "fadeIn 2.5s ease-in-out",
-              width: "100%",
-              padding: "0 1rem",
-            }}
-          >
-            <p
-              style={{
-                fontSize: isMobile ? "0.75rem" : isTablet ? "0.85rem" : "1rem",
-                color: isLightMode ? "#64748B" : "#a1a1aa",
-                textAlign: "center",
-                maxWidth: "100%",
-              }}
-            >
-              Trusted by fleet managers worldwide | © 2025 FleetTraq
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-yellow-500 to-amber-500 bg-clip-text text-transparent">
+              Powerful Features
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              Everything you need to manage your fleet efficiently in one platform
             </p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: isMobile ? "column" : "row",
-                gap: isMobile ? "0.5rem" : isTablet ? "1.5rem" : "2rem",
-                width: "100%",
-                justifyContent: "center",
-              }}
-            >
-            </div>
+          </motion.div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ scale: 1.05, y: -5 }}
+                className="group bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:border-yellow-500/50 transition-all cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                  <div style={{ color: "white" }}>{feature.icon}</div>
+                </div>
+                <h3 className="text-xl font-semibold mb-2 text-white">{feature.title}</h3>
+                <p className="text-gray-400">{feature.description}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
-      </div>
-    </>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 backdrop-blur-sm rounded-3xl p-12 border border-yellow-500/30"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
+              Ready to Transform Your Fleet?
+            </h2>
+            <p className="text-gray-300 text-lg mb-8">
+              Join thousands of companies that trust FleetTraq for their fleet management needs
+            </p>
+            <button
+              onClick={() => navigate("/signup")}
+              className="px-8 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-black font-semibold text-lg inline-flex items-center gap-2 hover:shadow-xl hover:shadow-yellow-500/25 transition-all"
+            >
+              Get Started Now
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-8 px-4 border-t border-white/10">
+        <div className="max-w-7xl mx-auto text-center">
+          <p className="text-gray-500 text-sm">
+            © 2024 FleetTraq. All rights reserved. Built for modern fleet operations.
+          </p>
+        </div>
+      </footer>
+    </div>
   );
 };
 
