@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { Eye, EyeOff, Mail, Lock, Shield, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Shield, ArrowLeft, Home } from "lucide-react";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider, db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -130,14 +130,19 @@ const Login = () => {
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-md"
       >
-        {/* Back Button to Welcome */}
-        <button
-          onClick={() => navigate("/")}
-          className="absolute -top-12 left-0 flex items-center gap-2 text-white/80 hover:text-yellow-400 transition-colors group"
-        >
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="text-sm">Back to Home</span>
-        </button>
+        {/* Back Button to Welcome - Now visible at top of card */}
+        <div className="mb-4 flex justify-between items-center">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all group border border-white/20"
+          >
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm font-medium">Back to Home</span>
+          </button>
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-600 flex items-center justify-center">
+            <Home className="w-5 h-5 text-black" />
+          </div>
+        </div>
 
         <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
           <div className="text-center mb-8">
