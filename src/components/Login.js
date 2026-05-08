@@ -1,11 +1,13 @@
+/* eslint-disable no-unused-vars */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { Eye, EyeOff, Mail, Lock, Shield } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Shield, ArrowLeft } from "lucide-react";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider, db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
+import Button from "./Button";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -31,7 +33,6 @@ const Login = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      // Verify role matches
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists() && userDoc.data().role !== role) {
         setError(`You are registered as ${userDoc.data().role}, not ${role}`);
@@ -42,7 +43,7 @@ const Login = () => {
       const idToken = await user.getIdToken();
       localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
-      localStorage.setItem("profilePicture", user.photoURL || "https://ui-avatars.com/api/?name=" + encodeURIComponent(email));
+      localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}`);
       
       navigate("/dashboard", { replace: true });
     } catch (err) {
@@ -67,7 +68,6 @@ const Login = () => {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       
-      // Check if user exists, if not create with selected role
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
         await setDoc(doc(db, "users", user.uid), {
@@ -76,19 +76,16 @@ const Login = () => {
           role: role,
           createdAt: new Date().toISOString()
         });
-      } else {
-        // Verify role matches
-        if (userDoc.data().role !== role) {
-          setError(`You are registered as ${userDoc.data().role}, not ${role}`);
-          setIsLoading(false);
-          return;
-        }
+      } else if (userDoc.data().role !== role) {
+        setError(`You are registered as ${userDoc.data().role}, not ${role}`);
+        setIsLoading(false);
+        return;
       }
 
       const idToken = await user.getIdToken();
       localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
-      localStorage.setItem("profilePicture", user.photoURL || "https://ui-avatars.com/api/?name=" + encodeURIComponent(user.displayName || "User"));
+      localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
       
       navigate("/dashboard", { replace: true });
     } catch (err) {
@@ -121,9 +118,11 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900 p-4">
+      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full filter blur-3xl opacity-20"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl opacity-20"></div>
+        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full filter blur-3xl opacity-20 animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl opacity-20 animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-yellow-500 rounded-full filter blur-3xl opacity-10"></div>
       </div>
       
       <motion.div
@@ -131,6 +130,15 @@ const Login = () => {
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-md"
       >
+        {/* Back Button to Welcome */}
+        <button
+          onClick={() => navigate("/")}
+          className="absolute -top-12 left-0 flex items-center gap-2 text-white/80 hover:text-yellow-400 transition-colors group"
+        >
+          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+          <span className="text-sm">Back to Home</span>
+        </button>
+
         <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-2xl">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
