@@ -1,7 +1,8 @@
+/* eslint-disable react/jsx-no-undef */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { User, Save, Lock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { User, Save, Lock, Mail, Bell, Shield, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
@@ -10,12 +11,14 @@ import Button from "./Button";
 
 const UserSettings = () => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode } = useFleet();
+  const { darkMode, setDarkMode, user } = useFleet();
   const [settings, setSettings] = useState({
     darkMode: true,
     emailNotifications: false,
   });
   const [loading, setLoading] = useState(true);
+  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -34,19 +37,21 @@ const UserSettings = () => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setSettings((prev) => ({ ...prev, ...data }));
-        setDarkMode(data.darkMode ?? true);
+        if (data.darkMode !== undefined) setDarkMode(data.darkMode);
       }
+      setLoading(false);
+    }, (err) => {
+      setError("Failed to load settings: " + err.message);
       setLoading(false);
     });
     return () => unsubscribe();
   }, [navigate, setDarkMode]);
 
   const handleSettingsChange = (e) => {
-    const { name, type, checked } = e.target;
-    setSettings((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : e.target.value,
-    }));
+    const { name, checked } = e.target;
+    const newValue = checked;
+    setSettings((prev) => ({ ...prev, [name]: newValue }));
+    if (name === "darkMode") setDarkMode(newValue);
   };
 
   const handlePasswordChange = (e) => {
@@ -56,15 +61,15 @@ const UserSettings = () => {
 
   const handleSaveSettings = async () => {
     if (!auth.currentUser) return;
-    const settingsRef = doc(db, "userSettings", `${auth.currentUser.uid}_user`);
+    setError(null);
+    setSuccess(null);
     try {
+      const settingsRef = doc(db, "userSettings", `${auth.currentUser.uid}_user`);
       await setDoc(settingsRef, settings, { merge: true });
-      setDarkMode(settings.darkMode);
-      setPasswordSuccess("Settings saved successfully!");
-      setTimeout(() => setPasswordSuccess(null), 3000); // Clear success message after 3s
-    } catch (error) {
-      setPasswordError("Failed to save settings. Please try again.");
-      console.error("Error saving settings:", error.message);
+      setSuccess("Settings saved successfully!");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError("Failed to save settings: " + err.message);
     }
   };
 
@@ -73,6 +78,10 @@ const UserSettings = () => {
     setPasswordSuccess(null);
     const { currentPassword, newPassword, confirmPassword } = passwordData;
 
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setPasswordError("New password and confirmation do not match.");
       return;
@@ -85,192 +94,235 @@ const UserSettings = () => {
     try {
       const user = auth.currentUser;
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential); // Reauthenticate user
+      await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
       setPasswordSuccess("Password updated successfully!");
       setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
       setTimeout(() => setPasswordSuccess(null), 3000);
-    } catch (error) {
-      setPasswordError("Failed to update password. Check your current password and try again.");
-      console.error("Error updating password:", error.message);
+    } catch (err) {
+      setPasswordError("Failed to update password. Please check your current password.");
     }
   };
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: darkMode ? "#080016" : "#f3f4f6", color: darkMode ? "#facc15" : "#1f2937" }}>
-        Loading your settings...
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] to-[#0f0f2a]" : "bg-gray-50"}`}>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className={darkMode ? "text-gray-400" : "text-gray-600"}>Loading settings...</p>
+        </div>
       </div>
     );
   }
 
-  const themeStyles = {
-    background: darkMode ? "linear-gradient(135deg, #080016 0%, #150025 100%)" : "linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)",
-    color: darkMode ? "#fff" : "#000",
-    cardBg: darkMode ? "rgba(20, 10, 40, 0.7)" : "rgba(255, 255, 255, 0.9)",
-    cardBorder: darkMode ? "2px solid rgba(250, 204, 21, 0.5)" : "2px solid rgba(59, 130, 246, 0.5)",
-    cardGlow: darkMode ? "0 0 15px rgba(250, 204, 21, 0.3)" : "0 0 15px rgba(59, 130, 246, 0.2)",
-  };
-
   return (
-    <motion.div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        ...themeStyles,
-      }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <div style={{ flex: "1 0 auto" }}>
-        <header
-          style={{
-            background: darkMode ? "rgba(0, 0, 0, 0.5)" : "#e5e7eb",
-            padding: "12px 16px",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <div
-            style={{
-              maxWidth: "1280px",
-              margin: "0 auto",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <h1
-              style={{
-                fontSize: "24px",
-                fontWeight: "bold",
-                display: "flex",
-                alignItems: "center",
-                color: darkMode ? "#facc15" : "#1f2937",
-              }}
-            >
-              <User style={{ marginRight: "8px" }} /> User Settings
-            </h1>
-            <Button onClick={() => navigate("/dashboard")}>Back to Dashboard</Button>
+    <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
+      {/* Header */}
+      <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <User className="w-8 h-8 text-yellow-500" />
+              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                Account Settings
+              </h1>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => navigate("/dashboard")}>
+                <ChevronLeft size={18} />
+                Back to Dashboard
+              </Button>
+            </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main style={{ padding: "16px", flexGrow: 1 }}>
-          <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <AnimatePresence>
+          {error && (
             <motion.div
-              style={{
-                background: themeStyles.cardBg,
-                padding: "24px",
-                borderRadius: "8px",
-                maxWidth: "512px",
-                border: themeStyles.cardBorder,
-                boxShadow: themeStyles.cardGlow,
-              }}
-              whileHover={{ scale: 1.02 }}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 flex items-center gap-2"
             >
-              <h2 style={{ fontSize: "20px", fontWeight: "600", color: darkMode ? "#facc15" : "#1f2937", marginBottom: "16px" }}>Account Preferences</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <input
-                    type="checkbox"
-                    name="darkMode"
-                    checked={settings.darkMode}
-                    onChange={handleSettingsChange}
-                    style={{ accentColor: darkMode ? "#facc15" : "#3b82f6" }}
-                  />
-                  <span style={{ color: darkMode ? "#facc15" : "#1f2937" }}>Enable Dark Mode</span>
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <input
-                    type="checkbox"
-                    name="emailNotifications"
-                    checked={settings.emailNotifications}
-                    onChange={handleSettingsChange}
-                    style={{ accentColor: darkMode ? "#facc15" : "#3b82f6" }}
-                  />
-                  <span style={{ color: darkMode ? "#facc15" : "#1f2937" }}>Receive Email Notifications</span>
-                </label>
-                <Button onClick={handleSaveSettings}>
-                  <Save size={16} style={{ marginRight: "4px" }} /> Save Preferences
-                </Button>
-              </div>
-
-              <h2 style={{ fontSize: "20px", fontWeight: "600", color: darkMode ? "#facc15" : "#1f2937", margin: "24px 0 16px" }}>Change Password</h2>
-              {passwordError && <p style={{ color: "#ef4444", marginBottom: "12px" }}>{passwordError}</p>}
-              {passwordSuccess && <p style={{ color: "#22c55e", marginBottom: "12px" }}>{passwordSuccess}</p>}
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <input
-                  type="password"
-                  name="currentPassword"
-                  value={passwordData.currentPassword}
-                  onChange={handlePasswordChange}
-                  placeholder="Current Password"
-                  style={{
-                    padding: "8px",
-                    background: darkMode ? "#1a0033" : "#f3f4f6",
-                    color: darkMode ? "#fff" : "#000",
-                    border: `1px solid ${darkMode ? "#4b5563" : "#d1d5db"}`,
-                    borderRadius: "4px",
-                  }}
-                  required
-                />
-                <input
-                  type="password"
-                  name="newPassword"
-                  value={passwordData.newPassword}
-                  onChange={handlePasswordChange}
-                  placeholder="New Password"
-                  style={{
-                    padding: "8px",
-                    background: darkMode ? "#1a0033" : "#f3f4f6",
-                    color: darkMode ? "#fff" : "#000",
-                    border: `1px solid ${darkMode ? "#4b5563" : "#d1d5db"}`,
-                    borderRadius: "4px",
-                  }}
-                  required
-                />
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={passwordData.confirmPassword}
-                  onChange={handlePasswordChange}
-                  placeholder="Confirm New Password"
-                  style={{
-                    padding: "8px",
-                    background: darkMode ? "#1a0033" : "#f3f4f6",
-                    color: darkMode ? "#fff" : "#000",
-                    border: `1px solid ${darkMode ? "#4b5563" : "#d1d5db"}`,
-                    borderRadius: "4px",
-                  }}
-                  required
-                />
-                <Button onClick={handleChangePassword}>
-                  <Lock size={16} style={{ marginRight: "4px" }} /> Update Password
-                </Button>
-              </div>
+              <AlertCircle size={20} />
+              {error}
             </motion.div>
-          </div>
-        </main>
-      </div>
+          )}
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-300 flex items-center gap-2"
+            >
+              <CheckCircle size={20} />
+              {success}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-      <footer
-        style={{
-          background: darkMode ? "rgba(0, 0, 0, 0.7)" : "rgba(255, 255, 255, 0.9)",
-          padding: "16px",
-          textAlign: "center",
-          color: darkMode ? "#9ca3af" : "#6b7280",
-          fontSize: "14px",
-          flexShrink: 0,
-        }}
-      >
-        © {new Date().getFullYear()} FleetTraq
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Profile Info */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
+          >
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-yellow-500 to-amber-600 flex items-center justify-center">
+                <User className="w-8 h-8 text-black" />
+              </div>
+              <div>
+                <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                  {user?.displayName || user?.email?.split('@')[0] || "User"}
+                </h2>
+                <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className={`p-4 rounded-xl ${darkMode ? "bg-black/30" : "bg-gray-50"}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="w-4 h-4 text-yellow-500" />
+                  <span className={`text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Account Type</span>
+                </div>
+                <p className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                  {localStorage.getItem("role") || "User"}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Preferences */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
+          >
+            <h2 className={`text-xl font-semibold mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Bell className="w-5 h-5 text-yellow-500" />
+              Preferences
+            </h2>
+            <div className="space-y-4">
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-3">
+                  <Moon className="w-4 h-4 text-gray-400" />
+                  <span className={darkMode ? "text-gray-300" : "text-gray-600"}>Dark Mode</span>
+                </div>
+                <input
+                  type="checkbox"
+                  name="darkMode"
+                  checked={settings.darkMode}
+                  onChange={handleSettingsChange}
+                  className="w-5 h-5 rounded accent-yellow-500"
+                />
+              </label>
+              <label className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-3">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <span className={darkMode ? "text-gray-300" : "text-gray-600"}>Email Notifications</span>
+                </div>
+                <input
+                  type="checkbox"
+                  name="emailNotifications"
+                  checked={settings.emailNotifications}
+                  onChange={handleSettingsChange}
+                  className="w-5 h-5 rounded accent-yellow-500"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 pt-4">
+              <Button onClick={handleSaveSettings} className="w-full">
+                <Save size={18} />
+                Save Preferences
+              </Button>
+            </div>
+          </motion.div>
+
+          {/* Change Password */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className={`lg:col-span-2 rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
+          >
+            <h2 className={`text-xl font-semibold mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Lock className="w-5 h-5 text-yellow-500" />
+              Change Password
+            </h2>
+            
+            <AnimatePresence>
+              {passwordError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm"
+                >
+                  {passwordError}
+                </motion.div>
+              )}
+              {passwordSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-300 text-sm"
+                >
+                  {passwordSuccess}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input
+                type="password"
+                name="currentPassword"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordChange}
+                placeholder="Current Password"
+                className={`px-4 py-3 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-500" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+              />
+              <input
+                type="password"
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                placeholder="New Password"
+                className={`px-4 py-3 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-500" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+              />
+              <input
+                type="password"
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                placeholder="Confirm New Password"
+                className={`px-4 py-3 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-500" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+              />
+            </div>
+            
+            <div className="mt-4">
+              <Button onClick={handleChangePassword} variant="secondary">
+                <Lock size={18} />
+                Update Password
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
+        <p>© 2024 FleetTraq. All rights reserved.</p>
       </footer>
-    </motion.div>
+    </div>
   );
 };
 

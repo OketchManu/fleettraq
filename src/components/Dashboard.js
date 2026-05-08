@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,28 +16,15 @@ import { doc, setDoc } from "firebase/firestore";
 import { collection, query, onSnapshot, where, orderBy } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
+import { CarIcon } from "./assets/car-icon";
 
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import carIcon from "./assets/car-icon.png";
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+// Fix Leaflet default icon issue
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
-
-let CarIconCustom = L.icon({
-  iconUrl: carIcon,
-  iconSize: [48, 48],
-  iconAnchor: [24, 24],
-  popupAnchor: [0, -24],
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const MapViewController = ({ bounds }) => {
   const map = useMap();
@@ -64,7 +52,7 @@ const VehicleMarker = ({ track, vehicle }) => {
   }, [track.lat, track.lng]);
 
   return (
-    <Marker ref={markerRef} position={position} icon={CarIconCustom}>
+    <Marker ref={markerRef} position={position} icon={CarIcon}>
       <Popup>
         <div className="min-w-[220px] p-3">
           <div className="flex items-center gap-2 mb-2">

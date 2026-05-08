@@ -1,35 +1,18 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings as SettingsIcon, AlertCircle, Save, ChevronLeft, CheckCircle, RefreshCw, LogOut } from "lucide-react";
+import { Settings as SettingsIcon, AlertCircle, Save, ChevronLeft, CheckCircle, RefreshCw, LogOut, Bell, Moon, Mail, Globe, Map, Battery, Calendar, Gauge, Layout, Clock } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
-
-const Button = ({ onClick, children, disabled, variant = "primary", className = "" }) => {
-  const baseStyle = "px-3 py-2 rounded-md font-bold flex items-center text-sm shadow-lg border";
-  const variants = {
-    primary: `${baseStyle} bg-gradient-to-r from-yellow-500 to-amber-700 text-black border-yellow-300`,
-    secondary: `${baseStyle} bg-gradient-to-r from-gray-500 to-gray-700 text-white border-gray-500`,
-    danger: `${baseStyle} bg-gradient-to-r from-red-500 to-red-700 text-white border-red-500`,
-  };
-  return (
-    <motion.button
-      onClick={onClick}
-      disabled={disabled}
-      whileHover={!disabled ? { scale: 1.05 } : {}}
-      whileTap={!disabled ? { scale: 0.95 } : {}}
-      className={`${variants[variant]} ${className} ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
-    >
-      {children}
-    </motion.button>
-  );
-};
+import Button from "./Button";
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user } = useFleet();
+  const { darkMode, setDarkMode, user } = useFleet();
   const [settings, setSettings] = useState({
     notifications: true,
     darkMode: true,
@@ -60,8 +43,13 @@ const Settings = () => {
     const unsubscribe = onSnapshot(
       settingsRef,
       (docSnap) => {
-        if (docSnap.exists()) setSettings((prev) => ({ ...prev, ...docSnap.data() }));
-        else setDoc(settingsRef, settings, { merge: true }).catch((err) => setError("Failed to initialize settings: " + err.message));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSettings((prev) => ({ ...prev, ...data }));
+          if (data.darkMode !== undefined) setDarkMode(data.darkMode);
+        } else {
+          setDoc(settingsRef, settings, { merge: true }).catch((err) => setError("Failed to initialize settings: " + err.message));
+        }
         setIsLoading(false);
       },
       (err) => {
@@ -70,11 +58,13 @@ const Settings = () => {
       }
     );
     return () => unsubscribe();
-  }, [navigate, settings]);
+  }, [navigate, setDarkMode]);
 
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
-    setSettings((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : type === "number" ? Number(value) : value }));
+    const newValue = type === "checkbox" ? checked : type === "number" ? Number(value) : value;
+    setSettings((prev) => ({ ...prev, [name]: newValue }));
+    if (name === "darkMode") setDarkMode(newValue);
   };
 
   const handleSave = async () => {
@@ -88,7 +78,7 @@ const Settings = () => {
     try {
       const settingsRef = doc(db, "userSettings", auth.currentUser.uid);
       await setDoc(settingsRef, settings, { merge: true });
-      setSuccess("Settings saved successfully");
+      setSuccess("Settings saved successfully!");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to save settings: " + err.message);
@@ -123,6 +113,7 @@ const Settings = () => {
       const settingsRef = doc(db, "userSettings", auth.currentUser.uid);
       await setDoc(settingsRef, defaultSettings, { merge: true });
       setSettings(defaultSettings);
+      setDarkMode(true);
       setSuccess("Settings reset to defaults");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -136,237 +127,289 @@ const Settings = () => {
     try {
       await signOut(auth);
       localStorage.clear();
-      navigate("/welcome");
+      navigate("/");
     } catch (error) {
       setError("Logout error: " + error.message);
-      console.error("Logout error:", error);
     }
   };
 
-  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.5 } } };
-
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-purple-900 to-indigo-900 text-yellow-200">Loading settings...</div>;
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] to-[#0f0f2a]" : "bg-gray-50"}`}>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className={darkMode ? "text-gray-400" : "text-gray-600"}>Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <motion.div
-      className="min-h-screen flex flex-col"
-      style={{ background: "linear-gradient(135deg, #080016 0%, #150025 100%)", color: "#fff" }}
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-    >
-      <header className="bg-black bg-opacity-50 px-4 py-3 shadow-lg sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-2xl font-bold flex items-center text-yellow-300">
-            <SettingsIcon className="mr-2" /> Settings
-          </h1>
-          <div className="flex gap-2">
-            <Button onClick={() => navigate("/dashboard")} variant="secondary">
-              <ChevronLeft size={16} className="mr-1" /> Back to Dashboard
-            </Button>
-            <Button onClick={handleLogout} variant="danger">
-              <LogOut size={16} className="mr-1" /> Logout
-            </Button>
+    <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
+      {/* Header */}
+      <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <SettingsIcon className="w-8 h-8 text-yellow-500" />
+              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                Settings
+              </h1>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => navigate("/dashboard")}>
+                <ChevronLeft size={18} />
+                Back to Dashboard
+              </Button>
+              <Button variant="danger" onClick={handleLogout}>
+                <LogOut size={18} />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>
-      <main className="flex-grow p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="mb-4 p-4 bg-red-600 rounded-lg shadow-lg w-full max-w-lg text-white font-semibold"
-              >
-                <AlertCircle className="inline mr-2" size={20} /> {error}
-              </motion.div>
-            )}
-            {success && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="mb-4 p-4 bg-green-600 rounded-lg shadow-lg w-full max-w-lg text-white font-semibold"
-              >
-                <CheckCircle className="inline mr-2" size={20} /> {success}
-              </motion.div>
-            )}
-          </AnimatePresence>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 flex items-center gap-2"
+            >
+              <AlertCircle size={20} />
+              {error}
+            </motion.div>
+          )}
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-300 flex items-center gap-2"
+            >
+              <CheckCircle size={20} />
+              {success}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Preferences Section */}
           <motion.div
-            className="bg-black bg-opacity-20 p-6 rounded-lg shadow-lg w-full max-w-lg"
-            whileHover={{ scale: 1.02 }}
-            transition={{ type: "spring", stiffness: 300 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
           >
-            <h2 className="text-xl font-semibold text-yellow-300 mb-4">{user?.email || "User"}'s Preferences</h2>
+            <h2 className={`text-xl font-semibold mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Bell className="w-5 h-5 text-yellow-500" />
+              Notifications
+            </h2>
             <div className="space-y-4">
-              <label className="flex items-center gap-2 text-yellow-300">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className={darkMode ? "text-gray-300" : "text-gray-600"}>Push Notifications</span>
                 <input
                   type="checkbox"
                   name="notifications"
                   checked={settings.notifications}
                   onChange={handleChange}
                   disabled={isSaving}
-                  className="accent-yellow-400"
+                  className="w-5 h-5 rounded accent-yellow-500"
                 />
-                Enable Notifications
               </label>
-              <label className="flex items-center gap-2 text-yellow-300">
-                <input
-                  type="checkbox"
-                  name="darkMode"
-                  checked={settings.darkMode}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className="accent-yellow-400"
-                />
-                Dark Mode
-              </label>
-              <label className="flex items-center gap-2 text-yellow-300">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className={darkMode ? "text-gray-300" : "text-gray-600"}>Email Alerts</span>
                 <input
                   type="checkbox"
                   name="emailAlerts"
                   checked={settings.emailAlerts}
                   onChange={handleChange}
                   disabled={isSaving}
-                  className="accent-yellow-400"
+                  className="w-5 h-5 rounded accent-yellow-500"
                 />
-                Email Alerts
               </label>
-              <div>
-                <label className="block text-yellow-300 mb-1">Language</label>
-                <select
-                  name="language"
-                  value={settings.language}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className="w-full p-2 bg-gray-800 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                >
-                  <option value="en">English</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-yellow-300 mb-1">Time Zone</label>
-                <select
-                  name="timeZone"
-                  value={settings.timeZone}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className="w-full p-2 bg-gray-800 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                >
-                  <option value="UTC">UTC</option>
-                  <option value="America/New_York">Eastern Time</option>
-                  <option value="America/Los_Angeles">Pacific Time</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-yellow-300 mb-1">Units</label>
-                <select
-                  name="units"
-                  value={settings.units}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className="w-full p-2 bg-gray-800 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                >
-                  <option value="metric">Metric</option>
-                  <option value="imperial">Imperial</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-yellow-300 mb-1">Default Map View</label>
-                <select
-                  name="defaultMapView"
-                  value={settings.defaultMapView}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className="w-full p-2 bg-gray-800 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                >
-                  <option value="roadmap">Roadmap</option>
-                  <option value="satellite">Satellite</option>
-                  <option value="hybrid">Hybrid</option>
-                </select>
-              </div>
-              <label className="flex items-center gap-2 text-yellow-300">
-                <input
-                  type="checkbox"
-                  name="fuelTracking"
-                  checked={settings.fuelTracking}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className="accent-yellow-400"
-                />
-                Fuel Tracking
-              </label>
-              <div>
-                <label className="block text-yellow-300 mb-1">Report Frequency</label>
-                <select
-                  name="reportFrequency"
-                  value={settings.reportFrequency}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className="w-full p-2 bg-gray-800 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-yellow-300 mb-1">Tracking Refresh Rate (seconds)</label>
-                <input
-                  type="number"
-                  name="trackingRefreshRate"
-                  value={settings.trackingRefreshRate}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  min="10"
-                  max="300"
-                  className="w-full p-2 bg-gray-800 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-300"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-yellow-300">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className={darkMode ? "text-gray-300" : "text-gray-600"}>Maintenance Reminders</span>
                 <input
                   type="checkbox"
                   name="maintenanceReminders"
                   checked={settings.maintenanceReminders}
                   onChange={handleChange}
                   disabled={isSaving}
-                  className="accent-yellow-400"
+                  className="w-5 h-5 rounded accent-yellow-500"
                 />
-                Maintenance Reminders
               </label>
+            </div>
+
+            <h2 className={`text-xl font-semibold mt-6 mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Globe className="w-5 h-5 text-yellow-500" />
+              Preferences
+            </h2>
+            <div className="space-y-4">
               <div>
-                <label className="block text-yellow-300 mb-1">Dashboard Layout</label>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Language</label>
                 <select
-                  name="dashboardLayout"
-                  value={settings.dashboardLayout}
+                  name="language"
+                  value={settings.language}
                   onChange={handleChange}
                   disabled={isSaving}
-                  className="w-full p-2 bg-gray-800 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                 >
-                  <option value="grid">Grid</option>
-                  <option value="list">List</option>
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
                 </select>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={isSaving}>
-                  <Save size={16} className="mr-1" /> Save
-                </Button>
-                <Button onClick={handleReset} variant="secondary" disabled={isSaving}>
-                  <RefreshCw size={16} className="mr-1" /> Reset
-                </Button>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Time Zone</label>
+                <select
+                  name="timeZone"
+                  value={settings.timeZone}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                >
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">Eastern Time</option>
+                  <option value="America/Chicago">Central Time</option>
+                  <option value="America/Denver">Mountain Time</option>
+                  <option value="America/Los_Angeles">Pacific Time</option>
+                </select>
               </div>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Units</label>
+                <select
+                  name="units"
+                  value={settings.units}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                >
+                  <option value="metric">Metric (km, L)</option>
+                  <option value="imperial">Imperial (miles, gal)</option>
+                </select>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Advanced Settings Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
+          >
+            <h2 className={`text-xl font-semibold mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Map className="w-5 h-5 text-yellow-500" />
+              Map & Tracking
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Default Map View</label>
+                <select
+                  name="defaultMapView"
+                  value={settings.defaultMapView}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                >
+                  <option value="roadmap">Roadmap</option>
+                  <option value="satellite">Satellite</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </div>
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className={darkMode ? "text-gray-300" : "text-gray-600"}>Fuel Tracking</span>
+                <input
+                  type="checkbox"
+                  name="fuelTracking"
+                  checked={settings.fuelTracking}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                  className="w-5 h-5 rounded accent-yellow-500"
+                />
+              </label>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Tracking Refresh Rate</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    name="trackingRefreshRate"
+                    value={settings.trackingRefreshRate}
+                    onChange={handleChange}
+                    disabled={isSaving}
+                    min="10"
+                    max="120"
+                    step="5"
+                    className="flex-1 accent-yellow-500"
+                  />
+                  <span className={`text-sm font-mono ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                    {settings.trackingRefreshRate}s
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <h2 className={`text-xl font-semibold mt-6 mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Calendar className="w-5 h-5 text-yellow-500" />
+              Reports
+            </h2>
+            <div>
+              <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Report Frequency</label>
+              <select
+                name="reportFrequency"
+                value={settings.reportFrequency}
+                onChange={handleChange}
+                disabled={isSaving}
+                className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
+
+            <h2 className={`text-xl font-semibold mt-6 mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Layout className="w-5 h-5 text-yellow-500" />
+              Dashboard
+            </h2>
+            <div>
+              <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Dashboard Layout</label>
+              <select
+                name="dashboardLayout"
+                value={settings.dashboardLayout}
+                onChange={handleChange}
+                disabled={isSaving}
+                className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+              >
+                <option value="grid">Grid View</option>
+                <option value="list">List View</option>
+              </select>
+            </div>
+
+            <div className="flex gap-3 mt-8 pt-4 border-t border-white/10">
+              <Button onClick={handleSave} disabled={isSaving}>
+                <Save size={18} />
+                Save Changes
+              </Button>
+              <Button variant="secondary" onClick={handleReset} disabled={isSaving}>
+                <RefreshCw size={18} />
+                Reset to Defaults
+              </Button>
             </div>
           </motion.div>
         </div>
       </main>
-      <footer className="bg-black bg-opacity-70 p-4 text-center text-gray-400 text-sm">
-        © {new Date().getFullYear()} FleetTraq. All rights reserved.
+
+      {/* Footer */}
+      <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
+        <p>© 2024 FleetTraq. All rights reserved.</p>
       </footer>
-    </motion.div>
+    </div>
   );
 };
 
