@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Fuel, Plus, Trash2, Edit, DollarSign, Gauge, TrendingUp, Download, AlertCircle } from "lucide-react";
+import { Fuel, Plus, Trash2, Edit, DollarSign, Gauge, TrendingUp, Download, AlertCircle, X } from "lucide-react";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
@@ -9,7 +9,7 @@ import Button from "./Button";
 
 const FuelTracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, addNotification } = useFleet();
+  const { darkMode, vehicles, sendNotification } = useFleet();
   const [fuelRecords, setFuelRecords] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -113,13 +113,13 @@ const FuelTracking = () => {
       if (editingRecord) {
         const recordRef = doc(db, "fuelRecords", editingRecord.id);
         await updateDoc(recordRef, recordData);
-        if (addNotification) addNotification("Fuel record updated successfully", "success");
+        sendNotification("Fuel record updated successfully", "success");
       } else {
         await addDoc(collection(db, "fuelRecords"), {
           ...recordData,
           createdAt: new Date().toISOString()
         });
-        if (addNotification) addNotification("Fuel record added successfully", "success");
+        sendNotification("Fuel record added successfully", "success");
       }
 
       resetForm();
@@ -138,7 +138,7 @@ const FuelTracking = () => {
     try {
       const recordRef = doc(db, "fuelRecords", id);
       await deleteDoc(recordRef);
-      if (addNotification) addNotification("Fuel record deleted successfully", "success");
+      sendNotification("Fuel record deleted successfully", "success");
     } catch (err) {
       console.error("Error deleting fuel record:", err);
       setError("Failed to delete fuel record. Please try again.");
@@ -323,7 +323,7 @@ const FuelTracking = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {fuelRecords.map((record, index) => {
+                  {fuelRecords.map((record) => {
                     const vehicle = vehicles.find(v => v.id === record.vehicleId);
                     return (
                       <tr key={record.id} className={`border-t ${darkMode ? "border-white/10 hover:bg-white/5" : "border-gray-200 hover:bg-gray-50"}`}>
@@ -373,7 +373,7 @@ const FuelTracking = () => {
                 setShowAddForm(false);
                 resetForm();
               }} className="p-1 rounded-lg hover:bg-white/10">
-                ✕
+                <X size={20} />
               </button>
             </div>
             
