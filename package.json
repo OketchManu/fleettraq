@@ -1,6 +1,7 @@
 {
   "name": "fleettraq",
   "version": "2.0.0",
+  "homepage": ".",
   "private": true,
   "dependencies": {
     "@react-google-maps/api": "^2.19.2",
