@@ -7,22 +7,12 @@ import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 
-const exportToPDF = async (report) => {
-  const doc = new jsPDF();
-  doc.text(`Report: ${report.title}`, 20, 20);
-  doc.text(`Date: ${new Date(report.date).toLocaleDateString()}`, 20, 30);
-  doc.text(`Status: ${report.status}`, 20, 40);
-  doc.text(`Description:`, 20, 50);
-  doc.text(report.description || "No description", 20, 60);
-  doc.save(`${report.title}.pdf`);
-};
+// Removed jsPDF and html2canvas imports - using CSV/TXT export instead
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { darkMode, reports, fetchReports } = useFleet();
+  const { darkMode, reports, fetchReports, sendNotification } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -73,11 +63,13 @@ const Reports = () => {
       if (editingReport) {
         const reportRef = doc(db, "reports", editingReport.id);
         await updateDoc(reportRef, reportData);
+        sendNotification?.("Report updated successfully", "success");
       } else {
         await addDoc(collection(db, "reports"), {
           ...reportData,
           createdAt: new Date().toISOString(),
         });
+        sendNotification?.("Report created successfully", "success");
       }
 
       await fetchReports();
@@ -101,6 +93,7 @@ const Reports = () => {
       const reportRef = doc(db, "reports", id);
       await deleteDoc(reportRef);
       await fetchReports();
+      sendNotification?.("Report deleted successfully", "success");
     } catch (err) {
       console.error("Error deleting report:", err);
       setError("Failed to delete report. Please try again.");
@@ -124,27 +117,46 @@ const Reports = () => {
     setShowViewModal(true);
   };
 
-  const handleExportPDF = (report) => {
-    // Create a simple text export of the report
-    const reportContent = `
-      FLEETRAQ REPORT
-      ================
-      Title: ${report.title}
-      Type: ${report.type}
-      Date: ${new Date(report.date).toLocaleDateString()}
-      Status: ${report.status}
-      
-      Description:
-      ${report.description}
-      
-      Generated: ${new Date().toLocaleString()}
-    `;
-    
+  const handleExportTXT = (report) => {
+    const reportContent = `FLEETRAQ REPORT
+================================
+Title: ${report.title}
+Type: ${report.type}
+Date: ${new Date(report.date).toLocaleDateString()}
+Status: ${report.status}
+
+Description:
+${report.description || "No description provided."}
+
+Generated: ${new Date().toLocaleString()}
+--------------------------------
+FleetTraq - Fleet Management System`;
+
     const blob = new Blob([reportContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${report.title.toLowerCase().replace(/\s+/g, "-")}-${new Date().toISOString().split("T")[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    const headers = ["Title", "Type", "Date", "Status", "Description"];
+    const rows = reports.map(report => [
+      `"${report.title.replace(/"/g, '""')}"`,
+      report.type,
+      new Date(report.date).toLocaleDateString(),
+      report.status,
+      `"${(report.description || "").replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `all-reports-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -178,6 +190,12 @@ const Reports = () => {
                 <Plus size={18} />
                 Create Report
               </Button>
+              {reports.length > 0 && (
+                <Button onClick={handleExportCSV} variant="secondary">
+                  <Download size={18} />
+                  Export All CSV
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => navigate("/dashboard")}>
                 Back
               </Button>
@@ -270,12 +288,12 @@ const Reports = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleExportPDF(report);
+                        handleExportTXT(report);
                       }}
                       className="text-xs text-yellow-500 hover:text-yellow-400 flex items-center gap-1"
                     >
                       <Download size={12} />
-                      Export
+                      Export TXT
                     </button>
                   </div>
                 </div>
@@ -347,9 +365,9 @@ const Reports = () => {
                 </div>
                 
                 <div className="flex gap-3 pt-2">
-                  <Button onClick={() => handleExportPDF(selectedReport)}>
+                  <Button onClick={() => handleExportTXT(selectedReport)}>
                     <Download size={16} />
-                    Export Report
+                    Export TXT
                   </Button>
                   <Button variant="secondary" onClick={() => setShowViewModal(false)}>
                     Close
@@ -399,16 +417,16 @@ const Reports = () => {
                 
                 <div className="grid grid-cols-2 gap-3">
                   <select
-  value={formData.type}
-  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white border border-white/20" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
->
-  {reportTypes.map(type => (
-    <option key={type} value={type} className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>
-      {type}
-    </option>
-  ))}
-</select>
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white border border-white/20" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  >
+                    {reportTypes.map(type => (
+                      <option key={type} value={type} className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="date"
                     value={formData.date}
@@ -424,7 +442,9 @@ const Reports = () => {
                   className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                 >
                   {statusOptions.map(status => (
-                    <option key={status} value={status}>{status}</option>
+                    <option key={status} value={status} className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>
+                      {status}
+                    </option>
                   ))}
                 </select>
                 
@@ -454,7 +474,7 @@ const Reports = () => {
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
-        <p>© 2024 FleetTraq. All rights reserved.</p>
+        <p>© 2025 FleetTraq. All rights reserved.</p>
       </footer>
     </div>
   );
