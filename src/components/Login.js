@@ -33,8 +33,16 @@ const Login = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
+      // Check if user exists in Firestore
       const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists() && userDoc.data().role !== role) {
+      if (!userDoc.exists()) {
+        await auth.signOut();
+        setError("Account not found. Please sign up first.");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (userDoc.data().role !== role) {
         setError(`You are registered as ${userDoc.data().role}, not ${role}`);
         setIsLoading(false);
         return;
@@ -70,13 +78,13 @@ const Login = () => {
       
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
-        await setDoc(doc(db, "users", user.uid), {
-          name: user.displayName,
-          email: user.email,
-          role: role,
-          createdAt: new Date().toISOString()
-        });
-      } else if (userDoc.data().role !== role) {
+        await auth.signOut();
+        setError("Account not found. Please sign up first.");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (userDoc.data().role !== role) {
         setError(`You are registered as ${userDoc.data().role}, not ${role}`);
         setIsLoading(false);
         return;
@@ -130,7 +138,7 @@ const Login = () => {
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-md"
       >
-        {/* Back Button to Welcome - Now visible at top of card */}
+        {/* Back Button to Welcome */}
         <div className="mb-4 flex justify-between items-center">
           <button
             onClick={() => navigate("/")}

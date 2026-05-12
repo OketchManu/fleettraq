@@ -7,6 +7,18 @@ import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+const exportToPDF = async (report) => {
+  const doc = new jsPDF();
+  doc.text(`Report: ${report.title}`, 20, 20);
+  doc.text(`Date: ${new Date(report.date).toLocaleDateString()}`, 20, 30);
+  doc.text(`Status: ${report.status}`, 20, 40);
+  doc.text(`Description:`, 20, 50);
+  doc.text(report.description || "No description", 20, 60);
+  doc.save(`${report.title}.pdf`);
+};
 
 const Reports = () => {
   const navigate = useNavigate();
@@ -387,14 +399,16 @@ const Reports = () => {
                 
                 <div className="grid grid-cols-2 gap-3">
                   <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                  >
-                    {reportTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
+  value={formData.type}
+  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white border border-white/20" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+>
+  {reportTypes.map(type => (
+    <option key={type} value={type} className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>
+      {type}
+    </option>
+  ))}
+</select>
                   <input
                     type="date"
                     value={formData.date}

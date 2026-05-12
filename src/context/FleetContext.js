@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { auth, db } from "../firebase";
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy } from "firebase/firestore";
 
 const FleetContext = createContext();
 
@@ -15,12 +15,14 @@ export const FleetProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [maintenanceAlerts, setMaintenanceAlerts] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Monitor auth state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        // Load user role from Firestore
         const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
         const role = userDoc.exists() ? userDoc.data().role : "user";
         
@@ -33,7 +35,6 @@ export const FleetProvider = ({ children }) => {
         
         localStorage.setItem("role", role);
         
-        // Load user settings
         const settingsRef = doc(db, "userSettings", `${firebaseUser.uid}_user`);
         const settingsDoc = await getDoc(settingsRef);
         if (settingsDoc.exists()) {
@@ -45,13 +46,25 @@ export const FleetProvider = ({ children }) => {
         setDrivers([]);
         setReports([]);
         setTrackingData(null);
+        setNotifications([]);
+        setMaintenanceAlerts([]);
+        setUnreadCount(0);
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  // Fetch vehicles for current user only
+  // Apply dark mode to document
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Fetch vehicles
   const fetchVehicles = useCallback(async () => {
     if (!auth.currentUser) return [];
     try {
@@ -72,7 +85,7 @@ export const FleetProvider = ({ children }) => {
     }
   }, []);
 
-  // Subscribe to real-time vehicles updates for current user
+  // Real-time vehicles subscription
   useEffect(() => {
     if (!auth.currentUser) return;
     
@@ -87,6 +100,30 @@ export const FleetProvider = ({ children }) => {
         ...doc.data()
       }));
       setVehicles(vehiclesList);
+      
+      // Check for maintenance alerts
+      const alerts = [];
+      vehiclesList.forEach(vehicle => {
+        const lastService = vehicle.lastService ? new Date(vehicle.lastService) : (vehicle.createdAt ? new Date(vehicle.createdAt) : new Date());
+        const daysSince = (Date.now() - lastService) / (1000 * 3600 * 24);
+        
+        if (daysSince > 90) {
+          alerts.push({
+            vehicleId: vehicle.id,
+            vehicle: `${vehicle.make} ${vehicle.model}`,
+            message: "Service overdue by 90+ days",
+            severity: "high"
+          });
+        } else if (daysSince > 60) {
+          alerts.push({
+            vehicleId: vehicle.id,
+            vehicle: `${vehicle.make} ${vehicle.model}`,
+            message: "Service due soon",
+            severity: "medium"
+          });
+        }
+      });
+      setMaintenanceAlerts(alerts);
     }, (err) => {
       setError("Failed to subscribe to vehicles: " + err.message);
     });
@@ -94,7 +131,7 @@ export const FleetProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch drivers for current user only
+  // Fetch drivers
   const fetchDrivers = useCallback(async () => {
     if (!auth.currentUser) return [];
     try {
@@ -115,7 +152,7 @@ export const FleetProvider = ({ children }) => {
     }
   }, []);
 
-  // Subscribe to real-time drivers updates
+  // Real-time drivers subscription
   useEffect(() => {
     if (!auth.currentUser) return;
     
@@ -137,7 +174,7 @@ export const FleetProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch reports for current user only
+  // Fetch reports
   const fetchReports = useCallback(async () => {
     if (!auth.currentUser) return [];
     try {
@@ -158,7 +195,7 @@ export const FleetProvider = ({ children }) => {
     }
   }, []);
 
-  // Subscribe to real-time reports updates
+  // Real-time reports subscription
   useEffect(() => {
     if (!auth.currentUser) return;
     
@@ -180,6 +217,87 @@ export const FleetProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  // Real-time notifications subscription
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    
+    const q = query(
+      collection(db, "notifications"),
+      where("userId", "==", auth.currentUser.uid),
+      orderBy("createdAt", "desc")
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(notifs);
+      setUnreadCount(notifs.filter(n => !n.read).length);
+    });
+    
+    return () => unsubscribe();
+  }, []);
+
+  // Send notification function
+  const sendNotification = async (message, type = "info") => {
+    if (!auth.currentUser) return;
+    
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId: auth.currentUser.uid,
+        message: message,
+        type: type,
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error sending notification:", error);
+    }
+  };
+
+  // Mark notification as read
+  const markNotificationAsRead = async (notificationId) => {
+    if (!auth.currentUser) return;
+    
+    try {
+      await updateDoc(doc(db, "notifications", notificationId), {
+        read: true,
+        readAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  // Delete notification
+  const deleteNotification = async (notificationId) => {
+    if (!auth.currentUser) return;
+    
+    try {
+      await deleteDoc(doc(db, "notifications", notificationId));
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    }
+  };
+
+  // Clear all notifications
+  const clearAllNotifications = async () => {
+    if (!auth.currentUser) return;
+    
+    try {
+      const q = query(
+        collection(db, "notifications"),
+        where("userId", "==", auth.currentUser.uid)
+      );
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    }
+  };
+
   const value = {
     user,
     setUser,
@@ -195,9 +313,16 @@ export const FleetProvider = ({ children }) => {
     setDarkMode,
     loading,
     error,
+    notifications,
+    unreadCount,
+    maintenanceAlerts,
     fetchVehicles,
     fetchDrivers,
     fetchReports,
+    sendNotification,
+    markNotificationAsRead,
+    deleteNotification,
+    clearAllNotifications,
   };
 
   return <FleetContext.Provider value={value}>{children}</FleetContext.Provider>;

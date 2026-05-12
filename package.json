@@ -1,18 +1,21 @@
 {
-  "name": "fleet-traq",
-  "version": "0.1.0",
+  "name": "fleettraq",
+  "version": "2.0.0",
   "private": true,
   "dependencies": {
     "@react-google-maps/api": "^2.19.2",
-    "axios": "^1.6.2",
     "chart.js": "^4.4.0",
     "firebase": "^10.7.0",
     "framer-motion": "^10.16.16",
+    "html2canvas": "^1.4.1",
+    "i18next": "^23.7.6",
+    "jspdf": "^2.5.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.303.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
+    "react-i18next": "^14.0.0",
     "react-icons": "^4.12.0",
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.21.1",
@@ -27,25 +30,15 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": [
-      "react-app"
-    ]
+    "extends": ["react-app"]
   },
   "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
   },
   "devDependencies": {
-    "autoprefixer": "^10.5.0",
-    "postcss": "^8.5.14",
-    "tailwindcss": "^3.4.19"
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6"
   }
 }

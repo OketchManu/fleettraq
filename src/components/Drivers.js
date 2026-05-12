@@ -2,11 +2,26 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, IdCard, Calendar } from "lucide-react";
+import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, Calendar } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
+
+const calculateDriverScore = (driver) => {
+  let score = 100;
+  
+  // Deduct for violations
+  if (driver.speedingViolations) score -= driver.speedingViolations * 5;
+  if (driver.harshBraking) score -= driver.harshBraking * 3;
+  if (driver.idleTime > 30) score -= Math.floor(driver.idleTime / 10);
+  
+  // Add for safe driving
+  if (driver.safeDays > 30) score += 5;
+  if (driver.fuelEfficiency > 8) score += 3;
+  
+  return Math.max(0, Math.min(100, score));
+};
 
 const Drivers = () => {
   const navigate = useNavigate();
@@ -248,7 +263,7 @@ const Drivers = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className={`w-full max-w-md rounded-2xl ${darkMode ? "bg-[#0f0f2a] border-white/20" : "bg-white border-gray-200"} border shadow-2xl`}
+              className={`w-full max-w-md rounded-2xl ${darkMode ? "bg-[#1a1a2e] border-yellow-500/30" : "bg-white border-gray-200"} border shadow-2xl`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className={`p-5 border-b ${darkMode ? "border-white/10" : "border-gray-200"} flex justify-between items-center`}>
@@ -266,7 +281,7 @@ const Drivers = () => {
                   placeholder="Full Name *"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-400" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                   required
                 />
                 
@@ -276,7 +291,7 @@ const Drivers = () => {
                     placeholder="License Number *"
                     value={formData.licenseNumber}
                     onChange={(e) => setFormData({ ...formData, licenseNumber: e.target.value })}
-                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-400" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                     required
                   />
                   <input
@@ -284,7 +299,7 @@ const Drivers = () => {
                     placeholder="Phone Number"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-400" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                   />
                 </div>
                 
@@ -293,7 +308,7 @@ const Drivers = () => {
                   placeholder="Email Address"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-400" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                 />
                 
                 <input
@@ -301,17 +316,19 @@ const Drivers = () => {
                   placeholder="Address"
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-400" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                 />
                 
                 <div className="grid grid-cols-2 gap-3">
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white border border-white/20" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                   >
                     {statusOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                      <option key={opt} value={opt} className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>
+                        {opt}
+                      </option>
                     ))}
                   </select>
                   <input
@@ -340,7 +357,7 @@ const Drivers = () => {
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
-        <p>© 2024 FleetTraq. All rights reserved.</p>
+        <p>© 2025 FleetTraq. All rights reserved.</p>
       </footer>
     </div>
   );

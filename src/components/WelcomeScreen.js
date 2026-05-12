@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Truck, Map, BarChart, Clock, Users, 
   Fuel, Shield, Zap, Globe, Target,
-  ArrowRight, Menu, X, Sun, Moon
+  ArrowRight, Menu, X, Sun, Moon, ChevronRight
 } from "lucide-react";
 
 const WelcomeScreen = () => {
@@ -73,7 +73,6 @@ const WelcomeScreen = () => {
               </span>
             </div>
             
-            {/* Desktop Menu */}
             <div className="hidden md:flex items-center gap-8">
               <a href="#features" className={`transition-colors ${
                 isLightMode ? "text-gray-700 hover:text-yellow-600" : "text-gray-300 hover:text-yellow-400"
@@ -129,7 +128,6 @@ const WelcomeScreen = () => {
           </div>
         </div>
         
-        {/* Mobile Menu */}
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div
@@ -294,47 +292,6 @@ const WelcomeScreen = () => {
               </motion.div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* About Section */}
-      <section id="about" className="py-20 px-4">
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className={`text-center rounded-2xl p-8 border ${
-              isLightMode
-                ? "bg-white shadow-lg border-gray-200"
-                : "bg-white/5 backdrop-blur-sm border-white/10"
-            }`}
-          >
-            <Globe className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <h2 className={`text-3xl font-bold mb-4 ${isLightMode ? "text-gray-800" : "text-white"}`}>
-              Why Choose FleetTraq?
-            </h2>
-            <p className={`text-lg mb-6 ${isLightMode ? "text-gray-600" : "text-gray-400"}`}>
-              Join thousands of satisfied customers who have transformed their fleet operations with our cutting-edge technology.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-              <div>
-                <Target className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                <h3 className={`font-semibold mb-1 ${isLightMode ? "text-gray-800" : "text-white"}`}>Mission Driven</h3>
-                <p className={`text-sm ${isLightMode ? "text-gray-500" : "text-gray-400"}`}>Optimizing fleet operations worldwide</p>
-              </div>
-              <div>
-                <Zap className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                <h3 className={`font-semibold mb-1 ${isLightMode ? "text-gray-800" : "text-white"}`}>Lightning Fast</h3>
-                <p className={`text-sm ${isLightMode ? "text-gray-500" : "text-gray-400"}`}>Real-time updates and instant insights</p>
-              </div>
-              <div>
-                <Shield className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                <h3 className={`font-semibold mb-1 ${isLightMode ? "text-gray-800" : "text-white"}`}>Enterprise Security</h3>
-                <p className={`text-sm ${isLightMode ? "text-gray-500" : "text-gray-400"}`}>Bank-grade encryption and compliance</p>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </section>
 

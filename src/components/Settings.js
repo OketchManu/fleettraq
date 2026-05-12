@@ -250,19 +250,18 @@ const Settings = () => {
             </h2>
             <div className="space-y-4">
               <div>
-                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Language</label>
                 <select
-                  name="language"
-                  value={settings.language}
-                  onChange={handleChange}
-                  disabled={isSaving}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                >
-                  <option value="en">English</option>
-                  <option value="es">Español</option>
-                  <option value="fr">Français</option>
-                  <option value="de">Deutsch</option>
-                </select>
+  name="language"
+  value={settings.language}
+  onChange={handleChange}
+  disabled={isSaving}
+  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white border border-white/20" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+>
+  <option value="en" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>English</option>
+  <option value="es" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>Español</option>
+  <option value="fr" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>Français</option>
+  <option value="de" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>Deutsch</option>
+</select>
               </div>
               <div>
                 <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Time Zone</label>

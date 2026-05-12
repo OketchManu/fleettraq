@@ -17,6 +17,7 @@ import { collection, query, onSnapshot, where, orderBy } from "firebase/firestor
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
 import { CarIcon } from "./assets/car-icon";
+import NotificationBell from "./NotificationBell";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -82,19 +83,28 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, setDarkMode, user } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, setDarkMode, user, sendNotification, maintenanceAlerts } = useFleet();
   const role = localStorage.getItem("role");
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
+  const [showAlertBanner, setShowAlertBanner] = useState(true);
   const [stats, setStats] = useState({
     totalMileage: 0,
     avgFuelEfficiency: 0,
     activeAlerts: 0
   });
   const menuRef = useRef(null);
+
+  // Send welcome notification when dashboard loads
+  useEffect(() => {
+    if (user && !localStorage.getItem("welcomeShown")) {
+      sendNotification(`Welcome back, ${user.displayName || user.email}!`, "success");
+      localStorage.setItem("welcomeShown", "true");
+    }
+  }, [user, sendNotification]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -168,10 +178,10 @@ const Dashboard = () => {
     if (vehicles.length) {
       const totalMileage = vehicles.reduce((sum, v) => sum + (v.mileage || 0), 0);
       const avgFuelEfficiency = vehicles.length ? vehicles.reduce((sum, v) => sum + (v.fuelEfficiency || 15), 0) / vehicles.length : 0;
-      const activeAlerts = vehicles.filter(v => v.maintenanceAlert).length;
+      const activeAlerts = maintenanceAlerts.length;
       setStats({ totalMileage, avgFuelEfficiency: Math.round(avgFuelEfficiency), activeAlerts });
     }
-  }, [vehicles]);
+  }, [vehicles, maintenanceAlerts]);
 
   const toggleDarkMode = async () => {
     const newMode = !darkMode;
@@ -203,6 +213,7 @@ const Dashboard = () => {
     { label: "Analytics", icon: <Activity size={18} />, path: "/analytics", color: "from-yellow-500 to-amber-600" },
     { label: "Reports", icon: <FileText size={18} />, path: "/reports", color: "from-yellow-500 to-amber-600" },
     { label: "Vehicles", icon: <Car size={18} />, path: "/vehicle-management", color: "from-yellow-500 to-amber-600" },
+    { label: "Fuel", icon: <Fuel size={18} />, path: "/fuel-tracking", color: "from-yellow-500 to-amber-600" },
     { label: "Profile", icon: <User size={18} />, path: "/profile", color: "from-yellow-500 to-amber-600" },
     { label: "Settings", icon: <Settings size={18} />, path: "/settings", color: "from-yellow-500 to-amber-600" },
   ].filter(Boolean);
@@ -236,6 +247,21 @@ const Dashboard = () => {
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
+      {/* Maintenance Alert Banner */}
+      {maintenanceAlerts.length > 0 && showAlertBanner && (
+        <div className="bg-red-500/90 text-white p-3 text-center relative">
+          <p className="text-sm font-medium">
+            ⚠️ {maintenanceAlerts.length} vehicle(s) require maintenance attention!
+          </p>
+          <button
+            onClick={() => setShowAlertBanner(false)}
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-200"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
         <div className="max-w-7xl mx-auto px-4 py-3">
@@ -262,6 +288,8 @@ const Dashboard = () => {
                 </motion.button>
               ))}
               
+              <NotificationBell />
+              
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all"
@@ -272,6 +300,7 @@ const Dashboard = () => {
 
             {/* Mobile Menu Button */}
             <div className="flex items-center gap-2 md:hidden">
+              <NotificationBell />
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-xl bg-white/10"
@@ -456,7 +485,7 @@ const Dashboard = () => {
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
-        <p>© 2024 FleetTraq. All rights reserved.</p>
+        <p>© 2025 FleetTraq. All rights reserved.</p>
       </footer>
     </div>
   );

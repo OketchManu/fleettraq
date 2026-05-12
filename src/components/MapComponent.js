@@ -1,3 +1,4 @@
+/* eslint-disable no-use-before-define */
 import { useEffect, useState, useRef } from "react";
 
 const MapComponent = ({ apiKey, center = { lat: 40.7128, lng: -74.0060 }, zoom = 10, mapOptions = {}, markers = [] }) => {
@@ -33,7 +34,7 @@ const MapComponent = ({ apiKey, center = { lat: 40.7128, lng: -74.0060 }, zoom =
     return () => {
       if (!window.google?.maps) document.head.removeChild(script);
     };
-  }, [apiKey]);
+  }, [apiKey, initializeMap]);
 
   useEffect(() => {
     if (mapInstance && markers.length) {
@@ -53,6 +54,7 @@ const MapComponent = ({ apiKey, center = { lat: 40.7128, lng: -74.0060 }, zoom =
     }
   }, [mapInstance, markers]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const initializeMap = () => {
     if (!mapRef.current) return;
     try {

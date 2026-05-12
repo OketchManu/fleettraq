@@ -361,55 +361,55 @@ const Tracking = () => {
   };
 
   const MapComponent = () => {
-    const position = currentLocation || trackingData || nairobiCoordinates;
+  const position = currentLocation || trackingData || nairobiCoordinates;
 
-    return (
-      <MapContainer
-        center={[position.lat, position.lng]}
-        zoom={13}
-        style={{
-          height: "400px",
-          width: "100%",
-          borderRadius: "1rem",
-        }}
-        className="z-0"
-      >
-        <TileLayer
-          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {currentLocation && (
-          <Marker position={[currentLocation.lat, currentLocation.lng]} icon={CarIconCustom}>
-            <Popup>
-              <div className="min-w-[200px] p-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <Car className="w-4 h-4 text-yellow-500" />
-                  <strong className="text-gray-800">
-                    {vehicles.find((v) => v.id === selectedVehicle)?.make || "Vehicle"}{" "}
-                    {vehicles.find((v) => v.id === selectedVehicle)?.model || ""}
-                  </strong>
-                </div>
-                {currentLocation.name && (
-                  <p className="text-sm text-gray-600">
-                    <strong>Location:</strong> {currentLocation.name}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
-                </p>
-                {trackingHistory.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Updated: {new Date(trackingHistory[0].timestamp).toLocaleTimeString()}
-                  </p>
-                )}
+  return (
+    <MapContainer
+      center={[position.lat, position.lng]}
+      zoom={13}
+      style={{
+        height: "400px",
+        width: "100%",
+        borderRadius: "1rem",
+      }}
+      className="z-0"
+    >
+      <TileLayer
+        attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {currentLocation && (
+        <Marker position={[currentLocation.lat, currentLocation.lng]} icon={CarIcon}>
+          <Popup>
+            <div className="min-w-[200px] p-2">
+              <div className="flex items-center gap-2 mb-2">
+                <Car className="w-4 h-4 text-yellow-500" />
+                <strong className="text-gray-800">
+                  {vehicles.find((v) => v.id === selectedVehicle)?.make || "Vehicle"}{" "}
+                  {vehicles.find((v) => v.id === selectedVehicle)?.model || ""}
+                </strong>
               </div>
-            </Popup>
-          </Marker>
-        )}
-        <MapViewController center={[position.lat, position.lng]} zoom={13} />
-      </MapContainer>
-    );
-  };
+              {currentLocation.name && (
+                <p className="text-sm text-gray-600">
+                  <strong>Location:</strong> {currentLocation.name}
+                </p>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+              </p>
+              {trackingHistory.length > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Updated: {new Date(trackingHistory[0].timestamp).toLocaleTimeString()}
+                </p>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      )}
+      <MapViewController center={[position.lat, position.lng]} zoom={13} />
+    </MapContainer>
+  );
+};
 
   const selectedVehicleData = vehicles.find(v => v.id === selectedVehicle);
 

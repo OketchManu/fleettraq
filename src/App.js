@@ -18,6 +18,7 @@ import VehicleManagement from "./components/VehicleManagement";
 import Profile from "./components/Profile";
 import UserSettings from "./components/UserSettings";
 import AuthCallback from "./components/AuthCallback";
+import FuelTracking from "./components/FuelTracking";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -44,6 +45,7 @@ function App() {
 
   return (
     <Routes>
+      <Route path="/fuel-tracking" element={user ? <FuelTracking /> : <Navigate to="/login" />} />
       <Route path="/" element={<WelcomeScreen />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
