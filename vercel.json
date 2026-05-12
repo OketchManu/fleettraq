@@ -5,18 +5,27 @@
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "create-react-app",
   "outputDirectory": "build",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
   "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/(.*\\.(js|css|ico|png|jpg|svg|json))",
-      "dest": "/$1"
-    },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "REACT_APP_FIREBASE_API_KEY": "@react_app_firebase_api_key",
+    "REACT_APP_FIREBASE_AUTH_DOMAIN": "@react_app_firebase_auth_domain",
+    "REACT_APP_FIREBASE_PROJECT_ID": "@react_app_firebase_project_id",
+    "REACT_APP_FIREBASE_STORAGE_BUCKET": "@react_app_firebase_storage_bucket",
+    "REACT_APP_FIREBASE_MESSAGING_SENDER_ID": "@react_app_firebase_messaging_sender_id",
+    "REACT_APP_FIREBASE_APP_ID": "@react_app_firebase_app_id"
+  }
 }

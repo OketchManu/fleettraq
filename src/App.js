@@ -45,7 +45,6 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/fuel-tracking" element={user ? <FuelTracking /> : <Navigate to="/login" />} />
       <Route path="/" element={<WelcomeScreen />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
@@ -60,6 +59,7 @@ function App() {
       <Route path="/vehicle-management" element={user ? <VehicleManagement /> : <Navigate to="/login" />} />
       <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
       <Route path="/user-settings" element={user ? <UserSettings /> : <Navigate to="/login" />} />
+      <Route path="/fuel-tracking" element={user ? <FuelTracking /> : <Navigate to="/login" />} />
     </Routes>
   );
 }
