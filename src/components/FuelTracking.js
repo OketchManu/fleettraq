@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Fuel, Plus, Trash2, Edit, DollarSign, Gauge, TrendingUp, Download, AlertCircle, X } from "lucide-react";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, onSnapshot } from "firebase/firestore";
@@ -63,7 +62,6 @@ const FuelTracking = () => {
     const totalCost = records.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
     const avgCostPerGallon = totalGallons > 0 ? totalCost / totalGallons : 0;
     
-    // Calculate average MPG
     let mpgSum = 0;
     let mpgCount = 0;
     records.forEach((record, index) => {
@@ -132,7 +130,6 @@ const FuelTracking = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this fuel record?")) return;
-
     if (!auth.currentUser) return;
 
     try {
@@ -208,147 +205,91 @@ const FuelTracking = () => {
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
-      {/* Header */}
       <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <Fuel className="w-8 h-8 text-yellow-500" />
-              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                Fuel Tracking
-              </h1>
+              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>Fuel Tracking</h1>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => setShowAddForm(true)}>
-                <Plus size={18} />
-                Add Fuel Record
-              </Button>
-              <Button variant="secondary" onClick={() => navigate("/dashboard")}>
-                Back
-              </Button>
+              <Button onClick={() => setShowAddForm(true)}><Plus size={18} />Add Fuel Record</Button>
+              <Button variant="secondary" onClick={() => navigate("/dashboard")}>Back</Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {error && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-sm flex items-center gap-2">
-            <AlertCircle size={16} />
-            {error}
+            <AlertCircle size={16} />{error}
           </div>
         )}
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"} shadow-lg`}
-          >
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
             <Fuel className="w-8 h-8 text-yellow-500 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{stats.totalGallons}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Total Gallons</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"} shadow-lg`}
-          >
+          </div>
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
             <DollarSign className="w-8 h-8 text-green-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>${stats.totalCost}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Total Cost</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"} shadow-lg`}
-          >
+          </div>
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
             <TrendingUp className="w-8 h-8 text-cyan-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{stats.avgMPG}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Avg MPG</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"} shadow-lg`}
-          >
+          </div>
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
             <Gauge className="w-8 h-8 text-purple-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>${stats.avgCostPerGallon}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Avg $/Gallon</p>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Export Button */}
         {fuelRecords.length > 0 && (
           <div className="flex justify-end mb-4">
-            <Button onClick={exportToCSV} variant="secondary" size="sm">
-              <Download size={16} />
-              Export to CSV
-            </Button>
+            <Button onClick={exportToCSV} variant="secondary" size="sm"><Download size={16} />Export CSV</Button>
           </div>
         )}
 
-        {/* Fuel Records Table */}
         {fuelRecords.length === 0 ? (
-          <div className={`text-center py-16 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"}`}>
+          <div className={`text-center py-16 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border`}>
             <Fuel className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-            <h3 className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-800"} mb-2`}>No Fuel Records Yet</h3>
-            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>Add your first fuel record to start tracking efficiency.</p>
-            <Button onClick={() => setShowAddForm(true)}>
-              <Plus size={18} />
-              Add First Fuel Record
-            </Button>
+            <h3 className="text-xl font-semibold mb-2">No Fuel Records Yet</h3>
+            <Button onClick={() => setShowAddForm(true)}><Plus size={18} />Add First Fuel Record</Button>
           </div>
         ) : (
-          <div className={`rounded-2xl overflow-hidden border ${darkMode ? "border-white/10" : "border-gray-200"} shadow-lg`}>
+          <div className={`rounded-2xl overflow-hidden border shadow-lg`}>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className={darkMode ? "bg-black/30" : "bg-gray-50"}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Vehicle</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Gallons</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Cost</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Odometer</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Location</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Vehicle</th>
+                    <th className="px-4 py-3 text-left">Gallons</th>
+                    <th className="px-4 py-3 text-left">Cost</th>
+                    <th className="px-4 py-3 text-left">Odometer</th>
+                    <th className="px-4 py-3 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {fuelRecords.map((record) => {
                     const vehicle = vehicles.find(v => v.id === record.vehicleId);
                     return (
-                      <tr key={record.id} className={`border-t ${darkMode ? "border-white/10 hover:bg-white/5" : "border-gray-200 hover:bg-gray-50"}`}>
-                        <td className="px-4 py-3 text-sm">{new Date(record.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-sm">
-                          {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown"}
-                        </td>
-                        <td className="px-4 py-3 text-sm">{record.gallons} gal</td>
-                        <td className="px-4 py-3 text-sm">${record.cost}</td>
-                        <td className="px-4 py-3 text-sm">{record.odometer.toLocaleString()} mi</td>
-                        <td className="px-4 py-3 text-sm">{record.location || "-"}</td>
-                        <td className="px-4 py-3 text-sm">
+                      <tr key={record.id} className={`border-t ${darkMode ? "border-white/10" : "border-gray-200"}`}>
+                        <td className="px-4 py-3">{new Date(record.date).toLocaleDateString()}</td>
+                        <td className="px-4 py-3">{vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown"}</td>
+                        <td className="px-4 py-3">{record.gallons} gal</td>
+                        <td className="px-4 py-3">${record.cost}</td>
+                        <td className="px-4 py-3">{record.odometer.toLocaleString()} mi</td>
+                        <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEdit(record)}
-                              className="p-1 rounded hover:bg-white/10 transition-colors"
-                            >
-                              <Edit size={16} className="text-yellow-500" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(record.id)}
-                              className="p-1 rounded hover:bg-white/10 transition-colors"
-                            >
-                              <Trash2 size={16} className="text-red-400" />
-                            </button>
+                            <button onClick={() => handleEdit(record)} className="p-1 rounded hover:bg-white/10"><Edit size={16} className="text-yellow-500" /></button>
+                            <button onClick={() => handleDelete(record.id)} className="p-1 rounded hover:bg-white/10"><Trash2 size={16} className="text-red-400" /></button>
                           </div>
                         </td>
                       </tr>
@@ -364,125 +305,73 @@ const FuelTracking = () => {
       {/* Add/Edit Modal */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl ${darkMode ? "bg-[#1a1a2e] border-yellow-500/30" : "bg-white border-gray-200"} border shadow-2xl`}>
-            <div className={`p-5 border-b ${darkMode ? "border-white/10" : "border-gray-200"} flex justify-between items-center`}>
-              <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                {editingRecord ? "Edit Fuel Record" : "Add Fuel Record"}
-              </h2>
-              <button onClick={() => {
-                setShowAddForm(false);
-                resetForm();
-              }} className="p-1 rounded-lg hover:bg-white/10">
-                <X size={20} />
-              </button>
+          <div className={`w-full max-w-md rounded-2xl ${darkMode ? "bg-[#1a1a2e]" : "bg-white"} border shadow-2xl`}>
+            <div className={`p-5 border-b flex justify-between items-center`}>
+              <h2 className="text-xl font-bold">{editingRecord ? "Edit Fuel Record" : "Add Fuel Record"}</h2>
+              <button onClick={() => { setShowAddForm(false); resetForm(); }}><X size={20} /></button>
             </div>
-            
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <div>
-                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Vehicle *</label>
-                <select
-                  value={newRecord.vehicleId}
-                  onChange={(e) => setNewRecord({ ...newRecord, vehicleId: e.target.value })}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                  required
-                >
-                  <option value="">Select Vehicle</option>
-                  {vehicles.map(vehicle => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+              <select 
+                value={newRecord.vehicleId} 
+                onChange={(e) => setNewRecord({ ...newRecord, vehicleId: e.target.value })}
+                className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100"}`} 
+                required
+              >
+                <option value="">Select Vehicle</option>
+                {vehicles.map(vehicle => (
+                  <option key={vehicle.id} value={vehicle.id}>{vehicle.make} {vehicle.model}</option>
+                ))}
+              </select>
+              
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Date *</label>
-                  <input
-                    type="date"
-                    value={newRecord.date}
-                    onChange={(e) => setNewRecord({ ...newRecord, date: e.target.value })}
-                    className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Gallons *</label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    value={newRecord.gallons}
-                    onChange={(e) => setNewRecord({ ...newRecord, gallons: e.target.value })}
-                    placeholder="0.000"
-                    className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Cost ($) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newRecord.cost}
-                    onChange={(e) => setNewRecord({ ...newRecord, cost: e.target.value })}
-                    placeholder="0.00"
-                    className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Odometer (miles) *</label>
-                  <input
-                    type="number"
-                    value={newRecord.odometer}
-                    onChange={(e) => setNewRecord({ ...newRecord, odometer: e.target.value })}
-                    placeholder="0"
-                    className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Location</label>
-                <input
-                  type="text"
-                  value={newRecord.location}
-                  onChange={(e) => setNewRecord({ ...newRecord, location: e.target.value })}
-                  placeholder="Gas station location"
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                <input 
+                  type="date" 
+                  value={newRecord.date} 
+                  onChange={(e) => setNewRecord({ ...newRecord, date: e.target.value })} 
+                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  required 
+                />
+                <input 
+                  type="number" 
+                  step="0.001" 
+                  value={newRecord.gallons} 
+                  onChange={(e) => setNewRecord({ ...newRecord, gallons: e.target.value })} 
+                  placeholder="Gallons" 
+                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  required 
                 />
               </div>
-
-              <div>
-                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Notes</label>
-                <textarea
-                  value={newRecord.notes}
-                  onChange={(e) => setNewRecord({ ...newRecord, notes: e.target.value })}
-                  placeholder="Additional notes..."
-                  rows={2}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none`}
+              
+              <div className="grid grid-cols-2 gap-3">
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  value={newRecord.cost} 
+                  onChange={(e) => setNewRecord({ ...newRecord, cost: e.target.value })} 
+                  placeholder="Cost" 
+                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  required 
+                />
+                <input 
+                  type="number" 
+                  value={newRecord.odometer} 
+                  onChange={(e) => setNewRecord({ ...newRecord, odometer: e.target.value })} 
+                  placeholder="Odometer" 
+                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  required 
                 />
               </div>
-
+              
               <div className="flex gap-3 pt-2">
-                <Button type="submit">
-                  {editingRecord ? "Update Record" : "Add Record"}
-                </Button>
-                <Button variant="secondary" type="button" onClick={resetForm}>
-                  Reset
-                </Button>
+                <Button type="submit">{editingRecord ? "Update" : "Add"}</Button>
+                <Button variant="secondary" type="button" onClick={resetForm}>Reset</Button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
+      <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10" : "border-gray-200"}`}>
         <p>© 2025 FleetTraq. All rights reserved.</p>
       </footer>
     </div>
