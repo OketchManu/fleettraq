@@ -5,15 +5,6 @@
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "create-react-app",
   "outputDirectory": "build",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
