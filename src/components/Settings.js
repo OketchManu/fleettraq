@@ -236,18 +236,21 @@ const Settings = () => {
             </h2>
             <div className="space-y-4">
               <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Language</label>
                 <select
-  name="language"
-  value={settings.language}
-  onChange={handleChange}
-  disabled={isSaving}
-  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white border border-white/20" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
->
-  <option value="en" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>English</option>
-  <option value="es" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>Español</option>
-  <option value="fr" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>Français</option>
-  <option value="de" className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>Deutsch</option>
-</select>
+                  name="language"
+                  value={settings.language}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
+                >
+                  <option value="en" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>English</option>
+                  <option value="es" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Español</option>
+                  <option value="fr" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Français</option>
+                  <option value="de" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Deutsch</option>
+                </select>
               </div>
               <div>
                 <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Time Zone</label>
@@ -256,13 +259,15 @@ const Settings = () => {
                   value={settings.timeZone}
                   onChange={handleChange}
                   disabled={isSaving}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
                 >
-                  <option value="UTC">UTC</option>
-                  <option value="America/New_York">Eastern Time</option>
-                  <option value="America/Chicago">Central Time</option>
-                  <option value="America/Denver">Mountain Time</option>
-                  <option value="America/Los_Angeles">Pacific Time</option>
+                  <option value="UTC" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>UTC</option>
+                  <option value="America/New_York" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Eastern Time</option>
+                  <option value="America/Chicago" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Central Time</option>
+                  <option value="America/Denver" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Mountain Time</option>
+                  <option value="America/Los_Angeles" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Pacific Time</option>
                 </select>
               </div>
               <div>
@@ -272,10 +277,12 @@ const Settings = () => {
                   value={settings.units}
                   onChange={handleChange}
                   disabled={isSaving}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
                 >
-                  <option value="metric">Metric (km, L)</option>
-                  <option value="imperial">Imperial (miles, gal)</option>
+                  <option value="metric" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Metric (km, L)</option>
+                  <option value="imperial" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Imperial (miles, gal)</option>
                 </select>
               </div>
             </div>
@@ -300,11 +307,13 @@ const Settings = () => {
                   value={settings.defaultMapView}
                   onChange={handleChange}
                   disabled={isSaving}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
                 >
-                  <option value="roadmap">Roadmap</option>
-                  <option value="satellite">Satellite</option>
-                  <option value="hybrid">Hybrid</option>
+                  <option value="roadmap" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Roadmap</option>
+                  <option value="satellite" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Satellite</option>
+                  <option value="hybrid" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Hybrid</option>
                 </select>
               </div>
               <label className="flex items-center justify-between cursor-pointer">
@@ -350,11 +359,13 @@ const Settings = () => {
                 value={settings.reportFrequency}
                 onChange={handleChange}
                 disabled={isSaving}
-                className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                }`}
               >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
+                <option value="daily" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Daily</option>
+                <option value="weekly" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Weekly</option>
+                <option value="monthly" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Monthly</option>
               </select>
             </div>
 
@@ -369,14 +380,16 @@ const Settings = () => {
                 value={settings.dashboardLayout}
                 onChange={handleChange}
                 disabled={isSaving}
-                className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                }`}
               >
-                <option value="grid">Grid View</option>
-                <option value="list">List View</option>
+                <option value="grid" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Grid View</option>
+                <option value="list" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>List View</option>
               </select>
             </div>
 
-            <div className="flex gap-3 mt-8 pt-4 border-t border-white/10">
+            <div className={`flex gap-3 mt-8 pt-4 border-t ${darkMode ? "border-white/10" : "border-gray-200"}`}>
               <Button onClick={handleSave} disabled={isSaving}>
                 <Save size={18} />
                 Save Changes

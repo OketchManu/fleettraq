@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Save, Lock, Mail, Bell, Shield, ChevronLeft, CheckCircle, AlertCircle, Moon } from "lucide-react";
+import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon } from "lucide-react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
@@ -163,40 +163,7 @@ const UserSettings = () => {
           )}
         </AnimatePresence>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Profile Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
-          >
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-yellow-500 to-amber-600 flex items-center justify-center">
-                <User className="w-8 h-8 text-black" />
-              </div>
-              <div>
-                <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                  {user?.displayName || user?.email?.split('@')[0] || "User"}
-                </h2>
-                <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                  {user?.email}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className={`p-4 rounded-xl ${darkMode ? "bg-black/30" : "bg-gray-50"}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Shield className="w-4 h-4 text-yellow-500" />
-                  <span className={`text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Account Type</span>
-                </div>
-                <p className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                  {localStorage.getItem("role") || "User"}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-
+        <div className="grid grid-cols-1 gap-6">
           {/* Preferences */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -250,7 +217,7 @@ const UserSettings = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className={`lg:col-span-2 rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
+            className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
           >
             <h2 className={`text-xl font-semibold mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
               <Lock className="w-5 h-5 text-yellow-500" />

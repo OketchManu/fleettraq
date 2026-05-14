@@ -16,7 +16,6 @@ import Reports from "./components/Reports";
 import Settings from "./components/Settings";
 import Tracking from "./components/Tracking";
 import VehicleManagement from "./components/VehicleManagement";
-import Profile from "./components/Profile";
 import UserSettings from "./components/UserSettings";
 import AuthCallback from "./components/AuthCallback";
 import FuelTracking from "./components/FuelTracking";
@@ -66,7 +65,6 @@ function AppRoutes() {
       <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
       <Route path="/tracking" element={user ? <Tracking /> : <Navigate to="/login" />} />
       <Route path="/vehicle-management" element={user ? <VehicleManagement /> : <Navigate to="/login" />} />
-      <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
       <Route path="/user-settings" element={user ? <UserSettings /> : <Navigate to="/login" />} />
       <Route path="/fuel-tracking" element={user ? <FuelTracking /> : <Navigate to="/login" />} />
       <Route path="*" element={<NotFound />} />

@@ -527,11 +527,13 @@ const Tracking = () => {
                 <select
                   value={selectedVehicle}
                   onChange={(e) => setSelectedVehicle(e.target.value)}
-                  className={`w-full px-4 py-3 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
                 >
-                  <option value="">Choose a vehicle</option>
+                  <option value="" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Choose a vehicle</option>
                   {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
+                    <option key={vehicle.id} value={vehicle.id} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
                       {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
                     </option>
                   ))}

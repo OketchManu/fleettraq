@@ -315,15 +315,25 @@ const FuelTracking = () => {
               <button type="button" aria-label="Close" onClick={() => { setShowAddForm(false); resetForm(); }} className={darkMode ? "text-gray-300 hover:text-white" : "text-gray-600 hover:text-gray-900"}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              <select 
-                value={newRecord.vehicleId} 
+              <select
+                value={newRecord.vehicleId}
                 onChange={(e) => setNewRecord({ ...newRecord, vehicleId: e.target.value })}
-                className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100"}`} 
+                className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                  darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                }`}
                 required
               >
-                <option value="">Select Vehicle</option>
-                {vehicles.map(vehicle => (
-                  <option key={vehicle.id} value={vehicle.id}>{vehicle.make} {vehicle.model}</option>
+                <option value="" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
+                  Select Vehicle
+                </option>
+                {vehicles.map((vehicle) => (
+                  <option
+                    key={vehicle.id}
+                    value={vehicle.id}
+                    className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}
+                  >
+                    {vehicle.make} {vehicle.model}
+                  </option>
                 ))}
               </select>
               

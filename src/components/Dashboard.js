@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   MapPin, Truck, Settings, Users, Activity, FileText, 
-  Car, User, Menu, X, Moon, Sun, Bell, Search, 
+  Car, Menu, X, Moon, Sun, Bell, Search, 
   TrendingUp, Fuel, Clock, AlertTriangle, ChevronRight,
   Navigation, Gauge, Calendar, Shield
 } from "lucide-react";
@@ -223,7 +223,6 @@ const Dashboard = () => {
     { label: "Reports", icon: <FileText size={18} />, path: "/reports", color: "from-yellow-500 to-amber-600" },
     { label: "Vehicles", icon: <Car size={18} />, path: "/vehicle-management", color: "from-yellow-500 to-amber-600" },
     { label: "Fuel", icon: <Fuel size={18} />, path: "/fuel-tracking", color: "from-yellow-500 to-amber-600" },
-    { label: "Profile", icon: <User size={18} />, path: "/profile", color: "from-yellow-500 to-amber-600" },
     { label: "Account", icon: <Shield size={18} />, path: "/user-settings", color: "from-yellow-500 to-amber-600" },
     { label: "Settings", icon: <Settings size={18} />, path: "/settings", color: "from-yellow-500 to-amber-600" },
   ].filter(Boolean);

@@ -419,10 +419,12 @@ FleetTraq - Fleet Management System`;
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white border border-white/20" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                    className={`px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                      darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                    }`}
                   >
-                    {reportTypes.map(type => (
-                      <option key={type} value={type} className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>
+                    {reportTypes.map((type) => (
+                      <option key={type} value={type} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
                         {type}
                       </option>
                     ))}
@@ -439,10 +441,12 @@ FleetTraq - Fleet Management System`;
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
                 >
-                  {statusOptions.map(status => (
-                    <option key={status} value={status} className={darkMode ? "bg-[#1a1a2e] text-white" : "bg-white text-gray-800"}>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
                       {status}
                     </option>
                   ))}
