@@ -36,7 +36,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -71,7 +71,9 @@ const Tracking = () => {
   useEffect(() => {
     if (!user?.uid) return;
 
-    const q = query(collection(db, "tracking"), where("accountId", "==", user.uid));
+    const fid = fleetId || user?.uid;
+    if (!fid) return;
+    const q = query(collection(db, "tracking"), where("accountId", "==", fid));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -95,7 +97,7 @@ const Tracking = () => {
       }
     );
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user?.uid, fleetId]);
 
   const saveLocation = useCallback(
     async (lat, lng, name, method) => {
@@ -114,7 +116,7 @@ const Tracking = () => {
           timestamp: new Date().toISOString(),
           method,
           deviceId,
-          accountId: auth.currentUser?.uid,
+          accountId: fleetId || auth.currentUser?.uid,
           isTracking: true,
         });
         localStorage.setItem("pendingTrackings", JSON.stringify(pendingTrackings));
@@ -131,7 +133,7 @@ const Tracking = () => {
             timestamp: new Date().toISOString(),
             method,
             deviceId,
-            accountId: auth.currentUser.uid,
+            accountId: fleetId || auth.currentUser.uid,
             isTracking: true,
           });
           setTrackingDocId(docRef.id);
@@ -151,7 +153,7 @@ const Tracking = () => {
         throw err;
       }
     },
-    [selectedVehicle, deviceId, trackingDocId, setTrackingData, isOnline]
+    [selectedVehicle, deviceId, trackingDocId, setTrackingData, isOnline, fleetId]
   );
 
   // Sync pending trackings when coming back online
@@ -266,7 +268,7 @@ const Tracking = () => {
     const q = query(
       collection(db, "tracking"),
       where("vehicleId", "==", selectedVehicle),
-      where("accountId", "==", auth.currentUser.uid)
+      where("accountId", "==", fleetId || auth.currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(
@@ -304,7 +306,7 @@ const Tracking = () => {
     );
 
     return () => unsubscribe();
-  }, [selectedVehicle, setTrackingData]);
+  }, [selectedVehicle, setTrackingData, fleetId]);
 
   // Set initial map view
   useEffect(() => {

@@ -21,6 +21,28 @@ import AuthCallback from "./components/AuthCallback";
 import FuelTracking from "./components/FuelTracking";
 import NotFound from "./components/NotFound";
 
+function RequireFleetManager({ children }) {
+  const { user, loading, canManageFleet } = useFleet();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+        <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!canManageFleet) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
+
 function AppRoutes() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,9 +82,31 @@ function AppRoutes() {
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
       <Route path="/analytics" element={user ? <Analytics /> : <Navigate to="/login" />} />
-      <Route path="/drivers" element={user ? <Drivers /> : <Navigate to="/login" />} />
+      <Route
+        path="/drivers"
+        element={
+          user ? (
+            <RequireFleetManager>
+              <Drivers />
+            </RequireFleetManager>
+          ) : (
+            <Navigate to="/login" />
+          )
+        }
+      />
       <Route path="/reports" element={user ? <Reports /> : <Navigate to="/login" />} />
-      <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
+      <Route
+        path="/settings"
+        element={
+          user ? (
+            <RequireFleetManager>
+              <Settings />
+            </RequireFleetManager>
+          ) : (
+            <Navigate to="/login" />
+          )
+        }
+      />
       <Route path="/tracking" element={user ? <Tracking /> : <Navigate to="/login" />} />
       <Route path="/vehicle-management" element={user ? <VehicleManagement /> : <Navigate to="/login" />} />
       <Route path="/user-settings" element={user ? <UserSettings /> : <Navigate to="/login" />} />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon } from "lucide-react";
+import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon, Copy } from "lucide-react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
@@ -10,7 +10,7 @@ import Button from "./Button";
 
 const UserSettings = () => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user } = useFleet();
+  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver } = useFleet();
   const [settings, setSettings] = useState({
     darkMode: true,
     emailNotifications: false,
@@ -162,6 +162,46 @@ const UserSettings = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {isDriver && (
+          <p className={`mb-6 text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+            Driver accounts can update preferences and password here. Vehicle assignment and fleet setup are managed by your administrator.
+          </p>
+        )}
+
+        {canManageFleet && fleetId && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`mb-6 rounded-2xl p-4 border ${darkMode ? "bg-cyan-500/10 border-cyan-500/30" : "bg-cyan-50 border-cyan-200"}`}
+          >
+            <p className={`text-sm font-medium mb-2 ${darkMode ? "text-cyan-100" : "text-cyan-900"}`}>
+              Fleet organization ID — give this to drivers when they sign up so they join the correct fleet.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className={`text-xs sm:text-sm break-all rounded-lg px-3 py-2 ${darkMode ? "bg-black/40 text-white" : "bg-white text-gray-900 border border-gray-200"}`}>
+                {fleetId}
+              </code>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(fleetId);
+                    setSuccess("Fleet organization ID copied to clipboard.");
+                    setTimeout(() => setSuccess(null), 2500);
+                  } catch {
+                    setError("Could not copy to clipboard.");
+                  }
+                }}
+              >
+                <Copy size={16} />
+                Copy
+              </Button>
+            </div>
+          </motion.div>
+        )}
 
         <div className="grid grid-cols-1 gap-6">
           {/* Preferences */}

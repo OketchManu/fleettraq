@@ -1,12 +1,12 @@
 /* eslint-disable no-unused-vars */
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  MapPin, Truck, Settings, Users, Activity, FileText, 
-  Car, Menu, X, Moon, Sun, Bell, Search, 
-  TrendingUp, Fuel, Clock, AlertTriangle, ChevronRight,
-  Navigation, Gauge, Calendar, Shield
+  MapPin, Truck, FileText, 
+  Car, Menu, X, Moon, Sun, 
+  TrendingUp, Fuel, AlertTriangle,
+  Navigation, Gauge
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -16,8 +16,8 @@ import { doc, setDoc } from "firebase/firestore";
 import { collection, query, onSnapshot, where } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
+import FleetNavBar from "./FleetNavBar";
 import { CarIcon } from "./assets/car-icon";
-import NotificationBell from "./NotificationBell";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -83,12 +83,10 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, setDarkMode, user, sendNotification, maintenanceAlerts } = useFleet();
-  const role = localStorage.getItem("role");
+  const { vehicles, fetchVehicles, darkMode, setDarkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver } = useFleet();
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
   const [stats, setStats] = useState({
@@ -96,7 +94,6 @@ const Dashboard = () => {
     avgFuelEfficiency: 0,
     activeAlerts: 0
   });
-  const menuRef = useRef(null);
 
   // Send welcome notification when dashboard loads
   useEffect(() => {
@@ -109,19 +106,10 @@ const Dashboard = () => {
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) setMobileMenuOpen(false);
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) setMobileMenuOpen(false);
-    };
-    if (mobileMenuOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [mobileMenuOpen]);
 
   useEffect(() => {
     const loadVehicles = async () => {
@@ -142,11 +130,12 @@ const Dashboard = () => {
   }, [fetchVehicles, user?.uid]);
 
   useEffect(() => {
-    if (!user?.uid) return;
+    const fid = user?.fleetId;
+    if (!fid) return;
 
     const q = query(
       collection(db, "tracking"),
-      where("accountId", "==", user.uid),
+      where("accountId", "==", fid),
       where("isTracking", "==", true)
     );
 
@@ -181,7 +170,7 @@ const Dashboard = () => {
     );
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user?.fleetId]);
 
   useEffect(() => {
     if (vehicles.length) {
@@ -215,17 +204,6 @@ const Dashboard = () => {
   };
 
   const fleetStats = getFleetStats();
-
-  const navButtons = [
-    role === "admin" && { label: "Drivers", icon: <Users size={18} />, path: "/drivers", color: "from-yellow-500 to-amber-600" },
-    { label: "Tracking", icon: <MapPin size={18} />, path: "/tracking", color: "from-yellow-500 to-amber-600" },
-    { label: "Analytics", icon: <Activity size={18} />, path: "/analytics", color: "from-yellow-500 to-amber-600" },
-    { label: "Reports", icon: <FileText size={18} />, path: "/reports", color: "from-yellow-500 to-amber-600" },
-    { label: "Vehicles", icon: <Car size={18} />, path: "/vehicle-management", color: "from-yellow-500 to-amber-600" },
-    { label: "Fuel", icon: <Fuel size={18} />, path: "/fuel-tracking", color: "from-yellow-500 to-amber-600" },
-    { label: "Account", icon: <Shield size={18} />, path: "/user-settings", color: "from-yellow-500 to-amber-600" },
-    { label: "Settings", icon: <Settings size={18} />, path: "/settings", color: "from-yellow-500 to-amber-600" },
-  ].filter(Boolean);
 
   const MapComponent = useMemo(() => {
     const defaultPosition = [-1.2864, 36.8172];
@@ -271,92 +249,13 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Header */}
-      <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <Truck className="w-8 h-8 text-yellow-500" />
-              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                Fleet<span className="text-yellow-500">Traq</span>
-              </h1>
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-2">
-              {navButtons.map((btn, idx) => (
-                <motion.button
-                  key={idx}
-                  onClick={() => navigate(btn.path)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-4 py-2 rounded-xl bg-gradient-to-r ${btn.color} text-black font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all`}
-                >
-                  {btn.icon}
-                  {btn.label}
-                </motion.button>
-              ))}
-              
-              <NotificationBell />
-              
-              <button
-                onClick={toggleDarkMode}
-                className={`p-2 rounded-xl transition-all ${
-                  darkMode ? "bg-white/10 hover:bg-white/20" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
-                }`}
-              >
-                {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5" />}
-              </button>
-            </div>
-
-            {/* Mobile Menu Button */}
-            <div className="flex items-center gap-2 md:hidden">
-              <NotificationBell />
-              <button
-                onClick={toggleDarkMode}
-                className={`p-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-200 text-gray-800"}`}
-              >
-                {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5" />}
-              </button>
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-xl bg-white/10"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMobile && mobileMenuOpen && (
-          <motion.div
-            ref={menuRef}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className={`md:hidden ${darkMode ? "bg-black/95 border-white/10" : "bg-white border-gray-200"} border-b shadow-xl`}
-          >
-            <div className="flex flex-col p-4 gap-2">
-              {navButtons.map((btn, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    navigate(btn.path);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`px-4 py-3 rounded-xl bg-gradient-to-r ${btn.color} text-black font-semibold flex items-center gap-3`}
-                >
-                  {btn.icon}
-                  {btn.label}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <FleetNavBar
+        darkMode={darkMode}
+        onToggleDark={toggleDarkMode}
+        user={user}
+        canManageFleet={canManageFleet}
+        isDriver={isDriver}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">

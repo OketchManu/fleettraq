@@ -1,31 +1,15 @@
-/* eslint-disable no-unused-vars */
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, Calendar } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
-import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import Button from "./Button";
-
-const calculateDriverScore = (driver) => {
-  let score = 100;
-  
-  // Deduct for violations
-  if (driver.speedingViolations) score -= driver.speedingViolations * 5;
-  if (driver.harshBraking) score -= driver.harshBraking * 3;
-  if (driver.idleTime > 30) score -= Math.floor(driver.idleTime / 10);
-  
-  // Add for safe driving
-  if (driver.safeDays > 30) score += 5;
-  if (driver.fuelEfficiency > 8) score += 3;
-  
-  return Math.max(0, Math.min(100, score));
-};
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers } = useFleet();
+  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [formData, setFormData] = useState({
@@ -36,6 +20,8 @@ const Drivers = () => {
     address: "",
     status: "Active",
     hireDate: "",
+    authUid: "",
+    assignedVehicleId: "",
   });
   const [error, setError] = useState(null);
 
@@ -48,6 +34,33 @@ const Drivers = () => {
     Training: "text-cyan-400"
   };
 
+  const syncVehicleAssignment = async (previousDriver, nextForm) => {
+    const batch = writeBatch(db);
+    const oldVid = (previousDriver?.assignedVehicleId || "").trim();
+    const newVid = (nextForm.assignedVehicleId || "").trim();
+    const uid = (nextForm.authUid || "").trim() || null;
+    const em = (nextForm.email || "").trim() || null;
+    let hasWrites = false;
+
+    if (oldVid && (!newVid || newVid !== oldVid)) {
+      batch.update(doc(db, "vehicles", oldVid), {
+        assignedDriverUid: null,
+        assignedDriverEmail: null,
+        updatedAt: new Date().toISOString(),
+      });
+      hasWrites = true;
+    }
+    if (newVid) {
+      batch.update(doc(db, "vehicles", newVid), {
+        assignedDriverUid: uid,
+        assignedDriverEmail: em,
+        updatedAt: new Date().toISOString(),
+      });
+      hasWrites = true;
+    }
+    if (hasWrites) await batch.commit();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -57,21 +70,37 @@ const Drivers = () => {
       return;
     }
 
+    const fid = fleetId || user?.uid;
+    if (!fid) {
+      setError("Fleet context is not ready. Please try again.");
+      return;
+    }
+
     try {
       const driverData = {
-        ...formData,
-        accountId: auth.currentUser.uid,
+        name: formData.name,
+        licenseNumber: formData.licenseNumber,
+        phone: formData.phone,
+        email: formData.email,
+        address: formData.address,
+        status: formData.status,
+        hireDate: formData.hireDate,
+        authUid: (formData.authUid || "").trim() || null,
+        assignedVehicleId: (formData.assignedVehicleId || "").trim() || null,
+        accountId: fid,
         updatedAt: new Date().toISOString(),
       };
 
       if (editingDriver) {
         const driverRef = doc(db, "drivers", editingDriver.id);
         await updateDoc(driverRef, driverData);
+        await syncVehicleAssignment(editingDriver, formData);
       } else {
         await addDoc(collection(db, "drivers"), {
           ...driverData,
           createdAt: new Date().toISOString(),
         });
+        await syncVehicleAssignment(null, formData);
       }
 
       await fetchDrivers();
@@ -92,6 +121,14 @@ const Drivers = () => {
     }
 
     try {
+      const driver = drivers.find((d) => d.id === id);
+      if (driver?.assignedVehicleId) {
+        await syncVehicleAssignment(driver, {
+          email: driver.email || "",
+          authUid: driver.authUid || "",
+          assignedVehicleId: "",
+        });
+      }
       const driverRef = doc(db, "drivers", id);
       await deleteDoc(driverRef);
       await fetchDrivers();
@@ -111,6 +148,8 @@ const Drivers = () => {
       address: driver.address || "",
       status: driver.status || "Active",
       hireDate: driver.hireDate || "",
+      authUid: driver.authUid || "",
+      assignedVehicleId: driver.assignedVehicleId || "",
     });
     setShowAddForm(true);
   };
@@ -125,6 +164,8 @@ const Drivers = () => {
       address: "",
       status: "Active",
       hireDate: "",
+      authUid: "",
+      assignedVehicleId: "",
     });
     setError(null);
   };
@@ -241,6 +282,15 @@ const Drivers = () => {
                         </span>
                       </div>
                     )}
+                    {driver.assignedVehicleId && (
+                      <div className={`text-xs ${darkMode ? "text-cyan-300/90" : "text-cyan-700"}`}>
+                        Vehicle:{" "}
+                        {(() => {
+                          const v = vehiclesAll.find((x) => x.id === driver.assignedVehicleId);
+                          return v ? `${v.make} ${v.model}` : driver.assignedVehicleId;
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -341,6 +391,31 @@ const Drivers = () => {
                     className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
                   />
                 </div>
+
+                <input
+                  type="text"
+                  placeholder="Linked account UID (Firebase user id when they sign up)"
+                  value={formData.authUid}
+                  onChange={(e) => setFormData({ ...formData, authUid: e.target.value })}
+                  className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-400" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
+                />
+
+                <select
+                  value={formData.assignedVehicleId}
+                  onChange={(e) => setFormData({ ...formData, assignedVehicleId: e.target.value })}
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
+                >
+                  <option value="" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
+                    No vehicle assignment
+                  </option>
+                  {vehiclesAll.map((v) => (
+                    <option key={v.id} value={v.id} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
+                      {v.make} {v.model} ({v.licensePlate || v.id.slice(0, 6)})
+                    </option>
+                  ))}
+                </select>
                 
                 <div className="flex gap-3 pt-2">
                   <Button type="submit">

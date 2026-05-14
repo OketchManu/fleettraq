@@ -9,7 +9,7 @@ import Button from "./Button";
 
 const VehicleManagement = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, fetchVehicles } = useFleet();
+  const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [formData, setFormData] = useState({
@@ -42,6 +42,17 @@ const VehicleManagement = () => {
       return;
     }
 
+    if (!canManageFleet) {
+      setError("Only fleet administrators or managers can add or edit vehicles.");
+      return;
+    }
+
+    const fid = fleetId || user?.uid;
+    if (!fid) {
+      setError("Fleet context is not ready. Please try again.");
+      return;
+    }
+
     try {
       const mileage = parseInt(formData.mileage, 10) || 0;
       const fuelEfficiency = parseFloat(formData.fuelEfficiency) || 15;
@@ -49,7 +60,7 @@ const VehicleManagement = () => {
         ...formData,
         mileage,
         fuelEfficiency,
-        accountId: auth.currentUser.uid,
+        accountId: fid,
         updatedAt: new Date().toISOString(),
       };
 
@@ -80,6 +91,11 @@ const VehicleManagement = () => {
       return;
     }
 
+    if (!canManageFleet) {
+      setError("Only fleet administrators or managers can remove vehicles.");
+      return;
+    }
+
     try {
       const vehicleRef = doc(db, "vehicles", id);
       await deleteDoc(vehicleRef);
@@ -91,6 +107,7 @@ const VehicleManagement = () => {
   };
 
   const handleEdit = (vehicle) => {
+    if (!canManageFleet) return;
     setEditingVehicle(vehicle);
     setFormData({
       make: vehicle.make || "",
@@ -133,10 +150,12 @@ const VehicleManagement = () => {
               </h1>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => setShowAddForm(true)}>
-                <Plus size={18} />
-                Add Vehicle
-              </Button>
+              {canManageFleet && (
+                <Button onClick={() => setShowAddForm(true)}>
+                  <Plus size={18} />
+                  Add Vehicle
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => navigate("/dashboard")}>
                 Back
               </Button>
@@ -157,12 +176,20 @@ const VehicleManagement = () => {
         {vehicles.length === 0 ? (
           <div className={`text-center py-16 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"}`}>
             <Truck className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-            <h3 className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-800"} mb-2`}>No Vehicles Yet</h3>
-            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>Get started by adding your first vehicle to the fleet.</p>
-            <Button onClick={() => setShowAddForm(true)}>
-              <Plus size={18} />
-              Add Your First Vehicle
-            </Button>
+            <h3 className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-800"} mb-2`}>
+              {canManageFleet ? "No Vehicles Yet" : "No Vehicle Assigned"}
+            </h3>
+            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4 max-w-md mx-auto`}>
+              {canManageFleet
+                ? "Get started by adding your first vehicle to the fleet."
+                : "Your fleet administrator can assign a vehicle to your account, or link your driver profile to a vehicle."}
+            </p>
+            {canManageFleet && (
+              <Button onClick={() => setShowAddForm(true)}>
+                <Plus size={18} />
+                Add Your First Vehicle
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -177,20 +204,24 @@ const VehicleManagement = () => {
               >
                 <div className="relative h-32 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 p-4">
                   <Car className="w-12 h-12 text-yellow-500" />
-                  <div className="absolute top-4 right-4 flex gap-2">
-                    <button
-                      onClick={() => handleEdit(vehicle)}
-                      className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
-                    >
-                      <Edit size={16} className="text-yellow-500" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(vehicle.id)}
-                      className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
-                  </div>
+                  {canManageFleet && (
+                    <div className="absolute top-4 right-4 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(vehicle)}
+                        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+                      >
+                        <Edit size={16} className="text-yellow-500" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(vehicle.id)}
+                        className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
+                      >
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="p-5">
@@ -242,7 +273,7 @@ const VehicleManagement = () => {
 
       {/* Add/Edit Modal */}
       <AnimatePresence>
-        {showAddForm && (
+        {showAddForm && canManageFleet && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

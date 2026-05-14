@@ -1,12 +1,12 @@
 import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useFleet } from "../context/FleetContext";
-import { getAuth, signInWithCredential, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, signInWithCredential, GoogleAuthProvider, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setUser } = useFleet();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -19,14 +19,25 @@ const AuthCallback = () => {
           const credential = GoogleAuthProvider.credential(null, code);
           const result = await signInWithCredential(auth, credential);
           const user = result.user;
-          
+
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (!userDoc.exists()) {
+            await signOut(auth);
+            navigate("/login", {
+              replace: true,
+              state: {
+                authError:
+                  "This account is not registered with FleetTraq. Sign up first or contact your fleet administrator.",
+              },
+            });
+            return;
+          }
+
+          const data = userDoc.data();
+          const role = data.role || "user";
+
           localStorage.setItem("token", await user.getIdToken());
-          localStorage.setItem("role", "user"); // You might want to fetch role from Firestore
-          setUser({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName
-          });
+          localStorage.setItem("role", role);
           navigate("/dashboard", { replace: true });
         } catch (err) {
           console.error("Auth callback error:", err);
@@ -38,7 +49,7 @@ const AuthCallback = () => {
     };
 
     handleCallback();
-  }, [navigate, setUser, location.search]);
+  }, [navigate, location.search]);
 
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1A0033 0%, #2D0047 100%)" }}>

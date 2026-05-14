@@ -20,6 +20,7 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [fleetOrganizationId, setFleetOrganizationId] = useState("");
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -42,17 +43,31 @@ const Signup = () => {
       return;
     }
 
+    if (role === "driver" && !fleetOrganizationId.trim()) {
+      setError("Drivers must enter the fleet Organization ID provided by the fleet administrator.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
+
+      let organizationId = user.uid;
+      if (role === "driver") {
+        organizationId = fleetOrganizationId.trim();
+      } else if (role === "manager") {
+        organizationId = fleetOrganizationId.trim() || user.uid;
+      }
+
       await updateProfile(user, { displayName: name });
-      
+
       await setDoc(doc(db, "users", user.uid), {
         name,
         email,
         role,
-        createdAt: new Date().toISOString()
+        organizationId,
+        createdAt: new Date().toISOString(),
       });
 
       await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
@@ -81,16 +96,34 @@ const Signup = () => {
       return;
     }
 
+    if (role === "driver" && !fleetOrganizationId.trim()) {
+      setError("Drivers must enter the fleet Organization ID before signing up with Google.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      
-      await setDoc(doc(db, "users", user.uid), {
-        name: user.displayName,
-        email: user.email,
-        role,
-        createdAt: new Date().toISOString()
-      }, { merge: true });
+
+      let organizationId = user.uid;
+      if (role === "driver") {
+        organizationId = fleetOrganizationId.trim();
+      } else if (role === "manager") {
+        organizationId = fleetOrganizationId.trim() || user.uid;
+      }
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          name: user.displayName,
+          email: user.email,
+          role,
+          organizationId,
+          createdAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
 
       await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
 
@@ -282,6 +315,32 @@ const Signup = () => {
                 </option>
               </select>
             </div>
+
+            {(role === "driver" || role === "manager") && (
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                  {role === "driver" ? "Fleet Organization ID *" : "Fleet Organization ID (optional)"}
+                </label>
+                <input
+                  type="text"
+                  value={fleetOrganizationId}
+                  onChange={(e) => setFleetOrganizationId(e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-xl font-mono text-sm focus:outline-none focus:border-yellow-500 transition-all ${
+                    darkMode
+                      ? "bg-white/10 border-white/20 text-white placeholder-gray-500"
+                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+                  }`}
+                  placeholder="Paste the ID from your fleet administrator"
+                  disabled={isLoading}
+                  required={role === "driver"}
+                />
+                <p className={`text-xs mt-1.5 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
+                  {role === "driver"
+                    ? "Required so your account is linked to the correct fleet and vehicle."
+                    : "Leave blank to create your own fleet, or enter an administrator's ID to join theirs."}
+                </p>
+              </div>
+            )}
 
             <div>
               <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Password</label>

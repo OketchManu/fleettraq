@@ -12,7 +12,7 @@ import Button from "./Button";
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { darkMode, reports, fetchReports, sendNotification } = useFleet();
+  const { darkMode, reports, fetchReports, sendNotification, user, fleetId, canManageFleet } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -52,11 +52,22 @@ const Reports = () => {
       return;
     }
 
+    if (!canManageFleet) {
+      setError("Only fleet administrators or managers can create or edit reports.");
+      return;
+    }
+
+    const fid = fleetId || user?.uid;
+    if (!fid) {
+      setError("Fleet context is not ready. Please try again.");
+      return;
+    }
+
     try {
       const reportData = {
         ...formData,
         date: formData.date ? new Date(formData.date).toISOString() : new Date().toISOString(),
-        accountId: auth.currentUser.uid,
+        accountId: fid,
         updatedAt: new Date().toISOString(),
       };
 
@@ -89,6 +100,11 @@ const Reports = () => {
       return;
     }
 
+    if (!canManageFleet) {
+      setError("Only fleet administrators or managers can delete reports.");
+      return;
+    }
+
     try {
       const reportRef = doc(db, "reports", id);
       await deleteDoc(reportRef);
@@ -101,6 +117,7 @@ const Reports = () => {
   };
 
   const handleEdit = (report) => {
+    if (!canManageFleet) return;
     setEditingReport(report);
     setFormData({
       title: report.title || "",
@@ -186,10 +203,12 @@ FleetTraq - Fleet Management System`;
               </h1>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => setShowAddForm(true)}>
-                <Plus size={18} />
-                Create Report
-              </Button>
+              {canManageFleet && (
+                <Button onClick={() => setShowAddForm(true)}>
+                  <Plus size={18} />
+                  Create Report
+                </Button>
+              )}
               {reports.length > 0 && (
                 <Button onClick={handleExportCSV} variant="secondary">
                   <Download size={18} />
@@ -217,11 +236,17 @@ FleetTraq - Fleet Management System`;
           <div className={`text-center py-16 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"}`}>
             <FileText className="w-16 h-16 text-gray-500 mx-auto mb-4" />
             <h3 className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-800"} mb-2`}>No Reports Yet</h3>
-            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>Create your first report to track fleet activities.</p>
-            <Button onClick={() => setShowAddForm(true)}>
-              <Plus size={18} />
-              Create First Report
-            </Button>
+            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>
+              {canManageFleet
+                ? "Create your first report to track fleet activities."
+                : "Fleet managers create reports here. You can open a report to read or export when available."}
+            </p>
+            {canManageFleet && (
+              <Button onClick={() => setShowAddForm(true)}>
+                <Plus size={18} />
+                Create First Report
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -238,18 +263,24 @@ FleetTraq - Fleet Management System`;
                 <div className="relative h-28 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 p-4">
                   <FileText className="w-12 h-12 text-yellow-500 opacity-50" />
                   <div className="absolute top-4 right-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleEdit(report)}
-                      className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
-                    >
-                      <Edit size={16} className="text-yellow-500" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(report.id)}
-                      className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
+                    {canManageFleet && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(report)}
+                          className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+                        >
+                          <Edit size={16} className="text-yellow-500" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(report.id)}
+                          className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
+                        >
+                          <Trash2 size={16} className="text-red-400" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
                 
@@ -381,7 +412,7 @@ FleetTraq - Fleet Management System`;
 
       {/* Add/Edit Modal */}
       <AnimatePresence>
-        {showAddForm && (
+        {showAddForm && canManageFleet && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

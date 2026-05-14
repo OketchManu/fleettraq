@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { Eye, EyeOff, Mail, Lock, Shield, ArrowLeft, Home, Sun, Moon } from "lucide-react";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
@@ -13,6 +13,7 @@ import { useFleet } from "../context/FleetContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { darkMode, setDarkMode } = useFleet();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +21,14 @@ const Login = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const msg = location.state?.authError;
+    if (typeof msg === "string" && msg) {
+      setError(msg);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -40,7 +49,9 @@ const Login = () => {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
         await auth.signOut();
-        setError("Account not found. Please sign up first.");
+        setError(
+          "This account is not registered with FleetTraq. Create an account on the sign-up page, or contact your fleet administrator if you were invited."
+        );
         setIsLoading(false);
         return;
       }
@@ -82,7 +93,9 @@ const Login = () => {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
         await auth.signOut();
-        setError("Account not found. Please sign up first.");
+        setError(
+          "This account is not registered with FleetTraq. Create an account on the sign-up page, or contact your fleet administrator if you were invited."
+        );
         setIsLoading(false);
         return;
       }

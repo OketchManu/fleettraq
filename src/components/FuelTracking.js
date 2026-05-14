@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Fuel, Plus, Trash2, Edit, DollarSign, Gauge, TrendingUp, Download, AlertCircle, X } from "lucide-react";
 import { db, auth } from "../firebase";
@@ -8,17 +8,11 @@ import Button from "./Button";
 
 const FuelTracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, sendNotification, user } = useFleet();
+  const { darkMode, vehicles, sendNotification, user, fleetId } = useFleet();
   const [fuelRecords, setFuelRecords] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalGallons: 0,
-    totalCost: 0,
-    avgMPG: 0,
-    avgCostPerGallon: 0
-  });
   const [newRecord, setNewRecord] = useState({
     vehicleId: "",
     gallons: "",
@@ -30,11 +24,12 @@ const FuelTracking = () => {
   });
   const [error, setError] = useState(null);
 
-  // Fetch fuel records
+  // Fetch fuel records for the fleet (accountId = fleet organization)
   useEffect(() => {
-    if (!user?.uid) return;
+    const fid = fleetId || user?.uid;
+    if (!fid) return;
 
-    const q = query(collection(db, "fuelRecords"), where("accountId", "==", user.uid));
+    const q = query(collection(db, "fuelRecords"), where("accountId", "==", fid));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const records = snapshot.docs.map((doc) => ({
@@ -47,7 +42,6 @@ const FuelTracking = () => {
         return db - da;
       });
       setFuelRecords(records);
-      calculateStats(records);
       setLoading(false);
     }, (err) => {
       setError("Failed to load fuel records: " + err.message);
@@ -55,14 +49,21 @@ const FuelTracking = () => {
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [fleetId, user?.uid]);
 
-  // Calculate statistics
-  const calculateStats = (records) => {
+  const allowedVehicleIds = useMemo(() => new Set(vehicles.map((v) => v.id)), [vehicles]);
+
+  const visibleRecords = useMemo(
+    () => fuelRecords.filter((r) => allowedVehicleIds.has(r.vehicleId)),
+    [fuelRecords, allowedVehicleIds]
+  );
+
+  const stats = useMemo(() => {
+    const records = visibleRecords;
     const totalGallons = records.reduce((sum, r) => sum + (parseFloat(r.gallons) || 0), 0);
     const totalCost = records.reduce((sum, r) => sum + (parseFloat(r.cost) || 0), 0);
     const avgCostPerGallon = totalGallons > 0 ? totalCost / totalGallons : 0;
-    
+
     let mpgSum = 0;
     let mpgCount = 0;
     records.forEach((record, index) => {
@@ -77,13 +78,13 @@ const FuelTracking = () => {
     });
     const avgMPG = mpgCount > 0 ? mpgSum / mpgCount : 0;
 
-    setStats({
+    return {
       totalGallons: Math.round(totalGallons * 10) / 10,
       totalCost: Math.round(totalCost * 100) / 100,
       avgMPG: Math.round(avgMPG * 10) / 10,
-      avgCostPerGallon: Math.round(avgCostPerGallon * 100) / 100
-    });
-  };
+      avgCostPerGallon: Math.round(avgCostPerGallon * 100) / 100,
+    };
+  }, [visibleRecords]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -99,13 +100,24 @@ const FuelTracking = () => {
       return;
     }
 
+    const fid = fleetId || user?.uid;
+    if (!fid) {
+      setError("Fleet context is not ready. Please try again.");
+      return;
+    }
+
+    if (!allowedVehicleIds.has(newRecord.vehicleId)) {
+      setError("You can only log fuel for vehicles assigned to your account.");
+      return;
+    }
+
     try {
       const recordData = {
         ...newRecord,
         gallons: parseFloat(newRecord.gallons),
         cost: parseFloat(newRecord.cost),
         odometer: parseFloat(newRecord.odometer),
-        accountId: auth.currentUser.uid,
+        accountId: fid,
         updatedAt: new Date().toISOString()
       };
 
@@ -132,6 +144,12 @@ const FuelTracking = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this fuel record?")) return;
     if (!auth.currentUser) return;
+
+    const rec = fuelRecords.find((r) => r.id === id);
+    if (!rec || !allowedVehicleIds.has(rec.vehicleId)) {
+      setError("You cannot delete this fuel record.");
+      return;
+    }
 
     try {
       const recordRef = doc(db, "fuelRecords", id);
@@ -173,7 +191,7 @@ const FuelTracking = () => {
 
   const exportToCSV = () => {
     const headers = ["Date", "Vehicle", "Gallons", "Cost", "Odometer", "Location", "Notes"];
-    const rows = fuelRecords.map(record => {
+    const rows = visibleRecords.map((record) => {
       const vehicle = vehicles.find(v => v.id === record.vehicleId);
       return [
         record.date,
@@ -254,13 +272,13 @@ const FuelTracking = () => {
           </div>
         </div>
 
-        {fuelRecords.length > 0 && (
+        {visibleRecords.length > 0 && (
           <div className="flex justify-end mb-4">
             <Button onClick={exportToCSV} variant="secondary" size="sm"><Download size={16} />Export CSV</Button>
           </div>
         )}
 
-        {fuelRecords.length === 0 ? (
+        {visibleRecords.length === 0 ? (
           <div className={`text-center py-16 rounded-2xl border ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
             <Fuel className="w-16 h-16 text-gray-500 mx-auto mb-4" />
             <h3 className={`text-xl font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-800"}`}>No Fuel Records Yet</h3>
@@ -281,7 +299,7 @@ const FuelTracking = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {fuelRecords.map((record) => {
+                  {visibleRecords.map((record) => {
                     const vehicle = vehicles.find(v => v.id === record.vehicleId);
                     return (
                       <tr key={record.id} className={`border-t ${darkMode ? "border-white/10" : "border-gray-200"}`}>
@@ -342,7 +360,9 @@ const FuelTracking = () => {
                   type="date" 
                   value={newRecord.date} 
                   onChange={(e) => setNewRecord({ ...newRecord, date: e.target.value })} 
-                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  className={`px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-900 border-gray-300"
+                  }`} 
                   required 
                 />
                 <input 
@@ -351,7 +371,9 @@ const FuelTracking = () => {
                   value={newRecord.gallons} 
                   onChange={(e) => setNewRecord({ ...newRecord, gallons: e.target.value })} 
                   placeholder="Gallons" 
-                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  className={`px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20 placeholder:text-gray-500" : "bg-gray-100 text-gray-900 border-gray-300"
+                  }`} 
                   required 
                 />
               </div>
@@ -363,7 +385,9 @@ const FuelTracking = () => {
                   value={newRecord.cost} 
                   onChange={(e) => setNewRecord({ ...newRecord, cost: e.target.value })} 
                   placeholder="Cost" 
-                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  className={`px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20 placeholder:text-gray-500" : "bg-gray-100 text-gray-900 border-gray-300"
+                  }`} 
                   required 
                 />
                 <input 
@@ -371,7 +395,9 @@ const FuelTracking = () => {
                   value={newRecord.odometer} 
                   onChange={(e) => setNewRecord({ ...newRecord, odometer: e.target.value })} 
                   placeholder="Odometer" 
-                  className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-100"}`} 
+                  className={`px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20 placeholder:text-gray-500" : "bg-gray-100 text-gray-900 border-gray-300"
+                  }`} 
                   required 
                 />
               </div>
