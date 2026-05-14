@@ -1,10 +1,27 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { auth, db } from "../firebase";
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 
 const FleetContext = createContext();
 
 export const useFleet = () => useContext(FleetContext);
+
+const readStoredDarkMode = () => {
+  try {
+    const s = localStorage.getItem("fleettraq-dark");
+    if (s === null) return true;
+    return s === "true";
+  } catch {
+    return true;
+  }
+};
+
+const notificationTime = (createdAt) => {
+  if (!createdAt) return 0;
+  if (typeof createdAt?.toDate === "function") return createdAt.toDate().getTime();
+  const t = new Date(createdAt).getTime();
+  return Number.isFinite(t) ? t : 0;
+};
 
 export const FleetProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -12,7 +29,7 @@ export const FleetProvider = ({ children }) => {
   const [drivers, setDrivers] = useState([]);
   const [reports, setReports] = useState([]);
   const [trackingData, setTrackingData] = useState(null);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(readStoredDarkMode);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -64,6 +81,14 @@ export const FleetProvider = ({ children }) => {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("fleettraq-dark", darkMode ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+  }, [darkMode]);
+
   // Fetch vehicles
   const fetchVehicles = useCallback(async () => {
     if (!auth.currentUser) return [];
@@ -85,13 +110,13 @@ export const FleetProvider = ({ children }) => {
     }
   }, []);
 
-  // Real-time vehicles subscription
+  // Real-time vehicles subscription (depends on user so it attaches after auth resolves)
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
+    if (!user?.uid) return;
+
     const q = query(
       collection(db, "vehicles"),
-      where("accountId", "==", auth.currentUser.uid)
+      where("accountId", "==", user.uid)
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -129,7 +154,7 @@ export const FleetProvider = ({ children }) => {
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   // Fetch drivers
   const fetchDrivers = useCallback(async () => {
@@ -154,11 +179,11 @@ export const FleetProvider = ({ children }) => {
 
   // Real-time drivers subscription
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
+    if (!user?.uid) return;
+
     const q = query(
       collection(db, "drivers"),
-      where("accountId", "==", auth.currentUser.uid)
+      where("accountId", "==", user.uid)
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -172,7 +197,7 @@ export const FleetProvider = ({ children }) => {
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   // Fetch reports
   const fetchReports = useCallback(async () => {
@@ -197,11 +222,11 @@ export const FleetProvider = ({ children }) => {
 
   // Real-time reports subscription
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
+    if (!user?.uid) return;
+
     const q = query(
       collection(db, "reports"),
-      where("accountId", "==", auth.currentUser.uid)
+      where("accountId", "==", user.uid)
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -215,29 +240,32 @@ export const FleetProvider = ({ children }) => {
     });
     
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   // Real-time notifications subscription
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
-    const q = query(
-      collection(db, "notifications"),
-      where("userId", "==", auth.currentUser.uid),
-      orderBy("createdAt", "desc")
+    if (!user?.uid) return;
+
+    const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const notifs = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        notifs.sort((a, b) => notificationTime(b.createdAt) - notificationTime(a.createdAt));
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n) => !n.read).length);
+      },
+      (err) => {
+        setError("Failed to subscribe to notifications: " + err.message);
+      }
     );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setNotifications(notifs);
-      setUnreadCount(notifs.filter(n => !n.read).length);
-    });
-    
+
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   // Send notification function
   const sendNotification = async (message, type = "info") => {

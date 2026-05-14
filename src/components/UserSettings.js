@@ -1,8 +1,7 @@
-/* eslint-disable react/jsx-no-undef */
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Save, Lock, Mail, Bell, Shield, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
+import { User, Save, Lock, Mail, Bell, Shield, ChevronLeft, CheckCircle, AlertCircle, Moon } from "lucide-react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
@@ -28,11 +27,11 @@ const UserSettings = () => {
   const [passwordSuccess, setPasswordSuccess] = useState(null);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      navigate("/login");
+    if (!user?.uid) {
+      setLoading(false);
       return;
     }
-    const settingsRef = doc(db, "userSettings", `${auth.currentUser.uid}_user`);
+    const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
     const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -45,7 +44,7 @@ const UserSettings = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [navigate, setDarkMode]);
+  }, [setDarkMode, user?.uid]);
 
   const handleSettingsChange = (e) => {
     const { name, checked } = e.target;
@@ -60,11 +59,11 @@ const UserSettings = () => {
   };
 
   const handleSaveSettings = async () => {
-    if (!auth.currentUser) return;
+    if (!user?.uid) return;
     setError(null);
     setSuccess(null);
     try {
-      const settingsRef = doc(db, "userSettings", `${auth.currentUser.uid}_user`);
+      const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
       await setDoc(settingsRef, settings, { merge: true });
       setSuccess("Settings saved successfully!");
       setTimeout(() => setSuccess(null), 3000);
@@ -145,7 +144,7 @@ const UserSettings = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 flex items-center gap-2"
+              className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-800 dark:text-red-200 flex items-center gap-2"
             >
               <AlertCircle size={20} />
               {error}
@@ -156,7 +155,7 @@ const UserSettings = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-300 flex items-center gap-2"
+              className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-800 dark:text-green-200 flex items-center gap-2"
             >
               <CheckCircle size={20} />
               {success}
@@ -264,7 +263,7 @@ const UserSettings = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm"
+                  className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-800 dark:text-red-200 text-sm"
                 >
                   {passwordError}
                 </motion.div>
@@ -274,7 +273,7 @@ const UserSettings = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-300 text-sm"
+                  className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-800 dark:text-green-200 text-sm"
                 >
                   {passwordSuccess}
                 </motion.div>
@@ -320,7 +319,7 @@ const UserSettings = () => {
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
-        <p>© 2024 FleetTraq. All rights reserved.</p>
+        <p>© 2026 FleetTraq. All rights reserved.</p>
       </footer>
     </div>
   );

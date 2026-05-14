@@ -33,7 +33,9 @@ const NotificationBell = () => {
     <div className="relative">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="relative p-2 rounded-lg hover:bg-white/10 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        className={`relative p-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+          unreadCount > 0 ? "" : "text-gray-800 dark:text-gray-100"
+        } hover:bg-black/5 dark:hover:bg-white/10`}
       >
         {unreadCount > 0 ? (
           <BellRing className="w-5 h-5 text-yellow-500 animate-pulse" />

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { useFleet } from "./context/FleetContext";
 
 // Components
 import WelcomeScreen from "./components/WelcomeScreen";
@@ -19,10 +20,12 @@ import Profile from "./components/Profile";
 import UserSettings from "./components/UserSettings";
 import AuthCallback from "./components/AuthCallback";
 import FuelTracking from "./components/FuelTracking";
+import NotFound from "./components/NotFound";
 
-function App() {
+function AppRoutes() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { darkMode } = useFleet();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -34,10 +37,16 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 to-indigo-900">
+      <div
+        className={`min-h-screen flex items-center justify-center ${
+          darkMode
+            ? "bg-gradient-to-br from-purple-900 to-indigo-900"
+            : "bg-gradient-to-br from-gray-100 to-amber-50"
+        }`}
+      >
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Loading FleetTraq...</p>
+          <div className="w-16 h-16 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className={darkMode ? "text-white text-lg" : "text-gray-800 text-lg"}>Loading FleetTraq...</p>
         </div>
       </div>
     );
@@ -60,8 +69,13 @@ function App() {
       <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
       <Route path="/user-settings" element={user ? <UserSettings /> : <Navigate to="/login" />} />
       <Route path="/fuel-tracking" element={user ? <FuelTracking /> : <Navigate to="/login" />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
+}
+
+function App() {
+  return <AppRoutes />;
 }
 
 export default App;

@@ -13,7 +13,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { db, auth } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
-import { collection, query, onSnapshot, where, orderBy } from "firebase/firestore";
+import { collection, query, onSnapshot, where } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
 import { CarIcon } from "./assets/car-icon";
@@ -58,20 +58,20 @@ const VehicleMarker = ({ track, vehicle }) => {
         <div className="min-w-[220px] p-3">
           <div className="flex items-center gap-2 mb-2">
             <Car className="w-5 h-5 text-yellow-500" />
-            <strong className="text-lg text-gray-800">
+            <strong className="text-lg text-gray-900 dark:text-gray-100">
               {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
             </strong>
           </div>
           <div className="space-y-1 text-sm">
-            <p className="text-gray-600">
+            <p className="text-gray-700 dark:text-gray-300">
               <span className="font-semibold">Plate:</span> {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
             </p>
             {track.locationName && (
-              <p className="text-gray-600">
+              <p className="text-gray-700 dark:text-gray-300">
                 <span className="font-semibold">Location:</span> {track.locationName}
               </p>
             )}
-            <p className="text-gray-500 text-xs">
+            <p className="text-gray-500 dark:text-gray-400 text-xs">
               <span className="font-semibold">Last Update:</span> {new Date(track.timestamp).toLocaleString()}
             </p>
           </div>
@@ -125,8 +125,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const loadVehicles = async () => {
-      if (!auth.currentUser) {
-        setError("You must be logged in to view fleet data.");
+      if (!user?.uid) {
         setIsLoading(false);
         return;
       }
@@ -140,16 +139,15 @@ const Dashboard = () => {
       }
     };
     loadVehicles();
-  }, [fetchVehicles]);
+  }, [fetchVehicles, user?.uid]);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user?.uid) return;
 
     const q = query(
       collection(db, "tracking"),
-      where("accountId", "==", auth.currentUser.uid),
-      where("isTracking", "==", true),
-      orderBy("timestamp", "desc")
+      where("accountId", "==", user.uid),
+      where("isTracking", "==", true)
     );
 
     const unsubscribe = onSnapshot(
@@ -164,7 +162,18 @@ const Dashboard = () => {
           timestamp: doc.data().timestamp || new Date().toISOString(),
           isTracking: doc.data().isTracking,
         }));
-        setTrackedVehicles([...new Map(trackedData.map((item) => [item.vehicleId, item])).values()]);
+        trackedData.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        const byVehicle = [];
+        const seen = new Set();
+        for (const item of trackedData) {
+          if (item.vehicleId && !seen.has(item.vehicleId)) {
+            seen.add(item.vehicleId);
+            byVehicle.push(item);
+          }
+        }
+        setTrackedVehicles(byVehicle);
       },
       (err) => {
         setError("Failed to fetch tracking updates: " + err.message);
@@ -172,7 +181,7 @@ const Dashboard = () => {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (vehicles.length) {
@@ -215,6 +224,7 @@ const Dashboard = () => {
     { label: "Vehicles", icon: <Car size={18} />, path: "/vehicle-management", color: "from-yellow-500 to-amber-600" },
     { label: "Fuel", icon: <Fuel size={18} />, path: "/fuel-tracking", color: "from-yellow-500 to-amber-600" },
     { label: "Profile", icon: <User size={18} />, path: "/profile", color: "from-yellow-500 to-amber-600" },
+    { label: "Account", icon: <Shield size={18} />, path: "/user-settings", color: "from-yellow-500 to-amber-600" },
     { label: "Settings", icon: <Settings size={18} />, path: "/settings", color: "from-yellow-500 to-amber-600" },
   ].filter(Boolean);
 
@@ -292,7 +302,9 @@ const Dashboard = () => {
               
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all"
+                className={`p-2 rounded-xl transition-all ${
+                  darkMode ? "bg-white/10 hover:bg-white/20" : "bg-gray-200 hover:bg-gray-300 text-gray-800"
+                }`}
               >
                 {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5" />}
               </button>
@@ -303,7 +315,7 @@ const Dashboard = () => {
               <NotificationBell />
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-xl bg-white/10"
+                className={`p-2 rounded-xl ${darkMode ? "bg-white/10" : "bg-gray-200 text-gray-800"}`}
               >
                 {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5" />}
               </button>
@@ -326,7 +338,7 @@ const Dashboard = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className={`md:hidden ${darkMode ? "bg-black/95" : "bg-white"} border-b border-white/10 shadow-xl`}
+            className={`md:hidden ${darkMode ? "bg-black/95 border-white/10" : "bg-white border-gray-200"} border-b shadow-xl`}
           >
             <div className="flex flex-col p-4 gap-2">
               {navButtons.map((btn, idx) => (
@@ -357,7 +369,7 @@ const Dashboard = () => {
             </div>
           </div>
         ) : error ? (
-          <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300">
+          <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-800 dark:text-red-300">
             {error}
           </div>
         ) : (
@@ -485,7 +497,7 @@ const Dashboard = () => {
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
-        <p>© 2025 FleetTraq. All rights reserved.</p>
+        <p>© 2026 FleetTraq. All rights reserved.</p>
       </footer>
     </div>
   );

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, ChevronLeft, Crosshair, MapIcon, Trash2, Navigation, Car, Clock, AlertCircle, Wifi, WifiOff } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { collection, addDoc, onSnapshot, query, orderBy, where, updateDoc, doc, deleteDoc, getDocs } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, updateDoc, doc, deleteDoc, getDocs } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -36,7 +36,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -69,18 +69,25 @@ const Tracking = () => {
 
   // Fetch all tracked vehicles for the current user
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user?.uid) return;
 
-    const q = query(
-      collection(db, "tracking"),
-      where("accountId", "==", auth.currentUser.uid),
-      orderBy("timestamp", "desc")
-    );
+    const q = query(collection(db, "tracking"), where("accountId", "==", user.uid));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const allTracking = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        const uniqueVehicles = [...new Map(allTracking.map((item) => [item.vehicleId, item])).values()];
+        allTracking.sort(
+          (a, b) =>
+            new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+        );
+        const uniqueVehicles = [];
+        const seen = new Set();
+        for (const item of allTracking) {
+          if (item.vehicleId && !seen.has(item.vehicleId)) {
+            seen.add(item.vehicleId);
+            uniqueVehicles.push(item);
+          }
+        }
         setTrackedVehicles(uniqueVehicles);
       },
       (err) => {
@@ -88,7 +95,7 @@ const Tracking = () => {
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   const saveLocation = useCallback(
     async (lat, lng, name, method) => {
@@ -259,14 +266,18 @@ const Tracking = () => {
     const q = query(
       collection(db, "tracking"),
       where("vehicleId", "==", selectedVehicle),
-      where("accountId", "==", auth.currentUser.uid),
-      orderBy("timestamp", "desc")
+      where("accountId", "==", auth.currentUser.uid)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const updates = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const updates = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .sort(
+            (a, b) =>
+              new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+          );
         setTrackingHistory(updates);
 
         if (updates.length > 0) {

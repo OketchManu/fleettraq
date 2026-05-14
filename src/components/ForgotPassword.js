@@ -3,9 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
+import { ArrowLeft, Mail, Sun, Moon } from "lucide-react";
+import { useFleet } from "../context/FleetContext";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
+  const { darkMode, setDarkMode } = useFleet();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -39,147 +42,120 @@ const ForgotPassword = () => {
     }
   };
 
-  const inputStyle = {
-    width: "100%",
-    padding: "18px",
-    marginBottom: "16px",
-    borderRadius: "8px",
-    border: "1px solid rgba(255, 255, 255, 0.3)",
-    background: "rgba(255, 255, 255, 0.9)",
-    color: "#333",
-    fontSize: "16px",
-    outline: "none",
-    transition: "border-color 0.3s",
-    boxSizing: "border-box",
-  };
+  const fieldClass = `w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all ${
+    darkMode
+      ? "bg-white/10 border-white/20 text-white placeholder-gray-500"
+      : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
+  }`;
 
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(to right, #4A00E0, #8E2DE2)",
-        padding: "20px",
-        position: "relative",
-        overflow: "hidden",
-      }}
+      className={`relative min-h-screen flex items-center justify-center p-4 overflow-hidden ${
+        darkMode
+          ? "bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950"
+          : "bg-gradient-to-br from-slate-100 via-indigo-50 to-amber-50"
+      }`}
     >
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(to right, #6a00f4, #ff0080, #ff8c00)",
-          opacity: 0.3,
-          filter: "blur(50px)",
-        }}
-      />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className={`absolute top-24 left-8 w-80 h-80 rounded-full blur-3xl ${
+            darkMode ? "bg-purple-600/20" : "bg-indigo-200/60"
+          }`}
+        />
+        <div
+          className={`absolute bottom-16 right-8 w-96 h-96 rounded-full blur-3xl ${
+            darkMode ? "bg-amber-500/10" : "bg-amber-200/50"
+          }`}
+        />
+      </div>
+
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{
-          width: "650px",
-          padding: "60px",
-          background: "rgba(20, 20, 20, 0.9)",
-          borderRadius: "20px",
-          boxShadow: "0px 6px 15px rgba(0, 0, 0, 0.4)",
-          textAlign: "center",
-          position: "relative",
-          zIndex: 10,
-        }}
+        className={`relative z-10 w-full max-w-md rounded-2xl border p-8 shadow-2xl backdrop-blur-xl ${
+          darkMode ? "bg-black/50 border-white/10" : "bg-white/95 border-gray-200"
+        }`}
       >
-        <button
-          style={{
-            position: "absolute",
-            top: "20px",
-            left: "20px",
-            background: "none",
-            border: "none",
-            color: "white",
-            fontSize: "24px",
-            cursor: "pointer",
-            transition: "color 0.3s",
-          }}
-          onClick={() => navigate("/login")}
-          onMouseOver={(e) => (e.target.style.color = "#FFD700")}
-          onMouseOut={(e) => (e.target.style.color = "white")}
-          disabled={isLoading}
+        <div className="flex justify-between items-start mb-6">
+          <button
+            type="button"
+            onClick={() => navigate("/login")}
+            className={`flex items-center gap-2 text-sm font-medium transition-colors ${
+              darkMode ? "text-gray-300 hover:text-white" : "text-gray-600 hover:text-gray-900"
+            }`}
+            disabled={isLoading}
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to login
+          </button>
+          <button
+            type="button"
+            onClick={() => setDarkMode(!darkMode)}
+            className={`p-2 rounded-lg border ${
+              darkMode
+                ? "border-white/20 bg-white/10 text-yellow-400"
+                : "border-gray-300 bg-white text-gray-800"
+            }`}
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+        </div>
+
+        <h1
+          className={`text-2xl font-bold mb-2 ${
+            darkMode ? "text-white" : "text-gray-900"
+          }`}
         >
-          ←
-        </button>
-        <h1 style={{ fontSize: "32px", fontWeight: "bold", marginBottom: "30px", color: "#FFD700" }}>
-          Forgot Password
+          Reset password
         </h1>
+        <p className={`text-sm mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+          Enter the email for your FleetTraq account. We will send you a reset link.
+        </p>
+
         <AnimatePresence>
           {error && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              style={{
-                background: "rgba(255, 0, 0, 0.2)",
-                color: "#ff9999",
-                padding: "10px",
-                borderRadius: "8px",
-                marginBottom: "20px",
-              }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-4 p-3 rounded-xl text-sm border bg-red-500/15 border-red-500/40 text-red-800 dark:text-red-200"
             >
               {error}
             </motion.div>
           )}
           {success && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              style={{
-                background: "rgba(16, 185, 129, 0.2)",
-                color: "#6ee7b7",
-                padding: "10px",
-                borderRadius: "8px",
-                marginBottom: "20px",
-              }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mb-4 p-3 rounded-xl text-sm border bg-emerald-500/15 border-emerald-500/40 text-emerald-900 dark:text-emerald-200"
             >
               {success}
             </motion.div>
           )}
         </AnimatePresence>
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
-              style={inputStyle}
               type="email"
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onFocus={(e) => (e.target.style.borderColor = "#FFD700")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(255, 255, 255, 0.3)")}
+              className={`${fieldClass} pl-11`}
               disabled={isLoading}
               required
             />
-            <button
-              type="submit"
-              style={{
-                width: "100%",
-                padding: "18px",
-                fontSize: "18px",
-                fontWeight: "bold",
-                color: "white",
-                background: "linear-gradient(to right, #4A00E0, #8E2DE2)",
-                borderRadius: "8px",
-                border: "none",
-                cursor: isLoading ? "not-allowed" : "pointer",
-                transition: "transform 0.2s",
-                opacity: isLoading ? 0.7 : 1,
-              }}
-              onMouseOver={(e) => !isLoading && (e.target.style.transform = "scale(1.05)")}
-              onMouseOut={(e) => (e.target.style.transform = "scale(1)")}
-              disabled={isLoading}
-            >
-              {isLoading ? "Sending..." : "Send Reset Link"}
-            </button>
           </div>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-3 rounded-xl font-semibold bg-gradient-to-r from-yellow-500 to-amber-600 text-black hover:shadow-lg hover:shadow-yellow-500/25 transition-all disabled:opacity-60"
+          >
+            {isLoading ? "Sending…" : "Send reset link"}
+          </button>
         </form>
       </motion.div>
     </div>

@@ -10,36 +10,36 @@ import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
 import Button from "./Button";
 
+const DEFAULT_FLEET_SETTINGS = {
+  notifications: true,
+  darkMode: true,
+  emailAlerts: false,
+  language: "en",
+  timeZone: "UTC",
+  units: "metric",
+  defaultMapView: "roadmap",
+  fuelTracking: true,
+  reportFrequency: "weekly",
+  trackingRefreshRate: 30,
+  maintenanceReminders: true,
+  dashboardLayout: "grid",
+};
+
 const Settings = () => {
   const navigate = useNavigate();
   const { darkMode, setDarkMode, user } = useFleet();
-  const [settings, setSettings] = useState({
-    notifications: true,
-    darkMode: true,
-    emailAlerts: false,
-    language: "en",
-    timeZone: "UTC",
-    units: "metric",
-    defaultMapView: "roadmap",
-    fuelTracking: true,
-    reportFrequency: "weekly",
-    trackingRefreshRate: 30,
-    maintenanceReminders: true,
-    dashboardLayout: "grid",
-  });
+  const [settings, setSettings] = useState(DEFAULT_FLEET_SETTINGS);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth.currentUser) {
-      setError("Please log in to access settings");
+    if (!user?.uid) {
       setIsLoading(false);
-      navigate("/login");
       return;
     }
-    const settingsRef = doc(db, "userSettings", auth.currentUser.uid);
+    const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
     const unsubscribe = onSnapshot(
       settingsRef,
       (docSnap) => {
@@ -48,7 +48,7 @@ const Settings = () => {
           setSettings((prev) => ({ ...prev, ...data }));
           if (data.darkMode !== undefined) setDarkMode(data.darkMode);
         } else {
-          setDoc(settingsRef, settings, { merge: true }).catch((err) => setError("Failed to initialize settings: " + err.message));
+          setDoc(settingsRef, DEFAULT_FLEET_SETTINGS, { merge: true }).catch((err) => setError("Failed to initialize settings: " + err.message));
         }
         setIsLoading(false);
       },
@@ -58,7 +58,7 @@ const Settings = () => {
       }
     );
     return () => unsubscribe();
-  }, [navigate, setDarkMode]);
+  }, [setDarkMode, user?.uid]);
 
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
@@ -68,7 +68,7 @@ const Settings = () => {
   };
 
   const handleSave = async () => {
-    if (!auth.currentUser) {
+    if (!user?.uid) {
       setError("You must be logged in to save settings");
       return;
     }
@@ -76,7 +76,7 @@ const Settings = () => {
     setError(null);
     setSuccess(null);
     try {
-      const settingsRef = doc(db, "userSettings", auth.currentUser.uid);
+      const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
       await setDoc(settingsRef, settings, { merge: true });
       setSuccess("Settings saved successfully!");
       setTimeout(() => setSuccess(null), 3000);
@@ -88,31 +88,17 @@ const Settings = () => {
   };
 
   const handleReset = async () => {
-    if (!auth.currentUser) {
+    if (!user?.uid) {
       setError("You must be logged in to reset settings");
       return;
     }
-    const defaultSettings = {
-      notifications: true,
-      darkMode: true,
-      emailAlerts: false,
-      language: "en",
-      timeZone: "UTC",
-      units: "metric",
-      defaultMapView: "roadmap",
-      fuelTracking: true,
-      reportFrequency: "weekly",
-      trackingRefreshRate: 30,
-      maintenanceReminders: true,
-      dashboardLayout: "grid",
-    };
     setIsSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      const settingsRef = doc(db, "userSettings", auth.currentUser.uid);
-      await setDoc(settingsRef, defaultSettings, { merge: true });
-      setSettings(defaultSettings);
+      const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
+      await setDoc(settingsRef, DEFAULT_FLEET_SETTINGS, { merge: true });
+      setSettings({ ...DEFAULT_FLEET_SETTINGS });
       setDarkMode(true);
       setSuccess("Settings reset to defaults");
       setTimeout(() => setSuccess(null), 3000);

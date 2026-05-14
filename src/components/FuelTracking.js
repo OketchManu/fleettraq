@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Fuel, Plus, Trash2, Edit, DollarSign, Gauge, TrendingUp, Download, AlertCircle, X } from "lucide-react";
 import { db, auth } from "../firebase";
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
 
 const FuelTracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, sendNotification } = useFleet();
+  const { darkMode, vehicles, sendNotification, user } = useFleet();
   const [fuelRecords, setFuelRecords] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -32,19 +32,20 @@ const FuelTracking = () => {
 
   // Fetch fuel records
   useEffect(() => {
-    if (!auth.currentUser) return;
+    if (!user?.uid) return;
 
-    const q = query(
-      collection(db, "fuelRecords"),
-      where("accountId", "==", auth.currentUser.uid),
-      orderBy("date", "desc")
-    );
+    const q = query(collection(db, "fuelRecords"), where("accountId", "==", user.uid));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const records = snapshot.docs.map(doc => ({
+      const records = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
+      records.sort((a, b) => {
+        const da = new Date(a.date || 0).getTime();
+        const db = new Date(b.date || 0).getTime();
+        return db - da;
+      });
       setFuelRecords(records);
       calculateStats(records);
       setLoading(false);
@@ -54,7 +55,7 @@ const FuelTracking = () => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   // Calculate statistics
   const calculateStats = (records) => {
@@ -197,8 +198,11 @@ const FuelTracking = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="loading-spinner"></div>
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-[#0a0a1a]" : "bg-gray-50"}`}>
+        <div className="text-center px-4">
+          <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className={darkMode ? "text-gray-400" : "text-gray-600"}>Loading fuel data...</p>
+        </div>
       </div>
     );
   }
@@ -222,28 +226,28 @@ const FuelTracking = () => {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {error && (
-          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-sm flex items-center gap-2">
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-800 dark:text-red-200 text-sm flex items-center gap-2">
             <AlertCircle size={16} />{error}
           </div>
         )}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}>
             <Fuel className="w-8 h-8 text-yellow-500 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{stats.totalGallons}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Total Gallons</p>
           </div>
-          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}>
             <DollarSign className="w-8 h-8 text-green-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>${stats.totalCost}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Total Cost</p>
           </div>
-          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}>
             <TrendingUp className="w-8 h-8 text-cyan-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{stats.avgMPG}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Avg MPG</p>
           </div>
-          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border shadow-lg`}>
+          <div className={`p-5 rounded-2xl ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}>
             <Gauge className="w-8 h-8 text-purple-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>${stats.avgCostPerGallon}</p>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Avg $/Gallon</p>
@@ -257,23 +261,23 @@ const FuelTracking = () => {
         )}
 
         {fuelRecords.length === 0 ? (
-          <div className={`text-center py-16 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border`}>
+          <div className={`text-center py-16 rounded-2xl border ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
             <Fuel className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Fuel Records Yet</h3>
+            <h3 className={`text-xl font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-800"}`}>No Fuel Records Yet</h3>
             <Button onClick={() => setShowAddForm(true)}><Plus size={18} />Add First Fuel Record</Button>
           </div>
         ) : (
-          <div className={`rounded-2xl overflow-hidden border shadow-lg`}>
+          <div className={`rounded-2xl overflow-hidden border shadow-lg ${darkMode ? "border-white/10" : "border-gray-200"}`}>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className={darkMode ? "bg-black/30" : "bg-gray-50"}>
                   <tr>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Vehicle</th>
-                    <th className="px-4 py-3 text-left">Gallons</th>
-                    <th className="px-4 py-3 text-left">Cost</th>
-                    <th className="px-4 py-3 text-left">Odometer</th>
-                    <th className="px-4 py-3 text-left">Actions</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Date</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Vehicle</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Gallons</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Cost</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Odometer</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -281,15 +285,15 @@ const FuelTracking = () => {
                     const vehicle = vehicles.find(v => v.id === record.vehicleId);
                     return (
                       <tr key={record.id} className={`border-t ${darkMode ? "border-white/10" : "border-gray-200"}`}>
-                        <td className="px-4 py-3">{new Date(record.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3">{vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown"}</td>
-                        <td className="px-4 py-3">{record.gallons} gal</td>
-                        <td className="px-4 py-3">${record.cost}</td>
-                        <td className="px-4 py-3">{record.odometer.toLocaleString()} mi</td>
+                        <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>{new Date(record.date).toLocaleDateString()}</td>
+                        <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>{vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown"}</td>
+                        <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>{record.gallons} gal</td>
+                        <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>${record.cost}</td>
+                        <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>{record.odometer.toLocaleString()} mi</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            <button onClick={() => handleEdit(record)} className="p-1 rounded hover:bg-white/10"><Edit size={16} className="text-yellow-500" /></button>
-                            <button onClick={() => handleDelete(record.id)} className="p-1 rounded hover:bg-white/10"><Trash2 size={16} className="text-red-400" /></button>
+                            <button type="button" onClick={() => handleEdit(record)} className={`p-1 rounded ${darkMode ? "hover:bg-white/10" : "hover:bg-gray-100"}`}><Edit size={16} className="text-yellow-500" /></button>
+                            <button type="button" onClick={() => handleDelete(record.id)} className={`p-1 rounded ${darkMode ? "hover:bg-white/10" : "hover:bg-gray-100"}`}><Trash2 size={16} className="text-red-400" /></button>
                           </div>
                         </td>
                       </tr>
@@ -306,9 +310,9 @@ const FuelTracking = () => {
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className={`w-full max-w-md rounded-2xl ${darkMode ? "bg-[#1a1a2e]" : "bg-white"} border shadow-2xl`}>
-            <div className={`p-5 border-b flex justify-between items-center`}>
-              <h2 className="text-xl font-bold">{editingRecord ? "Edit Fuel Record" : "Add Fuel Record"}</h2>
-              <button onClick={() => { setShowAddForm(false); resetForm(); }}><X size={20} /></button>
+            <div className={`p-5 border-b flex justify-between items-center ${darkMode ? "border-white/10" : "border-gray-200"}`}>
+              <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>{editingRecord ? "Edit Fuel Record" : "Add Fuel Record"}</h2>
+              <button type="button" aria-label="Close" onClick={() => { setShowAddForm(false); resetForm(); }} className={darkMode ? "text-gray-300 hover:text-white" : "text-gray-600 hover:text-gray-900"}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
               <select 
@@ -372,7 +376,7 @@ const FuelTracking = () => {
       )}
 
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10" : "border-gray-200"}`}>
-        <p>© 2025 FleetTraq. All rights reserved.</p>
+        <p>© 2026 FleetTraq. All rights reserved.</p>
       </footer>
     </div>
   );
