@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, ChevronLeft, Crosshair, MapIcon, Trash2, Navigation, Car, Clock, AlertCircle, Wifi, WifiOff } from "lucide-react";
+import { MapPin, ChevronLeft, Crosshair, MapIcon, Trash2, Navigation, Car, Clock, AlertCircle, Wifi, WifiOff, Shield, Info } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { collection, addDoc, onSnapshot, query, where, updateDoc, doc, deleteDoc, getDocs } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, updateDoc, doc, deleteDoc, getDocs, orderBy, limit } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -36,7 +36,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -46,12 +46,22 @@ const Tracking = () => {
   const [locationName, setLocationName] = useState("");
   const [useManualCoordinates, setUseManualCoordinates] = useState(false);
   const [trackingHistory, setTrackingHistory] = useState([]);
-  const [trackedVehicles, setTrackedVehicles] = useState([]);
-  const [deviceId] = useState(() => localStorage.getItem("deviceId") || uuidv4());
+  const [myDeviceTrackedVehicles, setMyDeviceTrackedVehicles] = useState([]);
+  const [otherDeviceTrackedVehicles, setOtherDeviceTrackedVehicles] = useState([]);
+  
+  // Generate or retrieve persistent Device ID (stays the same across sessions on this device)
+  const [deviceId] = useState(() => {
+    let id = localStorage.getItem("trackingDeviceId");
+    if (!id) {
+      id = uuidv4();
+      localStorage.setItem("trackingDeviceId", id);
+    }
+    return id;
+  });
+  
   const [trackingDocId, setTrackingDocId] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  localStorage.setItem("deviceId", deviceId);
+  const [showDeviceInfo, setShowDeviceInfo] = useState(false);
 
   const nairobiCoordinates = useMemo(() => ({ lat: -1.2864, lng: 36.8172 }), []);
 
@@ -67,37 +77,69 @@ const Tracking = () => {
     };
   }, []);
 
-  // Fetch all tracked vehicles for the current user
+  // Fetch tracked vehicles - SEPARATE by device
   useEffect(() => {
     if (!user?.uid) return;
 
     const fid = fleetId || user?.uid;
     if (!fid) return;
-    const q = query(collection(db, "tracking"), where("accountId", "==", fid));
+
+    const q = query(
+      collection(db, "tracking"), 
+      where("accountId", "==", fid),
+      orderBy("timestamp", "desc")
+    );
+    
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const allTracking = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        allTracking.sort(
-          (a, b) =>
-            new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
-        );
-        const uniqueVehicles = [];
-        const seen = new Set();
+        
+        // Separate by device
+        const myDevice = [];
+        const otherDevices = [];
+        const seenMyVehicles = new Set();
+        const seenOtherVehicles = new Set();
+        
         for (const item of allTracking) {
-          if (item.vehicleId && !seen.has(item.vehicleId)) {
-            seen.add(item.vehicleId);
-            uniqueVehicles.push(item);
+          if (item.deviceId === deviceId) {
+            // This device's tracking
+            if (!seenMyVehicles.has(item.vehicleId)) {
+              seenMyVehicles.add(item.vehicleId);
+              myDevice.push(item);
+            }
+          } else {
+            // Other device's tracking
+            if (!seenOtherVehicles.has(item.vehicleId) && item.vehicleId) {
+              seenOtherVehicles.add(item.vehicleId);
+              otherDevices.push(item);
+            }
           }
         }
-        setTrackedVehicles(uniqueVehicles);
+        
+        setMyDeviceTrackedVehicles(myDevice);
+        setOtherDeviceTrackedVehicles(otherDevices);
+        
+        // If selected vehicle is being tracked by this device, update its location
+        if (selectedVehicle) {
+          const myTrack = myDevice.find(t => t.vehicleId === selectedVehicle);
+          if (myTrack) {
+            setCurrentLocation({
+              lat: myTrack.lat,
+              lng: myTrack.lng,
+              name: myTrack.locationName
+            });
+            setTrackingDocId(myTrack.id);
+            setIsTracking(myTrack.isTracking);
+          }
+        }
       },
       (err) => {
         setError("Failed to fetch tracked vehicles: " + err.message);
       }
     );
     return () => unsubscribe();
-  }, [user?.uid, fleetId]);
+  }, [user?.uid, fleetId, deviceId, selectedVehicle]);
 
   const saveLocation = useCallback(
     async (lat, lng, name, method) => {
@@ -120,6 +162,7 @@ const Tracking = () => {
           isTracking: true,
         });
         localStorage.setItem("pendingTrackings", JSON.stringify(pendingTrackings));
+        sendNotification?.("Location saved offline - will sync when online", "info");
         return;
       }
 
@@ -137,6 +180,7 @@ const Tracking = () => {
             isTracking: true,
           });
           setTrackingDocId(docRef.id);
+          sendNotification?.(`Started tracking ${vehicles.find(v => v.id === selectedVehicle)?.make} ${vehicles.find(v => v.id === selectedVehicle)?.model} on this device`, "success");
         } else {
           const trackingRef = doc(db, "tracking", trackingDocId);
           await updateDoc(trackingRef, {
@@ -153,7 +197,7 @@ const Tracking = () => {
         throw err;
       }
     },
-    [selectedVehicle, deviceId, trackingDocId, setTrackingData, isOnline, fleetId]
+    [selectedVehicle, deviceId, trackingDocId, setTrackingData, isOnline, fleetId, vehicles, sendNotification]
   );
 
   // Sync pending trackings when coming back online
@@ -163,10 +207,13 @@ const Tracking = () => {
         const pending = JSON.parse(localStorage.getItem("pendingTrackings") || "[]");
         if (pending.length > 0) {
           for (const tracking of pending) {
-            try {
-              await addDoc(collection(db, "tracking"), tracking);
-            } catch (err) {
-              console.error("Failed to sync tracking:", err);
+            if (tracking.deviceId === deviceId) {
+              try {
+                await addDoc(collection(db, "tracking"), tracking);
+                sendNotification?.("Offline tracking data synced!", "success");
+              } catch (err) {
+                console.error("Failed to sync tracking:", err);
+              }
             }
           }
           localStorage.removeItem("pendingTrackings");
@@ -174,7 +221,7 @@ const Tracking = () => {
       };
       syncPendingTrackings();
     }
-  }, [isOnline]);
+  }, [isOnline, deviceId, sendNotification]);
 
   const handleTrackVehicle = async () => {
     if (!selectedVehicle) {
@@ -189,8 +236,10 @@ const Tracking = () => {
 
     setError(null);
 
-    if (trackedVehicles.some((v) => v.vehicleId === selectedVehicle && v.deviceId !== deviceId)) {
-      setError("This vehicle is already being tracked by another device.");
+    // Check if THIS DEVICE is already tracking this vehicle
+    const alreadyTrackingThisDevice = myDeviceTrackedVehicles.some((v) => v.vehicleId === selectedVehicle);
+    if (alreadyTrackingThisDevice) {
+      setError("You are already tracking this vehicle on THIS device. Stop tracking first if you want to restart.");
       return;
     }
 
@@ -231,11 +280,11 @@ const Tracking = () => {
     }
   };
 
-  // Real-time tracking updates
+  // Real-time tracking updates (only for this device's active tracking)
   useEffect(() => {
     let watchId = null;
 
-    if (isTracking && !useManualCoordinates && navigator.geolocation) {
+    if (isTracking && !useManualCoordinates && navigator.geolocation && trackingDocId) {
       watchId = navigator.geolocation.watchPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
@@ -254,9 +303,9 @@ const Tracking = () => {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [isTracking, useManualCoordinates, saveLocation, locationName]);
+  }, [isTracking, useManualCoordinates, saveLocation, locationName, trackingDocId]);
 
-  // Listen for tracking updates for selected vehicle
+  // Listen for tracking updates for selected vehicle (from this device only)
   useEffect(() => {
     if (!selectedVehicle || !auth.currentUser) {
       setCurrentLocation(null);
@@ -265,21 +314,19 @@ const Tracking = () => {
       return;
     }
 
+    const fid = fleetId || auth.currentUser.uid;
     const q = query(
       collection(db, "tracking"),
       where("vehicleId", "==", selectedVehicle),
-      where("accountId", "==", fleetId || auth.currentUser.uid)
+      where("accountId", "==", fid),
+      where("deviceId", "==", deviceId),  // Only this device's tracking for the selected vehicle
+      orderBy("timestamp", "desc")
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const updates = snapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .sort(
-            (a, b) =>
-              new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
-          );
+        const updates = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setTrackingHistory(updates);
 
         if (updates.length > 0) {
@@ -306,7 +353,7 @@ const Tracking = () => {
     );
 
     return () => unsubscribe();
-  }, [selectedVehicle, setTrackingData, fleetId]);
+  }, [selectedVehicle, setTrackingData, fleetId, deviceId]);
 
   // Set initial map view
   useEffect(() => {
@@ -332,13 +379,14 @@ const Tracking = () => {
       await updateDoc(trackingRef, { isTracking: false });
       setIsTracking(false);
       setTrackingDocId(null);
+      sendNotification?.("Stopped tracking vehicle on this device", "info");
       setError(null);
     } catch (err) {
       setError("Failed to stop tracking: " + err.message);
     }
   };
 
-  const removeVehicleFromTracking = async (trackingId) => {
+  const removeVehicleFromTracking = async (trackingId, vehicleId) => {
     if (!trackingId) {
       setError("No tracking entry selected for removal.");
       return;
@@ -349,82 +397,80 @@ const Tracking = () => {
       return;
     }
 
-    const trackingRef = doc(db, "tracking", trackingId);
-    const vehicleTracking = trackedVehicles.find((v) => v.id === trackingId);
-
-    if (!vehicleTracking) {
-      setError("Tracking entry not found.");
-      return;
-    }
-
     try {
+      const trackingRef = doc(db, "tracking", trackingId);
       await deleteDoc(trackingRef);
+      sendNotification?.("Removed vehicle from your tracking list", "success");
       setError(null);
-      if (selectedVehicle === vehicleTracking.vehicleId) {
+      
+      if (selectedVehicle === vehicleId) {
         setCurrentLocation(null);
         setTrackingHistory([]);
         setTrackingDocId(null);
         setIsTracking(false);
         setSelectedVehicle("");
       }
-      setTrackedVehicles((prev) => prev.filter((v) => v.id !== trackingId));
+      
+      // Refresh the lists
+      setMyDeviceTrackedVehicles(prev => prev.filter(v => v.id !== trackingId));
+      setOtherDeviceTrackedVehicles(prev => prev.filter(v => v.id !== trackingId));
     } catch (err) {
       setError("Failed to remove vehicle from tracking: " + err.message);
     }
   };
 
   const MapComponent = () => {
-  const position = currentLocation || trackingData || nairobiCoordinates;
+    const position = currentLocation || trackingData || nairobiCoordinates;
 
-  return (
-    <MapContainer
-      center={[position.lat, position.lng]}
-      zoom={13}
-      style={{
-        height: "400px",
-        width: "100%",
-        borderRadius: "1rem",
-      }}
-      className="z-0"
-    >
-      <TileLayer
-        attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      {currentLocation && (
-        <Marker position={[currentLocation.lat, currentLocation.lng]} icon={CarIcon}>
-          <Popup>
-            <div className="min-w-[200px] p-2">
-              <div className="flex items-center gap-2 mb-2">
-                <Car className="w-4 h-4 text-yellow-500" />
-                <strong className="text-gray-800">
-                  {vehicles.find((v) => v.id === selectedVehicle)?.make || "Vehicle"}{" "}
-                  {vehicles.find((v) => v.id === selectedVehicle)?.model || ""}
-                </strong>
+    return (
+      <MapContainer
+        center={[position.lat, position.lng]}
+        zoom={13}
+        style={{
+          height: "400px",
+          width: "100%",
+          borderRadius: "1rem",
+        }}
+        className="z-0"
+      >
+        <TileLayer
+          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {currentLocation && (
+          <Marker position={[currentLocation.lat, currentLocation.lng]} icon={CarIcon}>
+            <Popup>
+              <div className="min-w-[200px] p-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Car className="w-4 h-4 text-yellow-500" />
+                  <strong className="text-gray-800 dark:text-gray-200">
+                    {vehicles.find((v) => v.id === selectedVehicle)?.make || "Vehicle"}{" "}
+                    {vehicles.find((v) => v.id === selectedVehicle)?.model || ""}
+                  </strong>
+                </div>
+                {currentLocation.name && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <strong>Location:</strong> {currentLocation.name}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+                </p>
+                <p className="text-xs text-cyan-400 mt-1 flex items-center gap-1">
+                  <Shield size={10} /> Tracked from this device
+                </p>
               </div>
-              {currentLocation.name && (
-                <p className="text-sm text-gray-600">
-                  <strong>Location:</strong> {currentLocation.name}
-                </p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
-              </p>
-              {trackingHistory.length > 0 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Updated: {new Date(trackingHistory[0].timestamp).toLocaleTimeString()}
-                </p>
-              )}
-            </div>
-          </Popup>
-        </Marker>
-      )}
-      <MapViewController center={[position.lat, position.lng]} zoom={13} />
-    </MapContainer>
-  );
-};
+            </Popup>
+          </Marker>
+        )}
+        <MapViewController center={[position.lat, position.lng]} zoom={13} />
+      </MapContainer>
+    );
+  };
 
   const selectedVehicleData = vehicles.find(v => v.id === selectedVehicle);
+  const isSelectedVehicleTrackedByMe = myDeviceTrackedVehicles.some(v => v.vehicleId === selectedVehicle);
+  const isSelectedVehicleTrackedByOther = otherDeviceTrackedVehicles.some(v => v.vehicleId === selectedVehicle);
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
@@ -441,13 +487,20 @@ const Tracking = () => {
                 <div className="flex items-center gap-2 mt-1">
                   {isOnline ? (
                     <span className="text-xs text-green-400 flex items-center gap-1">
-                      <Wifi size={12} /> Live
+                      <Wifi size={12} /> Live - Device: {deviceId.slice(0, 8)}...
                     </span>
                   ) : (
                     <span className="text-xs text-red-400 flex items-center gap-1">
-                      <WifiOff size={12} /> Offline
+                      <WifiOff size={12} /> Offline Mode
                     </span>
                   )}
+                  <button
+                    onClick={() => setShowDeviceInfo(!showDeviceInfo)}
+                    className="text-gray-400 hover:text-yellow-500 transition-colors"
+                    title="Device Info"
+                  >
+                    <Info size={12} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -458,6 +511,37 @@ const Tracking = () => {
           </div>
         </div>
       </header>
+
+      {/* Device Info Tooltip */}
+      <AnimatePresence>
+        {showDeviceInfo && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`fixed top-20 right-4 z-30 max-w-sm p-4 rounded-xl border shadow-lg ${darkMode ? "bg-gray-800 border-yellow-500/30" : "bg-white border-yellow-300"}`}
+          >
+            <div className="flex items-start gap-2">
+              <Shield className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <div>
+                <h4 className={`font-semibold mb-1 ${darkMode ? "text-white" : "text-gray-800"}`}>Device-Specific Tracking</h4>
+                <p className={`text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                  ✅ Each device has its own unique Device ID.<br />
+                  ✅ Tracking is per-device, not per-account.<br />
+                  ✅ Your phone and laptop can track different vehicles independently.<br />
+                  ✅ This device ID: <code className="font-mono bg-black/20 px-1 rounded">{deviceId}</code>
+                </p>
+                <button
+                  onClick={() => setShowDeviceInfo(false)}
+                  className="text-xs text-yellow-500 mt-2 hover:underline"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -472,15 +556,19 @@ const Tracking = () => {
           </motion.div>
         )}
 
-        {/* Tracked Vehicles List */}
-        {trackedVehicles.length > 0 && (
-          <div className={`mb-6 p-4 rounded-xl ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border`}>
-            <h3 className={`font-semibold mb-3 ${darkMode ? "text-white" : "text-gray-800"}`}>Currently Tracked Vehicles</h3>
+        {/* This Device's Tracked Vehicles */}
+        {myDeviceTrackedVehicles.length > 0 && (
+          <div className={`mb-6 p-4 rounded-xl ${darkMode ? "bg-green-500/10 border border-green-500/30" : "bg-green-50 border border-green-200"}`}>
+            <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? "text-green-300" : "text-green-800"}`}>
+              <Navigation className="w-4 h-4" />
+              THIS DEVICE - Currently Tracking ({myDeviceTrackedVehicles.length})
+              <span className="text-xs text-gray-400 ml-2">(Device ID: {deviceId.slice(0, 8)}...)</span>
+            </h3>
             <div className="space-y-2">
-              {trackedVehicles.map((track) => {
+              {myDeviceTrackedVehicles.map((track) => {
                 const vehicle = vehicles.find(v => v.id === track.vehicleId);
                 return (
-                  <div key={track.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                  <div key={track.id} className={`flex items-center justify-between p-3 rounded-lg ${darkMode ? "bg-green-500/5" : "bg-green-100/50"}`}>
                     <div className="flex items-center gap-3">
                       <Car className="w-5 h-5 text-yellow-500" />
                       <div>
@@ -488,12 +576,13 @@ const Tracking = () => {
                           {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
                         </p>
                         <p className="text-xs text-gray-400">
-                          {track.deviceId === deviceId ? "Tracking from this device" : "Tracking from another device"}
+                          Last update: {new Date(track.timestamp).toLocaleString()}
+                          {track.isTracking && <span className="text-green-500 ml-2">● Live</span>}
                         </p>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {track.isTracking && track.deviceId === deviceId && (
+                      {track.isTracking && (
                         <button
                           onClick={stopTracking}
                           className="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 transition-colors"
@@ -502,7 +591,7 @@ const Tracking = () => {
                         </button>
                       )}
                       <button
-                        onClick={() => removeVehicleFromTracking(track.id)}
+                        onClick={() => removeVehicleFromTracking(track.id, track.vehicleId)}
                         className="p-1 rounded-lg hover:bg-white/10 transition-colors"
                       >
                         <Trash2 size={16} className="text-gray-400 hover:text-red-400" />
@@ -515,12 +604,49 @@ const Tracking = () => {
           </div>
         )}
 
+        {/* Other Devices' Tracked Vehicles (Info only - cannot control) */}
+        {otherDeviceTrackedVehicles.length > 0 && (
+          <div className={`mb-6 p-4 rounded-xl ${darkMode ? "bg-gray-500/10 border border-gray-500/30" : "bg-gray-100 border border-gray-300"}`}>
+            <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+              <MapPin className="w-4 h-4" />
+              OTHER DEVICES - Tracking ({otherDeviceTrackedVehicles.length})
+            </h3>
+            <div className="space-y-2">
+              {otherDeviceTrackedVehicles.map((track) => {
+                const vehicle = vehicles.find(v => v.id === track.vehicleId);
+                return (
+                  <div key={track.id} className={`flex items-center justify-between p-3 rounded-lg ${darkMode ? "bg-gray-500/5" : "bg-gray-50"}`}>
+                    <div className="flex items-center gap-3">
+                      <Car className="w-5 h-5 text-gray-500" />
+                      <div>
+                        <p className={`font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                          {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Device: {track.deviceId?.slice(0, 8)}...
+                          {track.isTracking && <span className="text-yellow-500 ml-2">● Live</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-400 px-2 py-1 rounded bg-white/10">
+                      View only
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-white/10">
+              💡 These vehicles are being tracked by other devices in your account. You cannot control them from this device.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Controls Panel */}
           <div className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}>
             <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
               <Navigation className="w-5 h-5 text-yellow-500" />
-              Tracking Controls
+              Start New Tracking (This Device)
             </h2>
 
             <div className="space-y-4">
@@ -534,12 +660,19 @@ const Tracking = () => {
                   }`}
                 >
                   <option value="" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Choose a vehicle</option>
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
-                      {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
-                    </option>
-                  ))}
+                  {vehicles
+                    .filter(v => !myDeviceTrackedVehicles.some(t => t.vehicleId === v.id))
+                    .map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
+                        {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
+                      </option>
+                    ))}
                 </select>
+                {selectedVehicle && isSelectedVehicleTrackedByOther && (
+                  <p className="text-xs text-yellow-500 mt-1">
+                    ⚠️ This vehicle is being tracked by another device. You can still track it on this device independently.
+                  </p>
+                )}
               </div>
 
               {selectedVehicleData && (
@@ -568,7 +701,7 @@ const Tracking = () => {
                   onChange={(e) => setLocationName(e.target.value)}
                   placeholder="e.g., Warehouse A, Client Site"
                   className={`w-full px-4 py-3 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-500" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
-                  disabled={trackingHistory.length > 0 && trackingHistory[0]?.deviceId !== deviceId}
+                  disabled={isSelectedVehicleTrackedByMe}
                 />
               </div>
 
@@ -579,7 +712,7 @@ const Tracking = () => {
                   checked={useManualCoordinates}
                   onChange={() => setUseManualCoordinates(!useManualCoordinates)}
                   className="w-4 h-4 rounded accent-yellow-500"
-                  disabled={trackingHistory.length > 0 && trackingHistory[0]?.deviceId !== deviceId}
+                  disabled={isSelectedVehicleTrackedByMe}
                 />
                 <label htmlFor="manualCoords" className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
                   Enter coordinates manually
@@ -610,18 +743,23 @@ const Tracking = () => {
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={handleTrackVehicle}
-                  disabled={!selectedVehicle}
+                  disabled={!selectedVehicle || isSelectedVehicleTrackedByMe}
                   className="flex-1"
                 >
                   <Crosshair size={18} />
-                  {isTracking && !useManualCoordinates ? "Tracking..." : useManualCoordinates ? "Set Location" : "Start Tracking"}
+                  {isTracking && !useManualCoordinates ? "Tracking..." : useManualCoordinates ? "Set Location" : "Start Tracking on THIS Device"}
                 </Button>
-                {isTracking && !useManualCoordinates && trackingHistory[0]?.deviceId === deviceId && (
+                {isTracking && !useManualCoordinates && (
                   <Button variant="danger" onClick={stopTracking}>
                     Stop
                   </Button>
                 )}
               </div>
+              {isSelectedVehicleTrackedByMe && (
+                <p className="text-xs text-yellow-500 text-center">
+                  ⚡ You are already tracking this vehicle on this device. Stop tracking first to start a new session.
+                </p>
+              )}
             </div>
 
             {/* Current Location Info */}
@@ -629,7 +767,7 @@ const Tracking = () => {
               <div className={`mt-6 p-4 rounded-xl ${darkMode ? "bg-black/30" : "bg-gray-50"}`}>
                 <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
                   <Clock size={16} className="text-yellow-500" />
-                  Current Location
+                  Current Location (This Device)
                 </h3>
                 {currentLocation.name && (
                   <p className={`text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
@@ -640,15 +778,10 @@ const Tracking = () => {
                   Lat: {currentLocation.lat.toFixed(6)}<br />
                   Lng: {currentLocation.lng.toFixed(6)}
                 </p>
-                {trackingHistory.length > 0 && (
-                  <p className={`text-xs mt-2 ${darkMode ? "text-gray-500" : "text-gray-400"}`}>
-                    Last update: {new Date(trackingHistory[0].timestamp).toLocaleString()}
-                  </p>
-                )}
                 {isTracking && !useManualCoordinates && (
                   <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    Live tracking active
+                    Live tracking active on this device
                   </p>
                 )}
               </div>
@@ -660,17 +793,19 @@ const Tracking = () => {
             <div className={`p-4 border-b ${darkMode ? "border-white/10" : "border-gray-200"}`}>
               <h2 className={`font-semibold flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
                 <MapIcon size={18} className="text-yellow-500" />
-                Live Map View
+                Live Map View (This Device's Tracking)
               </h2>
             </div>
             <MapComponent />
           </div>
         </div>
 
-        {/* Tracking History */}
+        {/* Tracking History for selected vehicle (from this device) */}
         {trackingHistory.length > 1 && (
           <div className={`mt-6 rounded-2xl p-4 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border`}>
-            <h3 className={`font-semibold mb-3 ${darkMode ? "text-white" : "text-gray-800"}`}>Recent Location History</h3>
+            <h3 className={`font-semibold mb-3 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              Recent Location History (This Device)
+            </h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {trackingHistory.slice(0, 10).map((history, idx) => (
                 <div key={history.id} className={`flex items-center justify-between p-2 rounded-lg ${darkMode ? "hover:bg-white/5" : "hover:bg-gray-50"}`}>
@@ -691,7 +826,7 @@ const Tracking = () => {
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
-        <p>© 2024 FleetTraq. All rights reserved.</p>
+        <p>© 2026 FleetTraq. All rights reserved. Device-specific tracking active.</p>
       </footer>
     </div>
   );
