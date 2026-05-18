@@ -18,6 +18,7 @@ import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
 import FleetNavBar from "./FleetNavBar";
 import { CarIcon } from "./assets/car-icon";
+import ProfilePicture from './ProfilePicture';
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;

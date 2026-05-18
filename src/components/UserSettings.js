@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon, Copy } from "lucide-react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon, Copy, Trash2, Key, Shield, X } from "lucide-react";
+import { doc, onSnapshot, setDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
-import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from "firebase/auth";
 import Button from "./Button";
 
 const UserSettings = () => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver } = useFleet();
+  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver, sendNotification } = useFleet();
   const [settings, setSettings] = useState({
     darkMode: true,
     emailNotifications: false,
@@ -25,6 +25,13 @@ const UserSettings = () => {
   });
   const [passwordError, setPasswordError] = useState(null);
   const [passwordSuccess, setPasswordSuccess] = useState(null);
+  
+  // Delete Account States
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -66,6 +73,7 @@ const UserSettings = () => {
       const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
       await setDoc(settingsRef, settings, { merge: true });
       setSuccess("Settings saved successfully!");
+      sendNotification?.("Settings saved successfully", "success");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError("Failed to save settings: " + err.message);
@@ -91,15 +99,103 @@ const UserSettings = () => {
     }
 
     try {
-      const user = auth.currentUser;
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updatePassword(user, newPassword);
+      const currentUser = auth.currentUser;
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+      await updatePassword(currentUser, newPassword);
       setPasswordSuccess("Password updated successfully!");
       setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      sendNotification?.("Password updated successfully", "success");
       setTimeout(() => setPasswordSuccess(null), 3000);
     } catch (err) {
       setPasswordError("Failed to update password. Please check your current password.");
+    }
+  };
+
+  // Delete Account Function
+  const handleDeleteAccount = async () => {
+    if (!user?.uid) {
+      setDeleteError("You must be logged in to delete your account");
+      return;
+    }
+
+    if (deleteConfirmText !== "DELETE") {
+      setDeleteError('Please type "DELETE" to confirm account deletion');
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error("No user found");
+      }
+
+      // Reauthenticate if password provided
+      if (deletePassword) {
+        const credential = EmailAuthProvider.credential(currentUser.email, deletePassword);
+        await reauthenticateWithCredential(currentUser, credential);
+      }
+
+      // Delete all user data from Firestore
+      const collections = ["vehicles", "drivers", "reports", "tracking", "sessions", "deletionRequests", "fuelRecords"];
+      
+      for (const coll of collections) {
+        try {
+          const q = query(collection(db, coll), where("accountId", "==", user.uid));
+          const snapshot = await getDocs(q);
+          const deletePromises = snapshot.docs.map((docSnapshot) => deleteDoc(doc(db, coll, docSnapshot.id)));
+          await Promise.all(deletePromises);
+        } catch (err) {
+          // Collection might not exist or have different structure
+          console.log(`Skipping ${coll}:`, err.message);
+        }
+      }
+
+      // Delete user document
+      try {
+        await deleteDoc(doc(db, "users", user.uid));
+      } catch (err) {
+        console.log("User document might not exist:", err.message);
+      }
+
+      // Delete user settings
+      try {
+        await deleteDoc(doc(db, "userSettings", `${user.uid}_user`));
+      } catch (err) {
+        console.log("User settings might not exist:", err.message);
+      }
+
+      // Send notification before deleting (if possible)
+      try {
+        if (sendNotification) {
+          await sendNotification("Your account has been deleted. We're sad to see you go!", "info");
+        }
+      } catch (err) {
+        console.log("Could not send notification:", err.message);
+      }
+
+      // Delete the Firebase Auth user
+      await deleteUser(currentUser);
+
+      // Clear local storage
+      localStorage.clear();
+      
+      // Redirect to home page
+      navigate("/");
+    } catch (err) {
+      console.error("Deletion error:", err);
+      if (err.code === "auth/requires-recent-login") {
+        setDeleteError("Please enter your password to confirm account deletion");
+      } else if (err.code === "auth/wrong-password") {
+        setDeleteError("Incorrect password. Please try again.");
+      } else {
+        setDeleteError("Failed to delete account: " + err.message);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -204,6 +300,38 @@ const UserSettings = () => {
         )}
 
         <div className="grid grid-cols-1 gap-6">
+          {/* Profile Information Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`rounded-2xl p-6 ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg`}
+          >
+            <h2 className={`text-xl font-semibold mb-5 flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <User className="w-5 h-5 text-yellow-500" />
+              Profile Information
+            </h2>
+            
+            <div className="flex items-center gap-4 mb-6">
+              <div className={`w-16 h-16 rounded-full bg-gradient-to-r from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg`}>
+                <span className="text-2xl font-bold text-black">
+                  {user?.displayName ? user.displayName[0].toUpperCase() : user?.email?.[0]?.toUpperCase() || "U"}
+                </span>
+              </div>
+              <div>
+                <h3 className={`text-lg font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                  {user?.displayName || user?.email?.split('@')[0] || "User"}
+                </h3>
+                <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                  {user?.email}
+                </p>
+                <p className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-400"} capitalize mt-1`}>
+                  <Shield className="w-3 h-3 inline mr-1" />
+                  Role: {localStorage.getItem("role") || "User"}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
           {/* Preferences */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -321,8 +449,163 @@ const UserSettings = () => {
               </Button>
             </div>
           </motion.div>
+
+          {/* Delete Account Section - DANGER ZONE */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className={`rounded-2xl p-6 border-2 ${darkMode ? "bg-red-500/10 border-red-500/30" : "bg-red-50 border-red-200"} shadow-lg`}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Trash2 className="w-5 h-5 text-red-500" />
+              <h2 className={`text-xl font-semibold text-red-500`}>
+                Danger Zone
+              </h2>
+            </div>
+            <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>
+              Once you delete your account, all your data will be permanently removed. 
+              This action cannot be undone. All vehicles, drivers, reports, and tracking data associated with your account will be lost forever.
+            </p>
+            <Button 
+              onClick={() => setShowDeleteModal(true)} 
+              variant="danger"
+            >
+              <Trash2 size={16} className="mr-1" />
+              Delete Account
+            </Button>
+          </motion.div>
         </div>
       </main>
+
+      {/* Delete Account Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => {
+              setShowDeleteModal(false);
+              setDeletePassword("");
+              setDeleteConfirmText("");
+              setDeleteError(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className={`w-full max-w-md rounded-2xl ${darkMode ? "bg-[#1a1a2e] border-red-500/30" : "bg-white border-red-200"} border shadow-2xl`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={`p-5 border-b ${darkMode ? "border-white/10" : "border-gray-200"} flex justify-between items-center`}>
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-red-500" />
+                  <h2 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+                    Delete Account
+                  </h2>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeletePassword("");
+                    setDeleteConfirmText("");
+                    setDeleteError(null);
+                  }} 
+                  className="p-1 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="p-5 space-y-4">
+                <div className={`p-3 rounded-lg ${darkMode ? "bg-red-500/10" : "bg-red-50"} border border-red-500/30`}>
+                  <p className="text-sm text-red-400">
+                    ⚠️ <span className="font-semibold">Warning:</span> This action cannot be undone. 
+                    All your data will be permanently deleted.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                    Type <span className="font-mono font-bold text-red-500">DELETE</span> to confirm
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                    className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                      darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                    }`}
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                    <Key className="w-3 h-3 inline mr-1" />
+                    Password (required for security)
+                  </label>
+                  <input
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                      darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                    }`}
+                  />
+                </div>
+
+                {deleteError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-2 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm"
+                  >
+                    {deleteError}
+                  </motion.div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button 
+                    onClick={handleDeleteAccount} 
+                    variant="danger" 
+                    disabled={isDeleting || deleteConfirmText !== "DELETE" || !deletePassword}
+                    className="flex-1"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={16} className="mr-1" />
+                        Permanently Delete
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setDeletePassword("");
+                      setDeleteConfirmText("");
+                      setDeleteError(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
