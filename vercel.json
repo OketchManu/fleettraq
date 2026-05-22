@@ -1,10 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "CI=false npm run build",
   "outputDirectory": "build",
   "devCommand": "npm start",
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "create-react-app",
+  "env": {
+    "CI": "false"
+  },
   "routes": [
     {
       "src": "/static/(.*)",
