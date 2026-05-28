@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole } from "../utils/fleetAccess";
+import { ensureDriverRosterEntry } from "../utils/driverRoster";
 
 const FleetContext = createContext();
 
@@ -57,6 +58,7 @@ export const FleetProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [vehiclesAll, setVehiclesAll] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [fleetDriverAccounts, setFleetDriverAccounts] = useState([]);
   const [reports, setReports] = useState([]);
   const [trackingData, setTrackingData] = useState(null);
   const [darkMode, setDarkMode] = useState(readStoredDarkMode);
@@ -96,6 +98,19 @@ export const FleetProvider = ({ children }) => {
           fleetId: fid,
         });
 
+        if (role === "driver") {
+          try {
+            await ensureDriverRosterEntry({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || data.email,
+              displayName: firebaseUser.displayName || data.name,
+              fleetId: fid,
+            });
+          } catch (err) {
+            console.error("Failed to ensure driver roster entry:", err);
+          }
+        }
+
         localStorage.setItem("role", role);
 
         const settingsRef = doc(db, "userSettings", `${firebaseUser.uid}_user`);
@@ -107,6 +122,7 @@ export const FleetProvider = ({ children }) => {
         setUser(null);
         setVehiclesAll([]);
         setDrivers([]);
+        setFleetDriverAccounts([]);
         setReports([]);
         setTrackingData(null);
         setNotifications([]);
@@ -256,6 +272,32 @@ export const FleetProvider = ({ children }) => {
     return () => unsubscribe();
   }, [user?.uid, user?.fleetId, user?.organizationId]);
 
+  // Fleet driver login accounts (for admin/manager roster linking)
+  useEffect(() => {
+    const fid = fleetIdFromUser(user);
+    if (!fid || !roleCanManageFleet(user?.role)) {
+      setFleetDriverAccounts([]);
+      return;
+    }
+
+    const q = query(collection(db, "users"), where("organizationId", "==", fid));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const accounts = snapshot.docs
+          .map((d) => ({ uid: d.id, ...d.data() }))
+          .filter((row) => row.role === "driver");
+        setFleetDriverAccounts(accounts);
+      },
+      (err) => {
+        setError("Failed to load registered driver accounts: " + err.message);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
+
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -341,6 +383,7 @@ export const FleetProvider = ({ children }) => {
     setVehiclesAll,
     drivers,
     setDrivers,
+    fleetDriverAccounts,
     reports,
     setReports,
     trackingData,

@@ -7,6 +7,7 @@ import { doc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFleet } from "../context/FleetContext";
+import { ensureDriverRosterEntry } from "../utils/driverRoster";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -70,6 +71,15 @@ const Signup = () => {
         createdAt: new Date().toISOString(),
       });
 
+      if (role === "driver") {
+        await ensureDriverRosterEntry({
+          uid: user.uid,
+          email,
+          displayName: name,
+          fleetId: organizationId,
+        });
+      }
+
       await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
 
       const idToken = await user.getIdToken();
@@ -124,6 +134,15 @@ const Signup = () => {
         },
         { merge: true }
       );
+
+      if (role === "driver") {
+        await ensureDriverRosterEntry({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          fleetId: organizationId,
+        });
+      }
 
       await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
 

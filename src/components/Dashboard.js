@@ -272,6 +272,14 @@ const Dashboard = () => {
           </div>
         ) : (
           <>
+            {isDriver && vehicles.length === 0 && (
+              <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
+                <p className={`text-sm ${darkMode ? "text-amber-100" : "text-amber-900"}`}>
+                  No vehicle is assigned to your account yet. Ask your fleet administrator to assign you a vehicle under{" "}
+                  <strong>More → Drivers</strong> or <strong>Vehicles</strong>.
+                </p>
+              </div>
+            )}
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <motion.div

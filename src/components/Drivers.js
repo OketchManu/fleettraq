@@ -1,17 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, Calendar } from "lucide-react";
+import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, Calendar, Link2, RefreshCw, Car } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import Button from "./Button";
+import { ensureDriverRosterEntry, assignDriverToVehicle } from "../utils/driverRoster";
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll } = useFleet();
+  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
+  const [syncing, setSyncing] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     licenseNumber: "",
@@ -24,6 +26,47 @@ const Drivers = () => {
     assignedVehicleId: "",
   });
   const [error, setError] = useState(null);
+
+  const unlinkedAccounts = useMemo(() => {
+    const linkedUids = new Set(drivers.map((d) => d.authUid).filter(Boolean));
+    const linkedEmails = new Set(
+      drivers.map((d) => (d.email || "").toLowerCase()).filter(Boolean)
+    );
+    return fleetDriverAccounts.filter(
+      (a) => !linkedUids.has(a.uid) && !linkedEmails.has((a.email || "").toLowerCase())
+    );
+  }, [drivers, fleetDriverAccounts]);
+
+  const syncRegisteredDrivers = async () => {
+    if (!fleetId) return;
+    setSyncing(true);
+    setError(null);
+    try {
+      for (const account of fleetDriverAccounts) {
+        await ensureDriverRosterEntry({
+          uid: account.uid,
+          email: account.email,
+          displayName: account.name,
+          fleetId,
+        });
+      }
+      await fetchDrivers();
+    } catch (err) {
+      setError("Failed to sync registered drivers: " + err.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const quickAssignVehicle = async (driver, vehicleId) => {
+    if (!vehicleId || !fleetId) return;
+    try {
+      await assignDriverToVehicle({ driver, vehicleId, fleetId, allDrivers: drivers });
+      await fetchDrivers();
+    } catch (err) {
+      setError("Failed to assign vehicle: " + err.message);
+    }
+  };
 
   const statusOptions = ["Active", "Inactive", "On Leave", "Suspended", "Training"];
   const statusColors = {
@@ -204,15 +247,82 @@ const Drivers = () => {
           </div>
         )}
 
+        <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-cyan-500/10 border-cyan-500/30" : "bg-cyan-50 border-cyan-200"}`}>
+          <h3 className={`font-semibold mb-2 ${darkMode ? "text-cyan-100" : "text-cyan-900"}`}>How driver setup works</h3>
+          <ol className={`text-sm space-y-1 list-decimal list-inside ${darkMode ? "text-cyan-100/90" : "text-cyan-900/90"}`}>
+            <li>Share your <strong>Organization ID</strong> (Account settings) so drivers sign up with role <strong>Driver</strong>.</li>
+            <li>They appear below under <strong>Registered driver accounts</strong> and in this roster after sync.</li>
+            <li>Assign a <strong>vehicle</strong> to the driver — they will then see that vehicle on Dashboard, Tracking, and Fuel.</li>
+            <li>GPS runs on the device that added the vehicle (or the device you assign under Vehicles → Use this device).</li>
+          </ol>
+        </div>
+
+        <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <h3 className={`font-semibold flex items-center gap-2 ${darkMode ? "text-white" : "text-gray-900"}`}>
+              <Link2 size={18} className="text-yellow-500" />
+              Registered driver accounts ({fleetDriverAccounts.length})
+            </h3>
+            <Button variant="secondary" size="sm" onClick={syncRegisteredDrivers} disabled={syncing || fleetDriverAccounts.length === 0}>
+              <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+              Sync to roster
+            </Button>
+          </div>
+          {fleetDriverAccounts.length === 0 ? (
+            <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+              No drivers have signed up with your Organization ID yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {fleetDriverAccounts.map((account) => {
+                const roster = drivers.find(
+                  (d) => d.authUid === account.uid || (d.email && account.email && d.email.toLowerCase() === account.email.toLowerCase())
+                );
+                return (
+                  <div
+                    key={account.uid}
+                    className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl ${darkMode ? "bg-black/20" : "bg-gray-50"}`}
+                  >
+                    <div>
+                      <p className={`font-medium ${darkMode ? "text-white" : "text-gray-900"}`}>{account.name || account.email}</p>
+                      <p className="text-xs text-gray-500">{account.email}</p>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full ${roster ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"}`}>
+                      {roster ? "On roster" : "Needs sync"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {unlinkedAccounts.length > 0 && (
+            <p className="text-xs text-amber-500 mt-3">
+              {unlinkedAccounts.length} signed-up driver(s) not on the roster yet — click <strong>Sync to roster</strong>.
+            </p>
+          )}
+        </div>
+
         {drivers.length === 0 ? (
           <div className={`text-center py-16 rounded-2xl ${darkMode ? "bg-white/5" : "bg-white"} border ${darkMode ? "border-white/10" : "border-gray-200"}`}>
             <Users className="w-16 h-16 text-gray-500 mx-auto mb-4" />
             <h3 className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-800"} mb-2`}>No Drivers Yet</h3>
-            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>Add drivers to start managing your team.</p>
-            <Button onClick={() => setShowAddForm(true)}>
-              <Plus size={18} />
-              Add Your First Driver
-            </Button>
+            <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>
+              {fleetDriverAccounts.length > 0
+                ? "Click Sync to roster above to import drivers who already signed up."
+                : "Add drivers manually or wait for them to sign up with your Organization ID."}
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {fleetDriverAccounts.length > 0 && (
+                <Button onClick={syncRegisteredDrivers} disabled={syncing}>
+                  <RefreshCw size={18} className={syncing ? "animate-spin" : ""} />
+                  Sync registered drivers
+                </Button>
+              )}
+              <Button onClick={() => setShowAddForm(true)}>
+                <Plus size={18} />
+                Add Driver manually
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -282,13 +392,39 @@ const Drivers = () => {
                         </span>
                       </div>
                     )}
-                    {driver.assignedVehicleId && (
+                    {driver.authUid ? (
+                      <p className="text-xs text-green-400">Account linked</p>
+                    ) : (
+                      <p className="text-xs text-amber-400">No login linked — add auth UID or sync account</p>
+                    )}
+                    {driver.assignedVehicleId ? (
                       <div className={`text-xs ${darkMode ? "text-cyan-300/90" : "text-cyan-700"}`}>
                         Vehicle:{" "}
                         {(() => {
                           const v = vehiclesAll.find((x) => x.id === driver.assignedVehicleId);
                           return v ? `${v.make} ${v.model}` : driver.assignedVehicleId;
                         })()}
+                      </div>
+                    ) : (
+                      <div className="pt-2">
+                        <label className={`text-xs block mb-1 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                          <Car size={12} className="inline mr-1" />
+                          Assign vehicle
+                        </label>
+                        <select
+                          value=""
+                          onChange={(e) => quickAssignVehicle(driver, e.target.value)}
+                          className={`w-full px-2 py-1.5 rounded-lg text-sm border ${
+                            darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-900 border-gray-300"
+                          }`}
+                        >
+                          <option value="">Choose vehicle…</option>
+                          {vehiclesAll.map((v) => (
+                            <option key={v.id} value={v.id} className={darkMode ? "bg-slate-900" : "bg-white"}>
+                              {v.make} {v.model} ({v.licensePlate || v.id.slice(0, 6)})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </div>
@@ -394,7 +530,7 @@ const Drivers = () => {
 
                 <input
                   type="text"
-                  placeholder="Linked account UID (Firebase user id when they sign up)"
+                  placeholder="Linked account UID (filled automatically when driver signs up)"
                   value={formData.authUid}
                   onChange={(e) => setFormData({ ...formData, authUid: e.target.value })}
                   className={`w-full px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white placeholder-gray-400" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}

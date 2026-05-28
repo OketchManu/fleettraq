@@ -7,10 +7,11 @@ import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
 import { getDeviceId, formatDeviceId } from "../utils/deviceId";
+import { assignDriverToVehicle } from "../utils/driverRoster";
 
 const VehicleManagement = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet } = useFleet();
+  const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet, drivers } = useFleet();
   const deviceId = getDeviceId();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -142,6 +143,18 @@ const VehicleManagement = () => {
       await fetchVehicles();
     } catch (err) {
       setError("Failed to assign tracking device: " + err.message);
+    }
+  };
+
+  const handleAssignDriver = async (vehicle, driverId) => {
+    if (!driverId || !fleetId) return;
+    const driver = drivers.find((d) => d.id === driverId);
+    if (!driver) return;
+    try {
+      await assignDriverToVehicle({ driver, vehicleId: vehicle.id, fleetId, allDrivers: drivers });
+      await fetchVehicles();
+    } catch (err) {
+      setError("Failed to assign driver: " + err.message);
     }
   };
 
@@ -305,6 +318,33 @@ const VehicleManagement = () => {
                           </button>
                         )}
                     </div>
+                    {canManageFleet && drivers.length > 0 && (
+                      <div className="pt-2">
+                        <label className={`text-xs block mb-1 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                          Assigned driver
+                        </label>
+                        <select
+                          value={
+                            drivers.find(
+                              (d) =>
+                                d.assignedVehicleId === vehicle.id ||
+                                (d.authUid && d.authUid === vehicle.assignedDriverUid)
+                            )?.id || ""
+                          }
+                          onChange={(e) => handleAssignDriver(vehicle, e.target.value)}
+                          className={`w-full px-2 py-1.5 rounded-lg text-sm border ${
+                            darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-900 border-gray-300"
+                          }`}
+                        >
+                          <option value="">No driver</option>
+                          {drivers.map((d) => (
+                            <option key={d.id} value={d.id} className={darkMode ? "bg-slate-900" : "bg-white"}>
+                              {d.name || d.email || "Driver"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
