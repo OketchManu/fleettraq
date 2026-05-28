@@ -39,3 +39,5 @@ export function filterVehiclesForDriver(vehicles, user, drivers = []) {
 
   return list;
 }
+
+export const isAdminRole = (role) => role === "admin";

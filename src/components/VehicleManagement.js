@@ -6,10 +6,12 @@ import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
+import { getDeviceId, formatDeviceId } from "../utils/deviceId";
 
 const VehicleManagement = () => {
   const navigate = useNavigate();
   const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet } = useFleet();
+  const deviceId = getDeviceId();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [formData, setFormData] = useState({
@@ -70,6 +72,9 @@ const VehicleManagement = () => {
       } else {
         await addDoc(collection(db, "vehicles"), {
           ...vehicleData,
+          registeredDeviceId: deviceId,
+          registeredDeviceAt: new Date().toISOString(),
+          registeredByUid: auth.currentUser.uid,
           createdAt: new Date().toISOString(),
         });
       }
@@ -120,6 +125,24 @@ const VehicleManagement = () => {
       vin: vehicle.vin || "",
     });
     setShowAddForm(true);
+  };
+
+  const handleAssignTrackingDevice = async (vehicle) => {
+    if (!canManageFleet && !vehicles.some((v) => v.id === vehicle.id)) return;
+    if (!window.confirm(`Use THIS device (${formatDeviceId(deviceId)}) for GPS tracking of ${vehicle.make} ${vehicle.model}?`)) {
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "vehicles", vehicle.id), {
+        registeredDeviceId: deviceId,
+        registeredDeviceAt: new Date().toISOString(),
+        registeredByUid: auth.currentUser?.uid || null,
+        updatedAt: new Date().toISOString(),
+      });
+      await fetchVehicles();
+    } catch (err) {
+      setError("Failed to assign tracking device: " + err.message);
+    }
   };
 
   const resetForm = () => {
@@ -263,6 +286,25 @@ const VehicleManagement = () => {
                         </span>
                       </div>
                     )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                        GPS device:{" "}
+                        <span className={vehicle.registeredDeviceId === deviceId ? "text-green-400" : "text-cyan-400"}>
+                          {vehicle.registeredDeviceId ? formatDeviceId(vehicle.registeredDeviceId) : "Not set"}
+                        </span>
+                        {vehicle.registeredDeviceId === deviceId && " (this device)"}
+                      </span>
+                      {(canManageFleet || vehicles.some((v) => v.id === vehicle.id)) &&
+                        vehicle.registeredDeviceId !== deviceId && (
+                          <button
+                            type="button"
+                            onClick={() => handleAssignTrackingDevice(vehicle)}
+                            className="text-xs text-yellow-500 hover:underline"
+                          >
+                            Use this device
+                          </button>
+                        )}
+                    </div>
                   </div>
                 </div>
               </motion.div>

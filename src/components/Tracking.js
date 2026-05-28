@@ -5,13 +5,13 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, ChevronLeft, Crosshair, MapIcon, Trash2, Navigation, Car, Clock, AlertCircle, Wifi, WifiOff, Shield, Info } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { collection, addDoc, onSnapshot, query, where, updateDoc, doc, deleteDoc, getDocs, orderBy, limit } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Button from "./Button";
-import { v4 as uuidv4 } from "uuid";
+import { getDeviceId, formatDeviceId, canDeviceTrackVehicle } from "../utils/deviceId";
 import { CarIcon } from "./assets/car-icon";
 
 // Fix Leaflet default icon issue
@@ -36,7 +36,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -49,15 +49,7 @@ const Tracking = () => {
   const [myDeviceTrackedVehicles, setMyDeviceTrackedVehicles] = useState([]);
   const [otherDeviceTrackedVehicles, setOtherDeviceTrackedVehicles] = useState([]);
   
-  // Generate or retrieve persistent Device ID (stays the same across sessions on this device)
-  const [deviceId] = useState(() => {
-    let id = localStorage.getItem("trackingDeviceId");
-    if (!id) {
-      id = uuidv4();
-      localStorage.setItem("trackingDeviceId", id);
-    }
-    return id;
-  });
+  const deviceId = useMemo(() => getDeviceId(), []);
   
   const [trackingDocId, setTrackingDocId] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -77,7 +69,20 @@ const Tracking = () => {
     };
   }, []);
 
-  // Fetch tracked vehicles - SEPARATE by device
+  const trackableVehicles = useMemo(
+    () => vehicles.filter((v) => canDeviceTrackVehicle(v, deviceId)),
+    [vehicles, deviceId]
+  );
+
+  const otherDeviceVehicles = useMemo(
+    () =>
+      vehicles.filter(
+        (v) => v.registeredDeviceId && v.registeredDeviceId !== deviceId
+      ),
+    [vehicles, deviceId]
+  );
+
+  // Fetch tracked vehicles - SEPARATE by registered GPS device
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -86,34 +91,43 @@ const Tracking = () => {
 
     const q = query(
       collection(db, "tracking"), 
-      where("accountId", "==", fid),
-      orderBy("timestamp", "desc")
+      where("accountId", "==", fid)
     );
     
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const allTracking = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const allTracking = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        allTracking.sort(
+          (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+        );
         
-        // Separate by device
         const myDevice = [];
         const otherDevices = [];
         const seenMyVehicles = new Set();
         const seenOtherVehicles = new Set();
         
         for (const item of allTracking) {
-          if (item.deviceId === deviceId) {
-            // This device's tracking
+          const vehicle = vehicles.find((v) => v.id === item.vehicleId);
+          if (!vehicle) continue;
+
+          const isRegisteredHere = canDeviceTrackVehicle(vehicle, deviceId);
+          const matchesRegisteredDevice =
+            !vehicle.registeredDeviceId || item.deviceId === vehicle.registeredDeviceId;
+
+          if (isRegisteredHere && item.deviceId === deviceId && matchesRegisteredDevice) {
             if (!seenMyVehicles.has(item.vehicleId)) {
               seenMyVehicles.add(item.vehicleId);
               myDevice.push(item);
             }
-          } else {
-            // Other device's tracking
-            if (!seenOtherVehicles.has(item.vehicleId) && item.vehicleId) {
-              seenOtherVehicles.add(item.vehicleId);
-              otherDevices.push(item);
-            }
+          } else if (
+            vehicle.registeredDeviceId &&
+            vehicle.registeredDeviceId !== deviceId &&
+            item.deviceId === vehicle.registeredDeviceId &&
+            !seenOtherVehicles.has(item.vehicleId)
+          ) {
+            seenOtherVehicles.add(item.vehicleId);
+            otherDevices.push(item);
           }
         }
         
@@ -139,7 +153,7 @@ const Tracking = () => {
       }
     );
     return () => unsubscribe();
-  }, [user?.uid, fleetId, deviceId, selectedVehicle]);
+  }, [user?.uid, fleetId, deviceId, selectedVehicle, vehicles]);
 
   const saveLocation = useCallback(
     async (lat, lng, name, method) => {
@@ -236,6 +250,19 @@ const Tracking = () => {
 
     setError(null);
 
+    const vehicle = vehicles.find((v) => v.id === selectedVehicle);
+    if (!vehicle) {
+      setError("Vehicle not found.");
+      return;
+    }
+
+    if (!canDeviceTrackVehicle(vehicle, deviceId)) {
+      setError(
+        `This vehicle is tracked from device ${formatDeviceId(vehicle.registeredDeviceId)}. Log in on that device, or assign this device from Vehicles / below.`
+      );
+      return;
+    }
+
     // Check if THIS DEVICE is already tracking this vehicle
     const alreadyTrackingThisDevice = myDeviceTrackedVehicles.some((v) => v.vehicleId === selectedVehicle);
     if (alreadyTrackingThisDevice) {
@@ -319,14 +346,16 @@ const Tracking = () => {
       collection(db, "tracking"),
       where("vehicleId", "==", selectedVehicle),
       where("accountId", "==", fid),
-      where("deviceId", "==", deviceId),  // Only this device's tracking for the selected vehicle
-      orderBy("timestamp", "desc")
+      where("deviceId", "==", deviceId)
     );
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const updates = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const updates = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        updates.sort(
+          (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+        );
         setTrackingHistory(updates);
 
         if (updates.length > 0) {
@@ -361,6 +390,34 @@ const Tracking = () => {
       setTrackingData(nairobiCoordinates);
     }
   }, [trackingData, setTrackingData, nairobiCoordinates]);
+
+  const assignTrackingToThisDevice = async (vehicleId) => {
+    const vehicle = vehicles.find((v) => v.id === vehicleId);
+    if (!vehicle) return;
+    if (!canManageFleet && !isDriver) {
+      setError("You cannot reassign the GPS device for this vehicle.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Use THIS device (${formatDeviceId(deviceId)}) as the GPS source for ${vehicle.make} ${vehicle.model}?`
+      )
+    ) {
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "vehicles", vehicleId), {
+        registeredDeviceId: deviceId,
+        registeredDeviceAt: new Date().toISOString(),
+        registeredByUid: auth.currentUser?.uid || null,
+        updatedAt: new Date().toISOString(),
+      });
+      sendNotification?.(`This device is now the GPS source for ${vehicle.make} ${vehicle.model}`, "success");
+      setError(null);
+    } catch (err) {
+      setError("Failed to assign GPS device: " + err.message);
+    }
+  };
 
   const stopTracking = async () => {
     if (!trackingDocId) {
@@ -526,9 +583,8 @@ const Tracking = () => {
               <div>
                 <h4 className={`font-semibold mb-1 ${darkMode ? "text-white" : "text-gray-800"}`}>Device-Specific Tracking</h4>
                 <p className={`text-xs ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
-                  ✅ Each device has its own unique Device ID.<br />
-                  ✅ Tracking is per-device, not per-account.<br />
-                  ✅ Your phone and laptop can track different vehicles independently.<br />
+                  ✅ Each vehicle is linked to one GPS device (set when the vehicle is added).<br />
+                  ✅ Logging in on another phone or PC does not move the vehicle — only that registered device sends location.<br />
                   ✅ This device ID: <code className="font-mono bg-black/20 px-1 rounded">{deviceId}</code>
                 </p>
                 <button
@@ -604,7 +660,41 @@ const Tracking = () => {
           </div>
         )}
 
-        {/* Other Devices' Tracked Vehicles (Info only - cannot control) */}
+        {otherDeviceVehicles.length > 0 && (
+          <div className={`mb-6 p-4 rounded-xl ${darkMode ? "bg-amber-500/10 border border-amber-500/30" : "bg-amber-50 border border-amber-200"}`}>
+            <h3 className={`font-semibold mb-3 ${darkMode ? "text-amber-200" : "text-amber-900"}`}>
+              Vehicles tracked from another device
+            </h3>
+            <div className="space-y-2">
+              {otherDeviceVehicles.map((vehicle) => (
+                <div
+                  key={vehicle.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg ${darkMode ? "bg-black/20" : "bg-white/80"}`}
+                >
+                  <div>
+                    <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                      {vehicle.make} {vehicle.model}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      GPS device: {formatDeviceId(vehicle.registeredDeviceId)}
+                    </p>
+                  </div>
+                  {(canManageFleet || isDriver) && (
+                    <button
+                      type="button"
+                      onClick={() => assignTrackingToThisDevice(vehicle.id)}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30"
+                    >
+                      Use this device instead
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Other Devices' Tracked Vehicles (view live position from their GPS device) */}
         {otherDeviceTrackedVehicles.length > 0 && (
           <div className={`mb-6 p-4 rounded-xl ${darkMode ? "bg-gray-500/10 border border-gray-500/30" : "bg-gray-100 border border-gray-300"}`}>
             <h3 className={`font-semibold mb-3 flex items-center gap-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
@@ -636,7 +726,7 @@ const Tracking = () => {
               })}
             </div>
             <p className="text-xs text-gray-500 mt-3 pt-2 border-t border-white/10">
-              💡 These vehicles are being tracked by other devices in your account. You cannot control them from this device.
+              Live positions from each vehicle&apos;s registered GPS device. You cannot start or stop tracking from this device.
             </p>
           </div>
         )}
@@ -660,17 +750,22 @@ const Tracking = () => {
                   }`}
                 >
                   <option value="" className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>Choose a vehicle</option>
-                  {vehicles
-                    .filter(v => !myDeviceTrackedVehicles.some(t => t.vehicleId === v.id))
+                  {trackableVehicles
+                    .filter((v) => !myDeviceTrackedVehicles.some((t) => t.vehicleId === v.id))
                     .map((vehicle) => (
                       <option key={vehicle.id} value={vehicle.id} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
                         {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
                       </option>
                     ))}
                 </select>
-                {selectedVehicle && isSelectedVehicleTrackedByOther && (
+                {selectedVehicle && !canDeviceTrackVehicle(selectedVehicleData, deviceId) && (
+                  <p className="text-xs text-red-400 mt-1">
+                    This vehicle&apos;s GPS is registered to device {formatDeviceId(selectedVehicleData?.registeredDeviceId)}.
+                  </p>
+                )}
+                {selectedVehicle && isSelectedVehicleTrackedByOther && canDeviceTrackVehicle(selectedVehicleData, deviceId) && (
                   <p className="text-xs text-yellow-500 mt-1">
-                    ⚠️ This vehicle is being tracked by another device. You can still track it on this device independently.
+                    Another device is also sending updates, but only this device&apos;s GPS is used on the dashboard.
                   </p>
                 )}
               </div>
@@ -743,7 +838,11 @@ const Tracking = () => {
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={handleTrackVehicle}
-                  disabled={!selectedVehicle || isSelectedVehicleTrackedByMe}
+                  disabled={
+                    !selectedVehicle ||
+                    isSelectedVehicleTrackedByMe ||
+                    !canDeviceTrackVehicle(selectedVehicleData, deviceId)
+                  }
                   className="flex-1"
                 >
                   <Crosshair size={18} />

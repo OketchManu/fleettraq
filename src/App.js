@@ -20,6 +20,11 @@ import UserSettings from "./components/UserSettings";
 import AuthCallback from "./components/AuthCallback";
 import FuelTracking from "./components/FuelTracking";
 import NotFound from "./components/NotFound";
+import AppLayout from "./components/AppLayout";
+
+function AuthenticatedShell({ children }) {
+  return <AppLayout>{children}</AppLayout>;
+}
 
 function RequireFleetManager({ children }) {
   const { user, loading, canManageFleet } = useFleet();
@@ -80,37 +85,41 @@ function AppRoutes() {
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-      <Route path="/analytics" element={user ? <Analytics /> : <Navigate to="/login" />} />
+      <Route path="/dashboard" element={user ? <AuthenticatedShell><Dashboard /></AuthenticatedShell> : <Navigate to="/login" />} />
+      <Route path="/analytics" element={user ? <AuthenticatedShell><Analytics /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route
         path="/drivers"
         element={
           user ? (
-            <RequireFleetManager>
-              <Drivers />
-            </RequireFleetManager>
+            <AuthenticatedShell>
+              <RequireFleetManager>
+                <Drivers />
+              </RequireFleetManager>
+            </AuthenticatedShell>
           ) : (
             <Navigate to="/login" />
           )
         }
       />
-      <Route path="/reports" element={user ? <Reports /> : <Navigate to="/login" />} />
+      <Route path="/reports" element={user ? <AuthenticatedShell><Reports /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route
         path="/settings"
         element={
           user ? (
-            <RequireFleetManager>
-              <Settings />
-            </RequireFleetManager>
+            <AuthenticatedShell>
+              <RequireFleetManager>
+                <Settings />
+              </RequireFleetManager>
+            </AuthenticatedShell>
           ) : (
             <Navigate to="/login" />
           )
         }
       />
-      <Route path="/tracking" element={user ? <Tracking /> : <Navigate to="/login" />} />
-      <Route path="/vehicle-management" element={user ? <VehicleManagement /> : <Navigate to="/login" />} />
-      <Route path="/user-settings" element={user ? <UserSettings /> : <Navigate to="/login" />} />
-      <Route path="/fuel-tracking" element={user ? <FuelTracking /> : <Navigate to="/login" />} />
+      <Route path="/tracking" element={user ? <AuthenticatedShell><Tracking /></AuthenticatedShell> : <Navigate to="/login" />} />
+      <Route path="/vehicle-management" element={user ? <AuthenticatedShell><VehicleManagement /></AuthenticatedShell> : <Navigate to="/login" />} />
+      <Route path="/user-settings" element={user ? <AuthenticatedShell><UserSettings /></AuthenticatedShell> : <Navigate to="/login" />} />
+      <Route path="/fuel-tracking" element={user ? <AuthenticatedShell><FuelTracking /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

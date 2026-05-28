@@ -11,14 +11,13 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { db, auth } from "../firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { db } from "../firebase";
 import { collection, query, onSnapshot, where } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
-import FleetNavBar from "./FleetNavBar";
 import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
+import { pickAuthoritativeTrack } from "../utils/deviceId";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -75,6 +74,9 @@ const VehicleMarker = ({ track, vehicle }) => {
             <p className="text-gray-500 dark:text-gray-400 text-xs">
               <span className="font-semibold">Last Update:</span> {new Date(track.timestamp).toLocaleString()}
             </p>
+            {track.deviceId && (
+              <p className="text-xs text-cyan-500 mt-1">GPS device: {String(track.deviceId).slice(0, 8)}…</p>
+            )}
           </div>
         </div>
       </Popup>
@@ -84,7 +86,7 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, setDarkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver } = useFleet();
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -143,27 +145,42 @@ const Dashboard = () => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const trackedData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          vehicleId: doc.data().vehicleId,
-          lat: Number(doc.data().lat) || -1.2864,
-          lng: Number(doc.data().lng) || 36.8172,
-          locationName: doc.data().locationName || "Unknown Location",
-          timestamp: doc.data().timestamp || new Date().toISOString(),
-          isTracking: doc.data().isTracking,
+        const allTracks = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
         }));
-        trackedData.sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-        const byVehicle = [];
-        const seen = new Set();
-        for (const item of trackedData) {
-          if (item.vehicleId && !seen.has(item.vehicleId)) {
-            seen.add(item.vehicleId);
-            byVehicle.push(item);
+
+        const byVehicleId = new Map();
+        for (const track of allTracks) {
+          if (!track.vehicleId) continue;
+          const list = byVehicleId.get(track.vehicleId) || [];
+          list.push(track);
+          byVehicleId.set(track.vehicleId, list);
+        }
+
+        const authoritative = [];
+        for (const vehicle of vehicles) {
+          const tracks = byVehicleId.get(vehicle.id);
+          if (!tracks?.length) continue;
+          const best = pickAuthoritativeTrack(tracks, vehicle);
+          if (best) {
+            authoritative.push({
+              id: best.id,
+              vehicleId: best.vehicleId,
+              lat: Number(best.lat) || -1.2864,
+              lng: Number(best.lng) || 36.8172,
+              locationName: best.locationName || "Unknown Location",
+              timestamp: best.timestamp || new Date().toISOString(),
+              isTracking: best.isTracking,
+              deviceId: best.deviceId,
+            });
           }
         }
-        setTrackedVehicles(byVehicle);
+
+        authoritative.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        setTrackedVehicles(authoritative);
       },
       (err) => {
         setError("Failed to fetch tracking updates: " + err.message);
@@ -171,7 +188,7 @@ const Dashboard = () => {
     );
 
     return () => unsubscribe();
-  }, [user?.fleetId]);
+  }, [user?.fleetId, vehicles]);
 
   useEffect(() => {
     if (vehicles.length) {
@@ -181,16 +198,6 @@ const Dashboard = () => {
       setStats({ totalMileage, avgFuelEfficiency: Math.round(avgFuelEfficiency), activeAlerts });
     }
   }, [vehicles, maintenanceAlerts]);
-
-  const toggleDarkMode = async () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      const settingsRef = doc(db, "userSettings", `${currentUser.uid}_user`);
-      await setDoc(settingsRef, { darkMode: newMode }, { merge: true });
-    }
-  };
 
   const getFleetStats = () => {
     if (!vehicles || !Array.isArray(vehicles)) {
@@ -249,14 +256,6 @@ const Dashboard = () => {
           </button>
         </div>
       )}
-
-      <FleetNavBar
-        darkMode={darkMode}
-        onToggleDark={toggleDarkMode}
-        user={user}
-        canManageFleet={canManageFleet}
-        isDriver={isDriver}
-      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">

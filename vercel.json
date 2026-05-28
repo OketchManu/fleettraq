@@ -22,6 +22,18 @@
       "dest": "/favicon.ico"
     },
     {
+      "src": "/favicon.svg",
+      "dest": "/favicon.svg"
+    },
+    {
+      "src": "/favicon-(.*)",
+      "dest": "/favicon-$1"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "dest": "/apple-touch-icon.png"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }

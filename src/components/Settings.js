@@ -61,13 +61,13 @@ const Settings = () => {
 
   // Load fleet stats (Admin only)
   useEffect(() => {
-    if (!canManageFleet || !user?.uid) return;
+    if (!canManageFleet || !user?.uid || !fleetId) return;
 
     const loadFleetStats = async () => {
       try {
-        const vehiclesQuery = query(collection(db, "vehicles"), where("accountId", "==", user.uid));
-        const driversQuery = query(collection(db, "drivers"), where("accountId", "==", user.uid));
-        const trackingQuery = query(collection(db, "tracking"), where("accountId", "==", user.uid), where("isTracking", "==", true));
+        const vehiclesQuery = query(collection(db, "vehicles"), where("accountId", "==", fleetId));
+        const driversQuery = query(collection(db, "drivers"), where("accountId", "==", fleetId));
+        const trackingQuery = query(collection(db, "tracking"), where("accountId", "==", fleetId), where("isTracking", "==", true));
         
         const [vehiclesSnap, driversSnap, trackingSnap] = await Promise.all([
           getDocs(vehiclesQuery),
@@ -86,7 +86,7 @@ const Settings = () => {
     };
     
     loadFleetStats();
-  }, [canManageFleet, user?.uid]);
+  }, [canManageFleet, user?.uid, fleetId]);
 
   // Load settings
   useEffect(() => {
@@ -169,7 +169,10 @@ const Settings = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      localStorage.clear();
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("profilePicture");
+      localStorage.removeItem("welcomeShown");
       navigate("/");
     } catch (error) {
       setError("Logout error: " + error.message);

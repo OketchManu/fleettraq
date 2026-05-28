@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver } from "../utils/fleetAccess";
+import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole } from "../utils/fleetAccess";
 
 const FleetContext = createContext();
 
@@ -354,6 +354,7 @@ export const FleetProvider = ({ children }) => {
     maintenanceAlerts,
     canManageFleet: roleCanManageFleet(user?.role),
     isDriver: roleIsDriver(user?.role),
+    isAdmin: isAdminRole(user?.role),
     fetchVehicles,
     fetchDrivers,
     fetchReports,

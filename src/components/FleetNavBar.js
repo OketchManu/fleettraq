@@ -17,10 +17,11 @@ import {
   Shield,
   ChevronDown,
   LayoutGrid,
+  LogOut,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
-const FleetNavBar = ({ darkMode, onToggleDark, user, canManageFleet, isDriver }) => {
+const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, isDriver }) => {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -192,6 +193,19 @@ const FleetNavBar = ({ darkMode, onToggleDark, user, canManageFleet, isDriver })
               </button>
               <button
                 type="button"
+                onClick={onLogout}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  darkMode
+                    ? "bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25"
+                    : "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
+                }`}
+                title="Sign out"
+              >
+                <LogOut size={16} />
+                <span className="hidden lg:inline">Logout</span>
+              </button>
+              <button
+                type="button"
                 className={`md:hidden p-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-200 text-gray-800"}`}
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-label="Menu"
@@ -254,6 +268,21 @@ const FleetNavBar = ({ darkMode, onToggleDark, user, canManageFleet, isDriver })
                   </div>
                 </div>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  onLogout?.();
+                  setMobileOpen(false);
+                }}
+                className={`mt-2 flex items-center justify-center gap-2 w-full px-3 py-3 rounded-xl font-semibold ${
+                  darkMode
+                    ? "bg-red-500/15 text-red-300 border border-red-500/30"
+                    : "bg-red-50 text-red-700 border border-red-200"
+                }`}
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
             </div>
           </motion.div>
         )}
