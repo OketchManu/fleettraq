@@ -7,6 +7,7 @@ import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle } from "../utils/driverRoster";
+import FleetSetupGuide from "./FleetSetupGuide";
 
 const Drivers = () => {
   const navigate = useNavigate();
@@ -247,15 +248,7 @@ const Drivers = () => {
           </div>
         )}
 
-        <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-cyan-500/10 border-cyan-500/30" : "bg-cyan-50 border-cyan-200"}`}>
-          <h3 className={`font-semibold mb-2 ${darkMode ? "text-cyan-100" : "text-cyan-900"}`}>How driver setup works</h3>
-          <ol className={`text-sm space-y-1 list-decimal list-inside ${darkMode ? "text-cyan-100/90" : "text-cyan-900/90"}`}>
-            <li>Share your <strong>Organization ID</strong> (Account settings) so drivers sign up with role <strong>Driver</strong>.</li>
-            <li>They appear below under <strong>Registered driver accounts</strong> and in this roster after sync.</li>
-            <li>Assign a <strong>vehicle</strong> to the driver — they will then see that vehicle on Dashboard, Tracking, and Fuel.</li>
-            <li>GPS runs on the device that added the vehicle (or the device you assign under Vehicles → Use this device).</li>
-          </ol>
-        </div>
+        <FleetSetupGuide darkMode={darkMode} variant="full" className="mb-6" />
 
         <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">

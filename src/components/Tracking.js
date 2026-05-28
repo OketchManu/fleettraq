@@ -13,6 +13,7 @@ import "leaflet/dist/leaflet.css";
 import Button from "./Button";
 import { getDeviceId, formatDeviceId, canDeviceTrackVehicle } from "../utils/deviceId";
 import { CarIcon } from "./assets/car-icon";
+import FleetSetupGuide from "./FleetSetupGuide";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -610,6 +611,10 @@ const Tracking = () => {
             <AlertCircle size={16} />
             {error}
           </motion.div>
+        )}
+
+        {isDriver && (
+          <FleetSetupGuide darkMode={darkMode} variant="driver" className="mb-6" />
         )}
 
         {/* This Device's Tracked Vehicles */}

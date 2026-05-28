@@ -18,6 +18,7 @@ import Button from "./Button";
 import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
+import FleetSetupGuide from "./FleetSetupGuide";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -274,11 +275,22 @@ const Dashboard = () => {
           <>
             {isDriver && vehicles.length === 0 && (
               <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
-                <p className={`text-sm ${darkMode ? "text-amber-100" : "text-amber-900"}`}>
-                  No vehicle is assigned to your account yet. Ask your fleet administrator to assign you a vehicle under{" "}
-                  <strong>More → Drivers</strong> or <strong>Vehicles</strong>.
+                <FleetSetupGuide darkMode={darkMode} variant="driver" />
+                <p className={`text-sm mt-4 pt-3 border-t ${darkMode ? "border-amber-500/20 text-amber-100/90" : "border-amber-200 text-amber-900/90"}`}>
+                  Waiting for your administrator to assign a vehicle (admin step 4 above).
                 </p>
               </div>
+            )}
+            {canManageFleet && (
+              <details className={`mb-6 rounded-2xl border group ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
+                <summary className={`cursor-pointer p-4 font-semibold list-none flex items-center justify-between ${darkMode ? "text-white" : "text-gray-900"}`}>
+                  Recommended fleet setup guide
+                  <span className="text-xs text-yellow-500 group-open:hidden">Show steps</span>
+                </summary>
+                <div className="px-4 pb-4">
+                  <FleetSetupGuide darkMode={darkMode} variant="full" />
+                </div>
+              </details>
             )}
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

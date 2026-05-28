@@ -7,6 +7,7 @@ import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from "firebase/auth";
 import Button from "./Button";
+import FleetSetupGuide from "./FleetSetupGuide";
 
 const UserSettings = () => {
   const navigate = useNavigate();
@@ -296,6 +297,7 @@ const UserSettings = () => {
                 Copy
               </Button>
             </div>
+            <FleetSetupGuide darkMode={darkMode} variant="full" className="mt-4 pt-4 border-t border-cyan-500/20" />
           </motion.div>
         )}
 
