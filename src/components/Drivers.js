@@ -6,12 +6,12 @@ import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import Button from "./Button";
-import { ensureDriverRosterEntry, assignDriverToVehicle } from "../utils/driverRoster";
+import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount } from "../utils/driverRoster";
 import FleetSetupGuide from "./FleetSetupGuide";
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts } = useFleet();
+  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, fleetSetupComplete } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -66,6 +66,18 @@ const Drivers = () => {
       await fetchDrivers();
     } catch (err) {
       setError("Failed to assign vehicle: " + err.message);
+    }
+  };
+
+  const handleRemoveDriverAccount = async (driver) => {
+    if (!window.confirm(`Remove ${driver.name || driver.email}'s account from your fleet? They will no longer be able to log in.`)) {
+      return;
+    }
+    try {
+      await removeDriverAccount({ driver, fleetId });
+      await fetchDrivers();
+    } catch (err) {
+      setError("Failed to remove driver account: " + err.message);
     }
   };
 
@@ -248,7 +260,9 @@ const Drivers = () => {
           </div>
         )}
 
-        <FleetSetupGuide darkMode={darkMode} variant="full" className="mb-6" />
+        {!fleetSetupComplete && (
+          <FleetSetupGuide darkMode={darkMode} variant="full" className="mb-6" />
+        )}
 
         <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -340,6 +354,7 @@ const Drivers = () => {
                     <button
                       onClick={() => handleDelete(driver.id)}
                       className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
+                      title="Remove from roster"
                     >
                       <Trash2 size={16} className="text-red-400" />
                     </button>
@@ -419,6 +434,15 @@ const Drivers = () => {
                           ))}
                         </select>
                       </div>
+                    )}
+                    {driver.authUid && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDriverAccount(driver)}
+                        className="mt-3 text-xs text-red-400 hover:text-red-300 underline"
+                      >
+                        Remove driver account (revokes login)
+                      </button>
                     )}
                   </div>
                 </div>

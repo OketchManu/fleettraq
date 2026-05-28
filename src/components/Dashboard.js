@@ -87,7 +87,7 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetSetupComplete } = useFleet();
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -273,15 +273,12 @@ const Dashboard = () => {
           </div>
         ) : (
           <>
-            {isDriver && vehicles.length === 0 && (
+            {isDriver && !fleetSetupComplete && (
               <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
                 <FleetSetupGuide darkMode={darkMode} variant="driver" />
-                <p className={`text-sm mt-4 pt-3 border-t ${darkMode ? "border-amber-500/20 text-amber-100/90" : "border-amber-200 text-amber-900/90"}`}>
-                  Waiting for your administrator to assign a vehicle (admin step 4 above).
-                </p>
               </div>
             )}
-            {canManageFleet && (
+            {canManageFleet && !fleetSetupComplete && (
               <details className={`mb-6 rounded-2xl border group ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
                 <summary className={`cursor-pointer p-4 font-semibold list-none flex items-center justify-between ${darkMode ? "text-white" : "text-gray-900"}`}>
                   Recommended fleet setup guide

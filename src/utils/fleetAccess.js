@@ -1,5 +1,7 @@
-/** Roles that can manage fleet data (vehicles, drivers, org settings). */
-export const canManageFleet = (role) => role === "admin" || role === "manager";
+/** Only fleet administrators can manage fleet data. Legacy manager accounts are treated as admin. */
+export const normalizeRole = (role) => (role === "manager" ? "admin" : role);
+
+export const canManageFleet = (role) => normalizeRole(role) === "admin";
 
 export const isDriver = (role) => role === "driver";
 
@@ -40,4 +42,4 @@ export function filterVehiclesForDriver(vehicles, user, drivers = []) {
   return list;
 }
 
-export const isAdminRole = (role) => role === "admin";
+export const isAdminRole = (role) => normalizeRole(role) === "admin";

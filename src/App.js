@@ -26,7 +26,7 @@ function AuthenticatedShell({ children }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
-function RequireFleetManager({ children }) {
+function RequireFleetAdmin({ children }) {
   const { user, loading, canManageFleet } = useFleet();
 
   if (loading) {
@@ -92,9 +92,9 @@ function AppRoutes() {
         element={
           user ? (
             <AuthenticatedShell>
-              <RequireFleetManager>
+              <RequireFleetAdmin>
                 <Drivers />
-              </RequireFleetManager>
+              </RequireFleetAdmin>
             </AuthenticatedShell>
           ) : (
             <Navigate to="/login" />
@@ -107,9 +107,9 @@ function AppRoutes() {
         element={
           user ? (
             <AuthenticatedShell>
-              <RequireFleetManager>
+              <RequireFleetAdmin>
                 <Settings />
-              </RequireFleetManager>
+              </RequireFleetAdmin>
             </AuthenticatedShell>
           ) : (
             <Navigate to="/login" />

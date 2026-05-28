@@ -44,6 +44,12 @@ const Signup = () => {
       return;
     }
 
+    if (role !== "admin" && role !== "driver") {
+      setError("Please select Administrator or Driver");
+      setIsLoading(false);
+      return;
+    }
+
     if (role === "driver" && !fleetOrganizationId.trim()) {
       setError("Drivers must enter the fleet Organization ID provided by the fleet administrator.");
       setIsLoading(false);
@@ -57,8 +63,6 @@ const Signup = () => {
       let organizationId = user.uid;
       if (role === "driver") {
         organizationId = fleetOrganizationId.trim();
-      } else if (role === "manager") {
-        organizationId = fleetOrganizationId.trim() || user.uid;
       }
 
       await updateProfile(user, { displayName: name });
@@ -106,6 +110,12 @@ const Signup = () => {
       return;
     }
 
+    if (role !== "admin" && role !== "driver") {
+      setError("Please select Administrator or Driver");
+      setIsLoading(false);
+      return;
+    }
+
     if (role === "driver" && !fleetOrganizationId.trim()) {
       setError("Drivers must enter the fleet Organization ID before signing up with Google.");
       setIsLoading(false);
@@ -119,8 +129,6 @@ const Signup = () => {
       let organizationId = user.uid;
       if (role === "driver") {
         organizationId = fleetOrganizationId.trim();
-      } else if (role === "manager") {
-        organizationId = fleetOrganizationId.trim() || user.uid;
       }
 
       await setDoc(
@@ -326,19 +334,16 @@ const Signup = () => {
                 <option value="admin" className="text-gray-800">
                   Administrator
                 </option>
-                <option value="manager" className="text-gray-800">
-                  Fleet Manager
-                </option>
                 <option value="driver" className="text-gray-800">
                   Driver
                 </option>
               </select>
             </div>
 
-            {(role === "driver" || role === "manager") && (
+            {role === "driver" && (
               <div>
                 <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                  {role === "driver" ? "Fleet Organization ID *" : "Fleet Organization ID (optional)"}
+                  Fleet Organization ID *
                 </label>
                 <input
                   type="text"
@@ -351,12 +356,10 @@ const Signup = () => {
                   }`}
                   placeholder="Paste the ID from your fleet administrator"
                   disabled={isLoading}
-                  required={role === "driver"}
+                  required
                 />
                 <p className={`text-xs mt-1.5 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
-                  {role === "driver"
-                    ? "Required so your account is linked to the correct fleet and vehicle."
-                    : "Leave blank to create your own fleet, or enter an administrator's ID to join theirs."}
+                  Required so your account is linked to the correct fleet and vehicle.
                 </p>
               </div>
             )}

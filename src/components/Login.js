@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Button from "./Button";
 
 import { useFleet } from "../context/FleetContext";
+import { normalizeRole } from "../utils/fleetAccess";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -56,8 +57,8 @@ const Login = () => {
         return;
       }
       
-      if (userDoc.data().role !== role) {
-        setError(`You are registered as ${userDoc.data().role}, not ${role}`);
+      if (normalizeRole(userDoc.data().role) !== role) {
+        setError(`You are registered as ${normalizeRole(userDoc.data().role)}, not ${role}`);
         setIsLoading(false);
         return;
       }
@@ -100,8 +101,8 @@ const Login = () => {
         return;
       }
       
-      if (userDoc.data().role !== role) {
-        setError(`You are registered as ${userDoc.data().role}, not ${role}`);
+      if (normalizeRole(userDoc.data().role) !== role) {
+        setError(`You are registered as ${normalizeRole(userDoc.data().role)}, not ${role}`);
         setIsLoading(false);
         return;
       }
@@ -248,9 +249,6 @@ const Login = () => {
                 </option>
                 <option value="admin" className="text-gray-800">
                   Administrator
-                </option>
-                <option value="manager" className="text-gray-800">
-                  Fleet Manager
                 </option>
                 <option value="driver" className="text-gray-800">
                   Driver

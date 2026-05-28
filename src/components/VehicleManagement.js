@@ -46,7 +46,7 @@ const VehicleManagement = () => {
     }
 
     if (!canManageFleet) {
-      setError("Only fleet administrators or managers can add or edit vehicles.");
+      setError("Only fleet administrators can add or edit vehicles.");
       return;
     }
 
@@ -98,7 +98,7 @@ const VehicleManagement = () => {
     }
 
     if (!canManageFleet) {
-      setError("Only fleet administrators or managers can remove vehicles.");
+      setError("Only fleet administrators can remove vehicles.");
       return;
     }
 

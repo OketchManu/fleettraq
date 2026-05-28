@@ -37,7 +37,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver, fleetSetupComplete } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -613,7 +613,7 @@ const Tracking = () => {
           </motion.div>
         )}
 
-        {isDriver && (
+        {isDriver && !fleetSetupComplete && (
           <FleetSetupGuide darkMode={darkMode} variant="driver" className="mb-6" />
         )}
 

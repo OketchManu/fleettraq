@@ -11,7 +11,7 @@ import FleetSetupGuide from "./FleetSetupGuide";
 
 const UserSettings = () => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver, sendNotification } = useFleet();
+  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver, sendNotification, fleetSetupComplete } = useFleet();
   const [settings, setSettings] = useState({
     darkMode: true,
     emailNotifications: false,
@@ -115,6 +115,10 @@ const UserSettings = () => {
 
   // Delete Account Function
   const handleDeleteAccount = async () => {
+    if (isDriver) {
+      setDeleteError("Driver accounts cannot be deleted here. Ask your fleet administrator to remove your access.");
+      return;
+    }
     if (!user?.uid) {
       setDeleteError("You must be logged in to delete your account");
       return;
@@ -181,8 +185,11 @@ const UserSettings = () => {
       // Delete the Firebase Auth user
       await deleteUser(currentUser);
 
-      // Clear local storage
-      localStorage.clear();
+      // Clear session (keep device GPS id on this browser)
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("profilePicture");
+      localStorage.removeItem("welcomeShown");
       
       // Redirect to home page
       navigate("/");
@@ -262,7 +269,8 @@ const UserSettings = () => {
 
         {isDriver && (
           <p className={`mb-6 text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-            Driver accounts can update preferences and password here. Vehicle assignment and fleet setup are managed by your administrator.
+            Driver accounts can update preferences and password here. Vehicle assignment is managed by your administrator.
+            Driver accounts cannot delete themselves — contact your fleet administrator if your access should be removed.
           </p>
         )}
 
@@ -297,7 +305,9 @@ const UserSettings = () => {
                 Copy
               </Button>
             </div>
-            <FleetSetupGuide darkMode={darkMode} variant="full" className="mt-4 pt-4 border-t border-cyan-500/20" />
+            {!fleetSetupComplete && (
+              <FleetSetupGuide darkMode={darkMode} variant="full" className="mt-4 pt-4 border-t border-cyan-500/20" />
+            )}
           </motion.div>
         )}
 
@@ -452,7 +462,8 @@ const UserSettings = () => {
             </div>
           </motion.div>
 
-          {/* Delete Account Section - DANGER ZONE */}
+          {/* Delete Account — administrators only */}
+          {canManageFleet && !isDriver && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -466,17 +477,18 @@ const UserSettings = () => {
               </h2>
             </div>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>
-              Once you delete your account, all your data will be permanently removed. 
-              This action cannot be undone. All vehicles, drivers, reports, and tracking data associated with your account will be lost forever.
+              Delete your administrator account and fleet data. To remove a driver, use{" "}
+              <strong>More → Drivers → Remove account</strong> on their roster card.
             </p>
             <Button 
               onClick={() => setShowDeleteModal(true)} 
               variant="danger"
             >
               <Trash2 size={16} className="mr-1" />
-              Delete Account
+              Delete Administrator Account
             </Button>
           </motion.div>
+          )}
         </div>
       </main>
 

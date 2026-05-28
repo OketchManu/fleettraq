@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole } from "../utils/fleetAccess";
+import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole, normalizeRole } from "../utils/fleetAccess";
 import { ensureDriverRosterEntry } from "../utils/driverRoster";
+import { getDeviceId } from "../utils/deviceId";
+import { isAdminFleetSetupComplete, isDriverFleetSetupComplete } from "../utils/fleetSetupStatus";
 
 const FleetContext = createContext();
 
@@ -59,6 +61,7 @@ export const FleetProvider = ({ children }) => {
   const [vehiclesAll, setVehiclesAll] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [fleetDriverAccounts, setFleetDriverAccounts] = useState([]);
+  const [activeTracking, setActiveTracking] = useState([]);
   const [reports, setReports] = useState([]);
   const [trackingData, setTrackingData] = useState(null);
   const [darkMode, setDarkMode] = useState(readStoredDarkMode);
@@ -76,13 +79,33 @@ export const FleetProvider = ({ children }) => {
 
   const maintenanceAlerts = useMemo(() => buildMaintenanceAlerts(vehicles), [vehicles]);
 
+  const fleetSetupComplete = useMemo(() => {
+    if (!user) return false;
+    if (roleIsDriver(user.role)) {
+      return isDriverFleetSetupComplete({
+        vehicles,
+        deviceId: getDeviceId(),
+        activeTracking,
+      });
+    }
+    if (roleCanManageFleet(user.role)) {
+      return isAdminFleetSetupComplete({
+        vehiclesAll,
+        drivers,
+        fleetDriverAccounts,
+      });
+    }
+    return true;
+  }, [user, vehicles, vehiclesAll, drivers, fleetDriverAccounts, activeTracking]);
+
   // Monitor auth state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
         const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
         const data = userDoc.exists() ? userDoc.data() : {};
-        const role = data.role || "user";
+        const rawRole = data.role || "user";
+        const role = normalizeRole(rawRole);
         const organizationId =
           data.organizationId != null && String(data.organizationId).trim() !== ""
             ? String(data.organizationId).trim()
@@ -272,7 +295,7 @@ export const FleetProvider = ({ children }) => {
     return () => unsubscribe();
   }, [user?.uid, user?.fleetId, user?.organizationId]);
 
-  // Fleet driver login accounts (for admin/manager roster linking)
+  // Fleet driver login accounts (for admin roster linking)
   useEffect(() => {
     const fid = fleetIdFromUser(user);
     if (!fid || !roleCanManageFleet(user?.role)) {
@@ -297,6 +320,35 @@ export const FleetProvider = ({ children }) => {
 
     return () => unsubscribe();
   }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
+
+  useEffect(() => {
+    const fid = fleetIdFromUser(user);
+    if (!fid) {
+      setActiveTracking([]);
+      return;
+    }
+
+    const q = query(
+      collection(db, "tracking"),
+      where("accountId", "==", fid),
+      where("isTracking", "==", true)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setActiveTracking(
+          snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }))
+        );
+      },
+      () => setActiveTracking([])
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid, user?.fleetId, user?.organizationId]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -384,6 +436,8 @@ export const FleetProvider = ({ children }) => {
     drivers,
     setDrivers,
     fleetDriverAccounts,
+    activeTracking,
+    fleetSetupComplete,
     reports,
     setReports,
     trackingData,

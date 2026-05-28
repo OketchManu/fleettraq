@@ -53,7 +53,7 @@ const Reports = () => {
     }
 
     if (!canManageFleet) {
-      setError("Only fleet administrators or managers can create or edit reports.");
+      setError("Only fleet administrators can create or edit reports.");
       return;
     }
 
@@ -101,7 +101,7 @@ const Reports = () => {
     }
 
     if (!canManageFleet) {
-      setError("Only fleet administrators or managers can delete reports.");
+      setError("Only fleet administrators can delete reports.");
       return;
     }
 
@@ -239,7 +239,7 @@ FleetTraq - Fleet Management System`;
             <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>
               {canManageFleet
                 ? "Create your first report to track fleet activities."
-                : "Fleet managers create reports here. You can open a report to read or export when available."}
+                : "Fleet administrators create reports here. You can open a report to read or export when available."}
             </p>
             {canManageFleet && (
               <Button onClick={() => setShowAddForm(true)}>

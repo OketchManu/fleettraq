@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { getAuth, signInWithCredential, GoogleAuthProvider, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { normalizeRole } from "../utils/fleetAccess";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ const AuthCallback = () => {
           }
 
           const data = userDoc.data();
-          const role = data.role || "user";
+          const role = normalizeRole(data.role || "user");
 
           localStorage.setItem("token", await user.getIdToken());
           localStorage.setItem("role", role);
