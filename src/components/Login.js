@@ -1,13 +1,13 @@
 /* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FcGoogle } from "react-icons/fc";
 import { Eye, EyeOff, Mail, Lock, Shield, ArrowLeft, Home, Sun, Moon } from "lucide-react";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { auth, googleProvider, db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "./Button";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 import { useFleet } from "../context/FleetContext";
 import { normalizeRole } from "../utils/fleetAccess";
@@ -233,7 +233,9 @@ const Login = () => {
 
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
-              <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Select Role</label>
+              <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                Select Role
+              </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
@@ -254,6 +256,9 @@ const Login = () => {
                   Driver
                 </option>
               </select>
+              <p className={`text-xs mt-1.5 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
+                Required for email sign-in and Google sign-in.
+              </p>
             </div>
 
             <div>
@@ -323,18 +328,13 @@ const Login = () => {
             </div>
           </div>
 
-          <button
+          <GoogleSignInButton
             onClick={handleGoogleLogin}
-            disabled={isLoading || !role}
-            className={`w-full py-3 rounded-xl border font-semibold flex items-center justify-center gap-3 transition-all disabled:opacity-50 ${
-              darkMode
-                ? "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                : "bg-white border-gray-300 text-gray-800 hover:bg-gray-50 shadow-sm"
-            }`}
-          >
-            <FcGoogle className="w-5 h-5" />
-            Google
-          </button>
+            isLoading={isLoading}
+            role={role}
+            darkMode={darkMode}
+            label="Continue with Google"
+          />
 
           <div className="mt-6 text-center space-y-2">
             <button

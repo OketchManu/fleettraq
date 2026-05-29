@@ -19,6 +19,7 @@ import VehicleManagement from "./components/VehicleManagement";
 import UserSettings from "./components/UserSettings";
 import AuthCallback from "./components/AuthCallback";
 import FuelTracking from "./components/FuelTracking";
+import HelpCenter from "./components/HelpCenter";
 import NotFound from "./components/NotFound";
 import AppLayout from "./components/AppLayout";
 
@@ -120,6 +121,7 @@ function AppRoutes() {
       <Route path="/vehicle-management" element={user ? <AuthenticatedShell><VehicleManagement /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="/user-settings" element={user ? <AuthenticatedShell><UserSettings /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="/fuel-tracking" element={user ? <AuthenticatedShell><FuelTracking /></AuthenticatedShell> : <Navigate to="/login" />} />
+      <Route path="/help" element={user ? <AuthenticatedShell><HelpCenter /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

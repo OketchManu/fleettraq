@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Your Firebase configuration - REPLACE WITH YOUR OWN
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
 // Enable offline persistence
@@ -33,5 +35,5 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-export { auth, db, googleProvider };
+export { auth, db, storage, googleProvider };
 export default app;

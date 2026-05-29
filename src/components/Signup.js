@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FcGoogle } from "react-icons/fc";
 import { Eye, EyeOff, Mail, Lock, User, Shield, ArrowLeft, Home, Sun, Moon } from "lucide-react";
 import { createUserWithEmailAndPassword, signInWithPopup, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -8,6 +7,7 @@ import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFleet } from "../context/FleetContext";
 import { ensureDriverRosterEntry } from "../utils/driverRoster";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -338,6 +338,9 @@ const Signup = () => {
                   Driver
                 </option>
               </select>
+              <p className={`text-xs mt-1.5 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
+                Required before creating an account or using Google sign-up.
+              </p>
             </div>
 
             {role === "driver" && (
@@ -442,18 +445,14 @@ const Signup = () => {
             </div>
           </div>
 
-          <button
+          <GoogleSignInButton
             onClick={handleGoogleSignup}
-            disabled={isLoading || !role}
-            className={`w-full py-3 rounded-xl border font-semibold flex items-center justify-center gap-3 transition-all disabled:opacity-50 ${
-              darkMode
-                ? "bg-white/10 border-white/20 text-white hover:bg-white/20"
-                : "bg-white border-gray-300 text-gray-800 hover:bg-gray-50 shadow-sm"
-            }`}
-          >
-            <FcGoogle className="w-5 h-5" />
-            Google
-          </button>
+            isLoading={isLoading}
+            role={role}
+            darkMode={darkMode}
+            label="Sign up with Google"
+            driverNeedsOrgId={role === "driver" && !fleetOrganizationId.trim()}
+          />
 
           <p className={`mt-6 text-center text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
             Already have an account?{" "}

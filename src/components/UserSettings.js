@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon, Copy, Trash2, Key, Shield, X } from "lucide-react";
+import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon, Trash2, Key, Shield, X } from "lucide-react";
 import { doc, onSnapshot, setDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from "firebase/auth";
 import Button from "./Button";
-import FleetSetupGuide from "./FleetSetupGuide";
+import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
+import SetupHelpBanner from "./SetupHelpBanner";
 
 const UserSettings = () => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver, sendNotification, fleetSetupComplete } = useFleet();
+  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver, sendNotification } = useFleet();
   const [settings, setSettings] = useState({
     darkMode: true,
     emailNotifications: false,
@@ -275,40 +276,15 @@ const UserSettings = () => {
         )}
 
         {canManageFleet && fleetId && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`mb-6 rounded-2xl p-4 border ${darkMode ? "bg-cyan-500/10 border-cyan-500/30" : "bg-cyan-50 border-cyan-200"}`}
-          >
-            <p className={`text-sm font-medium mb-2 ${darkMode ? "text-cyan-100" : "text-cyan-900"}`}>
-              Fleet organization ID — give this to drivers when they sign up so they join the correct fleet.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <code className={`text-xs sm:text-sm break-all rounded-lg px-3 py-2 ${darkMode ? "bg-black/40 text-white" : "bg-white text-gray-900 border border-gray-200"}`}>
-                {fleetId}
-              </code>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(fleetId);
-                    setSuccess("Fleet organization ID copied to clipboard.");
-                    setTimeout(() => setSuccess(null), 2500);
-                  } catch {
-                    setError("Could not copy to clipboard.");
-                  }
-                }}
-              >
-                <Copy size={16} />
-                Copy
-              </Button>
-            </div>
-            {!fleetSetupComplete && (
-              <FleetSetupGuide darkMode={darkMode} variant="full" className="mt-4 pt-4 border-t border-cyan-500/20" />
-            )}
-          </motion.div>
+          <>
+            <FleetOrganizationIdCard
+              fleetId={fleetId}
+              darkMode={darkMode}
+              className="mb-6"
+              description="Drivers need this ID when they create an account. It is also shown at the top of your Dashboard."
+            />
+            <SetupHelpBanner darkMode={darkMode} className="mb-6" />
+          </>
         )}
 
         <div className="grid grid-cols-1 gap-6">

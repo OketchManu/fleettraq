@@ -13,7 +13,7 @@ import "leaflet/dist/leaflet.css";
 import Button from "./Button";
 import { getDeviceId, formatDeviceId, canDeviceTrackVehicle } from "../utils/deviceId";
 import { CarIcon } from "./assets/car-icon";
-import FleetSetupGuide from "./FleetSetupGuide";
+import SetupHelpBanner from "./SetupHelpBanner";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -37,7 +37,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver, fleetSetupComplete } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -613,9 +613,7 @@ const Tracking = () => {
           </motion.div>
         )}
 
-        {isDriver && !fleetSetupComplete && (
-          <FleetSetupGuide darkMode={darkMode} variant="driver" className="mb-6" />
-        )}
+        <SetupHelpBanner darkMode={darkMode} className="mb-6" />
 
         {/* This Device's Tracked Vehicles */}
         {myDeviceTrackedVehicles.length > 0 && (

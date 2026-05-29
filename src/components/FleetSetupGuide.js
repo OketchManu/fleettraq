@@ -4,7 +4,7 @@ import { Monitor, Smartphone, MapPin } from "lucide-react";
 const stepClass = (darkMode) =>
   `text-sm space-y-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`;
 
-const FleetSetupGuide = ({ darkMode, variant = "full", className = "" }) => {
+const FleetSetupGuide = ({ darkMode, variant = "full", className = "", organizationId }) => {
   const showAdminOffice = variant === "full" || variant === "admin-office";
   const showDriver = variant === "full" || variant === "driver";
   const showAdminTrack = variant === "full" || variant === "admin-track";
@@ -13,10 +13,11 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "" }) => {
     <div className={`space-y-4 ${className}`}>
       <div>
         <h3 className={`font-semibold text-lg ${darkMode ? "text-white" : "text-gray-900"}`}>
-          Recommended setup (most common)
+          How to set up your fleet
         </h3>
         <p className={`text-sm mt-1 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Follow these steps once per driver and vehicle. Admin views live GPS on the Dashboard; the driver&apos;s phone sends location from Tracking.
+          Complete this once for each driver and vehicle. After setup, live GPS appears on the Dashboard
+          while the driver&apos;s phone sends location from the Tracking page.
         </p>
       </div>
 
@@ -26,20 +27,28 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "" }) => {
         >
           <h4 className={`font-semibold flex items-center gap-2 mb-2 ${darkMode ? "text-cyan-200" : "text-cyan-900"}`}>
             <Monitor size={18} className="text-yellow-500" />
-            Admin (office / laptop)
+            Step 1 — Administrator (office or laptop)
           </h4>
           <ol className={`${stepClass(darkMode)} list-decimal list-inside space-y-1.5`}>
             <li>
-              Share your <strong>Organization ID</strong> (<strong>More → Account</strong> settings).
+              Copy your <strong>Fleet Organization ID</strong>
+              {organizationId ? (
+                <> (<code className="text-xs break-all">{organizationId}</code>)</>
+              ) : (
+                <> (shown at the top of the Dashboard and under <strong>More → Account</strong>)</>
+              )}{" "}
+              and send it to each driver.
             </li>
             <li>
-              Add vehicles in <strong>More → Vehicles</strong> (optional on laptop).
+              Add your vehicles under <strong>More → Vehicles</strong> (you can do this from a laptop).
             </li>
             <li>
-              After the driver signs up: <strong>More → Drivers → Sync to roster</strong>.
+              When a driver has signed up, open <strong>More → Drivers</strong> and click{" "}
+              <strong>Sync to roster</strong>.
             </li>
             <li>
-              Assign the driver to the vehicle (<strong>Drivers</strong> page or <strong>Vehicles → Assigned driver</strong>).
+              Assign each driver to a vehicle on the <strong>Drivers</strong> page or under{" "}
+              <strong>Vehicles → Assigned driver</strong>.
             </li>
           </ol>
         </section>
@@ -51,17 +60,20 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "" }) => {
         >
           <h4 className={`font-semibold flex items-center gap-2 mb-2 ${darkMode ? "text-amber-200" : "text-amber-900"}`}>
             <Smartphone size={18} className="text-yellow-500" />
-            Driver (phone in the vehicle)
+            Step 2 — Driver (phone in the vehicle)
           </h4>
           <ol className={`${stepClass(darkMode)} list-decimal list-inside space-y-1.5`}>
             <li>
-              Sign up or log in with role <strong>Driver</strong> + your admin&apos;s <strong>Organization ID</strong>.
+              Sign up or log in as <strong>Driver</strong> and paste the administrator&apos;s{" "}
+              <strong>Fleet Organization ID</strong>.
             </li>
             <li>
-              Open <strong>Tracking</strong> → select their assigned vehicle → <strong>Start tracking on THIS device</strong>.
+              Open <strong>Tracking</strong>, select your assigned vehicle, then tap{" "}
+              <strong>Start tracking on THIS device</strong>.
             </li>
             <li>
-              If the vehicle was added on the admin laptop, tap <strong>Use this device instead</strong> on <strong>Tracking</strong> or <strong>Vehicles</strong> first (once), so that phone becomes the GPS source.
+              If the vehicle was first added on the admin laptop, tap <strong>Use this device instead</strong>{" "}
+              once on <strong>Tracking</strong> or <strong>Vehicles</strong> so this phone becomes the GPS source.
             </li>
           </ol>
         </section>
@@ -73,14 +85,15 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "" }) => {
         >
           <h4 className={`font-semibold flex items-center gap-2 mb-2 ${darkMode ? "text-green-200" : "text-green-900"}`}>
             <MapPin size={18} className="text-yellow-500" />
-            Admin (any device, admin login)
+            Step 3 — View live locations (any admin device)
           </h4>
           <ol className={`${stepClass(darkMode)} list-decimal list-inside space-y-1.5`}>
             <li>
-              Open <strong>Dashboard → Live Fleet Location</strong> map.
+              Open <strong>Dashboard → Live Fleet Location</strong>.
             </li>
             <li>
-              You see the vehicle where the driver&apos;s phone is reporting from — no need to be on the driver&apos;s phone.
+              Each vehicle appears where the assigned driver&apos;s phone is reporting — you do not need to be on
+              that phone to view the map.
             </li>
           </ol>
         </section>

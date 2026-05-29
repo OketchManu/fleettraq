@@ -18,7 +18,9 @@ import Button from "./Button";
 import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
-import FleetSetupGuide from "./FleetSetupGuide";
+import FleetSetupGuidePanel from "./FleetSetupGuidePanel";
+import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
+import SetupHelpBanner from "./SetupHelpBanner";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -87,7 +89,7 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetSetupComplete } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetSetupComplete, fleetId } = useFleet();
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -273,22 +275,24 @@ const Dashboard = () => {
           </div>
         ) : (
           <>
-            {isDriver && !fleetSetupComplete && (
-              <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-amber-500/10 border-amber-500/30" : "bg-amber-50 border-amber-200"}`}>
-                <FleetSetupGuide darkMode={darkMode} variant="driver" />
-              </div>
+            {canManageFleet && fleetId && (
+              <FleetOrganizationIdCard
+                fleetId={fleetId}
+                darkMode={darkMode}
+                className="mb-6"
+              />
             )}
-            {canManageFleet && !fleetSetupComplete && (
-              <details className={`mb-6 rounded-2xl border group ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
-                <summary className={`cursor-pointer p-4 font-semibold list-none flex items-center justify-between ${darkMode ? "text-white" : "text-gray-900"}`}>
-                  Recommended fleet setup guide
-                  <span className="text-xs text-yellow-500 group-open:hidden">Show steps</span>
-                </summary>
-                <div className="px-4 pb-4">
-                  <FleetSetupGuide darkMode={darkMode} variant="full" />
-                </div>
-              </details>
+            {(isDriver || canManageFleet) && (
+              <FleetSetupGuidePanel
+                darkMode={darkMode}
+                variant={isDriver ? "driver" : "full"}
+                className="mb-4"
+                userId={user?.uid}
+                fleetSetupComplete={fleetSetupComplete}
+                organizationId={canManageFleet ? fleetId : undefined}
+              />
             )}
+            <SetupHelpBanner darkMode={darkMode} className="mb-6" />
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <motion.div

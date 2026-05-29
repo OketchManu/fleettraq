@@ -14,6 +14,7 @@ import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
 import Button from "./Button";
 import ProfilePicture from "./ProfilePicture";
+import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 
 const DEFAULT_FLEET_SETTINGS = {
   // Notification Settings
@@ -179,17 +180,6 @@ const Settings = () => {
     }
   };
 
-  // Copy fleet ID to clipboard
-  const copyFleetId = async () => {
-    if (!fleetId) return;
-    try {
-      await navigator.clipboard.writeText(fleetId);
-      setSuccess("Fleet ID copied to clipboard!");
-      setTimeout(() => setSuccess(null), 2000);
-    } catch {
-      setError("Could not copy to clipboard");
-    }
-  };
 
   if (isLoading) {
     return (
@@ -290,23 +280,7 @@ const Settings = () => {
 
         {/* Fleet ID Card */}
         {canManageFleet && fleetId && (
-          <div className={`mb-6 rounded-2xl p-4 border ${darkMode ? "bg-yellow-500/10 border-yellow-500/30" : "bg-yellow-50 border-yellow-200"}`}>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}>
-                  <Shield className="w-4 h-4 inline mr-1" />
-                  Fleet Organization ID
-                </p>
-                <code className={`text-xs break-all ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                  {fleetId}
-                </code>
-              </div>
-              <Button variant="secondary" size="sm" onClick={copyFleetId}>
-                <Copy size={14} />
-                Copy ID
-              </Button>
-            </div>
-          </div>
+          <FleetOrganizationIdCard fleetId={fleetId} darkMode={darkMode} className="mb-6" />
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

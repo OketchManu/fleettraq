@@ -1,17 +1,20 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, Calendar, Link2, RefreshCw, Car } from "lucide-react";
+import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, Calendar, Link2, RefreshCw, Car, Camera } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount } from "../utils/driverRoster";
-import FleetSetupGuide from "./FleetSetupGuide";
+import { uploadDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
+import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
+import SetupHelpBanner from "./SetupHelpBanner";
+import DriverAvatar from "./DriverAvatar";
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, fleetSetupComplete } = useFleet();
+  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -27,6 +30,8 @@ const Drivers = () => {
     assignedVehicleId: "",
   });
   const [error, setError] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   const unlinkedAccounts = useMemo(() => {
     const linkedUids = new Set(drivers.map((d) => d.authUid).filter(Boolean));
@@ -149,13 +154,30 @@ const Drivers = () => {
 
       if (editingDriver) {
         const driverRef = doc(db, "drivers", editingDriver.id);
-        await updateDoc(driverRef, driverData);
+        let photoUrl = editingDriver.photoUrl || null;
+        if (photoFile) {
+          photoUrl = await uploadDriverPhoto({
+            file: photoFile,
+            fleetId: fid,
+            driverId: editingDriver.id,
+          });
+        }
+        await updateDoc(driverRef, { ...driverData, photoUrl });
         await syncVehicleAssignment(editingDriver, formData);
       } else {
-        await addDoc(collection(db, "drivers"), {
+        const created = await addDoc(collection(db, "drivers"), {
           ...driverData,
+          photoUrl: null,
           createdAt: new Date().toISOString(),
         });
+        if (photoFile) {
+          const photoUrl = await uploadDriverPhoto({
+            file: photoFile,
+            fleetId: fid,
+            driverId: created.id,
+          });
+          await updateDoc(doc(db, "drivers", created.id), { photoUrl });
+        }
         await syncVehicleAssignment(null, formData);
       }
 
@@ -196,6 +218,8 @@ const Drivers = () => {
 
   const handleEdit = (driver) => {
     setEditingDriver(driver);
+    setPhotoFile(null);
+    setPhotoPreview(driver.photoUrl || null);
     setFormData({
       name: driver.name || "",
       licenseNumber: driver.licenseNumber || "",
@@ -212,6 +236,8 @@ const Drivers = () => {
 
   const resetForm = () => {
     setEditingDriver(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
     setFormData({
       name: "",
       licenseNumber: "",
@@ -224,6 +250,19 @@ const Drivers = () => {
       assignedVehicleId: "",
     });
     setError(null);
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validationError = validateDriverPhotoFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError(null);
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
   return (
@@ -260,9 +299,11 @@ const Drivers = () => {
           </div>
         )}
 
-        {!fleetSetupComplete && (
-          <FleetSetupGuide darkMode={darkMode} variant="full" className="mb-6" />
+        {canManageFleet && fleetId && (
+          <FleetOrganizationIdCard fleetId={fleetId} darkMode={darkMode} className="mb-6" />
         )}
+
+        <SetupHelpBanner darkMode={darkMode} className="mb-6" />
 
         <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -290,9 +331,18 @@ const Drivers = () => {
                     key={account.uid}
                     className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl ${darkMode ? "bg-black/20" : "bg-gray-50"}`}
                   >
-                    <div>
-                      <p className={`font-medium ${darkMode ? "text-white" : "text-gray-900"}`}>{account.name || account.email}</p>
-                      <p className="text-xs text-gray-500">{account.email}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {roster ? (
+                        <DriverAvatar driver={roster} size={40} />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${darkMode ? "bg-white/10" : "bg-gray-200"}`}>
+                          <Users size={18} className="text-yellow-500" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className={`font-medium truncate ${darkMode ? "text-white" : "text-gray-900"}`}>{account.name || account.email}</p>
+                        <p className="text-xs text-gray-500 truncate">{account.email}</p>
+                      </div>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${roster ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"}`}>
                       {roster ? "On roster" : "Needs sync"}
@@ -342,8 +392,10 @@ const Drivers = () => {
                 whileHover={{ y: -5 }}
                 className={`group rounded-2xl overflow-hidden ${darkMode ? "bg-white/5 border-white/10" : "bg-white border-gray-200"} border shadow-lg transition-all`}
               >
-                <div className="relative h-28 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 p-4">
-                  <Users className="w-12 h-12 text-yellow-500 opacity-50" />
+                <div className="relative h-28 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 p-4 flex items-end">
+                  <div className="absolute -bottom-8 left-5">
+                    <DriverAvatar driver={driver} size={64} />
+                  </div>
                   <div className="absolute top-4 right-4 flex gap-2">
                     <button
                       onClick={() => handleEdit(driver)}
@@ -361,7 +413,7 @@ const Drivers = () => {
                   </div>
                 </div>
                 
-                <div className="p-5">
+                <div className="p-5 pt-10">
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className={`text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
@@ -479,6 +531,36 @@ const Drivers = () => {
               </div>
               
               <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Driver preview"
+                        className="w-16 h-16 rounded-full object-cover border-2 border-yellow-500/40"
+                      />
+                    ) : (
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center ${darkMode ? "bg-white/10" : "bg-gray-100"}`}>
+                        <Camera size={24} className="text-yellow-500" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label
+                      className={`inline-flex items-center gap-2 text-sm font-medium cursor-pointer px-3 py-2 rounded-lg ${
+                        darkMode ? "bg-white/10 text-white hover:bg-white/15" : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                      }`}
+                    >
+                      <Camera size={16} />
+                      {photoPreview ? "Change photo" : "Add photo"}
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handlePhotoChange} />
+                    </label>
+                    <p className={`text-xs mt-1 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
+                      JPG, PNG, or WebP · max 2 MB
+                    </p>
+                  </div>
+                </div>
+
                 <input
                   type="text"
                   placeholder="Full Name *"

@@ -17,6 +17,7 @@ import {
   Shield,
   ChevronDown,
   LayoutGrid,
+  BookOpen,
   LogOut,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
@@ -40,6 +41,7 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
   const quickLinks = [
     { label: "Tracking", path: "/tracking", icon: MapPin },
     { label: "Fuel", path: "/fuel-tracking", icon: Fuel },
+    { label: "Help", path: "/help", icon: BookOpen },
   ];
 
   const moreSections = [
@@ -60,6 +62,7 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
     {
       title: "Account",
       items: [
+        { label: "Help & setup", path: "/help", icon: BookOpen },
         { label: "Account", path: "/user-settings", icon: Shield },
         ...(canManageFleet ? [{ label: "Fleet settings", path: "/settings", icon: Settings }] : []),
       ],

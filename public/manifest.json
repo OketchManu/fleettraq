@@ -4,7 +4,17 @@
   "description": "Professional fleet management and vehicle tracking system",
   "icons": [
     {
-      "src": "favicon-16x16.png",
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
       "sizes": "16x16",
       "type": "image/png",
       "purpose": "any"
