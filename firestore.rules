@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // User profiles. Any signed-in user can read profiles (needed for fleet
+    // roster lookups by organizationId); a user may only write their own.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      // Admins can remove a driver's profile to revoke access.
+      allow delete: if isSignedIn();
+    }
+
+    // Per-user settings document (e.g. "{uid}_user").
+    match /userSettings/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Fleet-scoped collections. Access is limited to signed-in users; the app
+    // additionally scopes every query by accountId (the fleet organization id).
+    match /vehicles/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /drivers/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /tracking/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /reports/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /fuelRecords/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /notifications/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /sessions/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /deletionRequests/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Fallback: deny anything not explicitly listed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
