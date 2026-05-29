@@ -152,41 +152,70 @@ const Drivers = () => {
         updatedAt: new Date().toISOString(),
       };
 
+      let photoWarning = null;
+
       if (editingDriver) {
         const driverRef = doc(db, "drivers", editingDriver.id);
-        let photoUrl = editingDriver.photoUrl || null;
+        await updateDoc(driverRef, { ...driverData, photoUrl: editingDriver.photoUrl || null });
+
         if (photoFile) {
-          photoUrl = await uploadDriverPhoto({
-            file: photoFile,
-            fleetId: fid,
-            driverId: editingDriver.id,
-          });
+          try {
+            const photoUrl = await uploadDriverPhoto({
+              file: photoFile,
+              fleetId: fid,
+              driverId: editingDriver.id,
+            });
+            await updateDoc(driverRef, { photoUrl });
+          } catch (photoErr) {
+            console.error("Photo upload failed:", photoErr);
+            photoWarning = "Driver saved, but the photo could not be uploaded. " + photoErr.message;
+          }
         }
-        await updateDoc(driverRef, { ...driverData, photoUrl });
-        await syncVehicleAssignment(editingDriver, formData);
+
+        try {
+          await syncVehicleAssignment(editingDriver, formData);
+        } catch (assignErr) {
+          console.error("Vehicle assignment sync failed:", assignErr);
+        }
       } else {
         const created = await addDoc(collection(db, "drivers"), {
           ...driverData,
           photoUrl: null,
           createdAt: new Date().toISOString(),
         });
+
         if (photoFile) {
-          const photoUrl = await uploadDriverPhoto({
-            file: photoFile,
-            fleetId: fid,
-            driverId: created.id,
-          });
-          await updateDoc(doc(db, "drivers", created.id), { photoUrl });
+          try {
+            const photoUrl = await uploadDriverPhoto({
+              file: photoFile,
+              fleetId: fid,
+              driverId: created.id,
+            });
+            await updateDoc(doc(db, "drivers", created.id), { photoUrl });
+          } catch (photoErr) {
+            console.error("Photo upload failed:", photoErr);
+            photoWarning = "Driver added, but the photo could not be uploaded. " + photoErr.message;
+          }
         }
-        await syncVehicleAssignment(null, formData);
+
+        try {
+          await syncVehicleAssignment(null, formData);
+        } catch (assignErr) {
+          console.error("Vehicle assignment sync failed:", assignErr);
+        }
       }
 
       await fetchDrivers();
-      resetForm();
-      setShowAddForm(false);
+
+      if (photoWarning) {
+        setError(photoWarning);
+      } else {
+        resetForm();
+        setShowAddForm(false);
+      }
     } catch (err) {
       console.error("Error saving driver:", err);
-      setError("Failed to save driver. Please try again.");
+      setError("Failed to save driver: " + err.message);
     }
   };
 

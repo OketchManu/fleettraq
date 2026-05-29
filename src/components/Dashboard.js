@@ -6,7 +6,7 @@ import {
   MapPin, Truck, FileText, 
   Car, Menu, X, Moon, Sun, 
   TrendingUp, Fuel, AlertTriangle,
-  Navigation, Gauge
+  Navigation, Gauge, BookOpen, Copy, Check, Shield
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -18,10 +18,6 @@ import Button from "./Button";
 import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
-import FleetSetupGuidePanel from "./FleetSetupGuidePanel";
-import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
-import SetupHelpBanner from "./SetupHelpBanner";
-
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -89,8 +85,9 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetSetupComplete, fleetId } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetId } = useFleet();
   const [error, setError] = useState(null);
+  const [idCopied, setIdCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
@@ -275,24 +272,36 @@ const Dashboard = () => {
           </div>
         ) : (
           <>
-            {canManageFleet && fleetId && (
-              <FleetOrganizationIdCard
-                fleetId={fleetId}
-                darkMode={darkMode}
-                className="mb-6"
-              />
-            )}
-            {(isDriver || canManageFleet) && (
-              <FleetSetupGuidePanel
-                darkMode={darkMode}
-                variant={isDriver ? "driver" : "full"}
-                className="mb-4"
-                userId={user?.uid}
-                fleetSetupComplete={fleetSetupComplete}
-                organizationId={canManageFleet ? fleetId : undefined}
-              />
-            )}
-            <SetupHelpBanner darkMode={darkMode} className="mb-6" />
+            <div className="flex flex-wrap gap-2 mb-6">
+              <Button variant="outline" size="sm" onClick={() => navigate("/help")}>
+                <BookOpen size={16} />
+                Setup guide & help
+              </Button>
+              {canManageFleet && fleetId && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(fleetId);
+                      setIdCopied(true);
+                      setTimeout(() => setIdCopied(false), 2000);
+                    } catch {
+                      setIdCopied(false);
+                    }
+                  }}
+                >
+                  {idCopied ? <Check size={16} /> : <Copy size={16} />}
+                  {idCopied ? "Organization ID copied" : "Copy Organization ID"}
+                </Button>
+              )}
+              {canManageFleet && (
+                <Button variant="secondary" size="sm" onClick={() => navigate("/drivers")}>
+                  <Shield size={16} />
+                  Manage drivers
+                </Button>
+              )}
+            </div>
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <motion.div
