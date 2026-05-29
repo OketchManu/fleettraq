@@ -11,6 +11,7 @@ import GoogleSignInButton from "./GoogleSignInButton";
 
 import { useFleet } from "../context/FleetContext";
 import { normalizeRole } from "../utils/fleetAccess";
+import { friendlyAuthError } from "../utils/authErrors";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -51,14 +52,16 @@ const Login = () => {
       if (!userDoc.exists()) {
         await auth.signOut();
         setError(
-          "This account is not registered with FleetTraq. Create an account on the sign-up page, or contact your fleet administrator if you were invited."
+          "This email is not registered with FleetTraq yet. Please create an account on the sign-up page, or ask your fleet administrator for your Organization ID."
         );
         setIsLoading(false);
         return;
       }
       
-      if (normalizeRole(userDoc.data().role) !== role) {
-        setError(`You are registered as ${normalizeRole(userDoc.data().role)}, not ${role}`);
+      const registeredRole = normalizeRole(userDoc.data().role);
+      if (registeredRole !== role) {
+        const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
+        setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
         setIsLoading(false);
         return;
       }
@@ -70,8 +73,8 @@ const Login = () => {
       
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Login error:", err.message);
-      setError(getFirebaseErrorMessage(err.code));
+      console.error("Login error:", err.code, err.message);
+      setError(friendlyAuthError(err, "login"));
     } finally {
       setIsLoading(false);
     }
@@ -95,14 +98,16 @@ const Login = () => {
       if (!userDoc.exists()) {
         await auth.signOut();
         setError(
-          "This account is not registered with FleetTraq. Create an account on the sign-up page, or contact your fleet administrator if you were invited."
+          "This Google account is not registered with FleetTraq yet. Please sign up first on the sign-up page."
         );
         setIsLoading(false);
         return;
       }
       
-      if (normalizeRole(userDoc.data().role) !== role) {
-        setError(`You are registered as ${normalizeRole(userDoc.data().role)}, not ${role}`);
+      const registeredRole = normalizeRole(userDoc.data().role);
+      if (registeredRole !== role) {
+        const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
+        setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
         setIsLoading(false);
         return;
       }
@@ -114,30 +119,10 @@ const Login = () => {
       
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Google login error:", err.message);
-      setError(getFirebaseErrorMessage(err.code));
+      console.error("Google login error:", err.code, err.message);
+      setError(friendlyAuthError(err, "login"));
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const getFirebaseErrorMessage = (code) => {
-    switch (code) {
-      case "auth/wrong-password":
-      case "auth/user-not-found":
-        return "Invalid email or password";
-      case "auth/invalid-email":
-        return "Invalid email format";
-      case "auth/user-disabled":
-        return "Account has been disabled";
-      case "auth/popup-closed-by-user":
-        return "Google login cancelled";
-      case "auth/popup-blocked":
-        return "Popup blocked by browser. Please allow popups";
-      case "auth/network-request-failed":
-        return "Network error. Please check your connection";
-      default:
-        return "Login failed. Please try again";
     }
   };
 

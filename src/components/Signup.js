@@ -7,6 +7,7 @@ import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFleet } from "../context/FleetContext";
 import { ensureDriverRosterEntry } from "../utils/driverRoster";
+import { friendlyAuthError } from "../utils/authErrors";
 import GoogleSignInButton from "./GoogleSignInButton";
 
 const Signup = () => {
@@ -93,8 +94,8 @@ const Signup = () => {
       
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Signup error:", err.message);
-      setError(getFirebaseErrorMessage(err.code));
+      console.error("Signup error:", err.code, err.message);
+      setError(friendlyAuthError(err, "signup"));
     } finally {
       setIsLoading(false);
     }
@@ -161,29 +162,10 @@ const Signup = () => {
       
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Google signup error:", err.message);
-      setError(getFirebaseErrorMessage(err.code));
+      console.error("Google signup error:", err.code, err.message);
+      setError(friendlyAuthError(err, "signup"));
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const getFirebaseErrorMessage = (code) => {
-    switch (code) {
-      case "auth/email-already-in-use":
-        return "Email already in use. Please login instead.";
-      case "auth/invalid-email":
-        return "Invalid email format";
-      case "auth/weak-password":
-        return "Password should be at least 6 characters";
-      case "auth/popup-closed-by-user":
-        return "Google signup cancelled";
-      case "auth/popup-blocked":
-        return "Popup blocked by browser. Please allow popups";
-      case "auth/network-request-failed":
-        return "Network error. Please check your connection";
-      default:
-        return "Signup failed. Please try again";
     }
   };
 

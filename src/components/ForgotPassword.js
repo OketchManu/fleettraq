@@ -5,6 +5,7 @@ import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
 import { ArrowLeft, Mail, Sun, Moon } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
+import { friendlyAuthError } from "../utils/authErrors";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -28,15 +29,11 @@ const ForgotPassword = () => {
 
     try {
       await sendPasswordResetEmail(auth, email);
-      setSuccess("Password reset link sent to your email.");
-      setTimeout(() => navigate("/login"), 3000);
+      setSuccess("If an account exists for this email, a password reset link is on its way. Check your inbox and spam folder.");
+      setTimeout(() => navigate("/login"), 4000);
     } catch (err) {
-      console.error("Forgot password error:", err);
-      setError(
-        err.message.includes("user-not-found")
-          ? "No user found with this email."
-          : "Failed to send reset link. Please try again."
-      );
+      console.error("Forgot password error:", err.code, err.message);
+      setError(friendlyAuthError(err, "reset"));
     } finally {
       setIsLoading(false);
     }
