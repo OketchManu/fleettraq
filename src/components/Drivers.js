@@ -7,7 +7,7 @@ import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount } from "../utils/driverRoster";
-import { uploadDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
+import { processDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
 import DriverAvatar from "./DriverAvatar";
@@ -138,6 +138,17 @@ const Drivers = () => {
     }
 
     try {
+      let photoUrl = editingDriver ? editingDriver.photoUrl || null : null;
+      if (photoFile) {
+        try {
+          photoUrl = await processDriverPhoto(photoFile);
+        } catch (photoErr) {
+          console.error("Photo processing failed:", photoErr);
+          setError("Could not process the photo: " + photoErr.message);
+          return;
+        }
+      }
+
       const driverData = {
         name: formData.name,
         licenseNumber: formData.licenseNumber,
@@ -149,55 +160,22 @@ const Drivers = () => {
         authUid: (formData.authUid || "").trim() || null,
         assignedVehicleId: (formData.assignedVehicleId || "").trim() || null,
         accountId: fid,
+        photoUrl,
         updatedAt: new Date().toISOString(),
       };
 
-      let photoWarning = null;
-
       if (editingDriver) {
-        const driverRef = doc(db, "drivers", editingDriver.id);
-        await updateDoc(driverRef, { ...driverData, photoUrl: editingDriver.photoUrl || null });
-
-        if (photoFile) {
-          try {
-            const photoUrl = await uploadDriverPhoto({
-              file: photoFile,
-              fleetId: fid,
-              driverId: editingDriver.id,
-            });
-            await updateDoc(driverRef, { photoUrl });
-          } catch (photoErr) {
-            console.error("Photo upload failed:", photoErr);
-            photoWarning = "Driver saved, but the photo could not be uploaded. " + photoErr.message;
-          }
-        }
-
+        await updateDoc(doc(db, "drivers", editingDriver.id), driverData);
         try {
           await syncVehicleAssignment(editingDriver, formData);
         } catch (assignErr) {
           console.error("Vehicle assignment sync failed:", assignErr);
         }
       } else {
-        const created = await addDoc(collection(db, "drivers"), {
+        await addDoc(collection(db, "drivers"), {
           ...driverData,
-          photoUrl: null,
           createdAt: new Date().toISOString(),
         });
-
-        if (photoFile) {
-          try {
-            const photoUrl = await uploadDriverPhoto({
-              file: photoFile,
-              fleetId: fid,
-              driverId: created.id,
-            });
-            await updateDoc(doc(db, "drivers", created.id), { photoUrl });
-          } catch (photoErr) {
-            console.error("Photo upload failed:", photoErr);
-            photoWarning = "Driver added, but the photo could not be uploaded. " + photoErr.message;
-          }
-        }
-
         try {
           await syncVehicleAssignment(null, formData);
         } catch (assignErr) {
@@ -206,13 +184,8 @@ const Drivers = () => {
       }
 
       await fetchDrivers();
-
-      if (photoWarning) {
-        setError(photoWarning);
-      } else {
-        resetForm();
-        setShowAddForm(false);
-      }
+      resetForm();
+      setShowAddForm(false);
     } catch (err) {
       console.error("Error saving driver:", err);
       setError("Failed to save driver: " + err.message);

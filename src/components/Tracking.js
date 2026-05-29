@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-undef */
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, ChevronLeft, Crosshair, MapIcon, Trash2, Navigation, Car, Clock, AlertCircle, Wifi, WifiOff, Shield, Info } from "lucide-react";
@@ -82,6 +82,38 @@ const Tracking = () => {
       ),
     [vehicles, deviceId]
   );
+
+  // A driver's own phone automatically becomes the GPS source for any vehicle
+  // assigned to them, so admins never need to know the driver's device id.
+  const claimedVehiclesRef = useRef(new Set());
+  useEffect(() => {
+    if (!isDriver || !user?.uid || !deviceId) return;
+
+    const myVehicles = vehicles.filter(
+      (v) =>
+        v.assignedDriverUid === user.uid ||
+        (v.assignedDriverEmail &&
+          user.email &&
+          v.assignedDriverEmail.toLowerCase() === user.email.toLowerCase())
+    );
+
+    myVehicles.forEach(async (vehicle) => {
+      if (vehicle.registeredDeviceId === deviceId) return;
+      if (claimedVehiclesRef.current.has(vehicle.id)) return;
+      claimedVehiclesRef.current.add(vehicle.id);
+      try {
+        await updateDoc(doc(db, "vehicles", vehicle.id), {
+          registeredDeviceId: deviceId,
+          registeredDeviceAt: new Date().toISOString(),
+          registeredByUid: user.uid,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("Could not claim vehicle for this device:", err);
+        claimedVehiclesRef.current.delete(vehicle.id);
+      }
+    });
+  }, [isDriver, user?.uid, user?.email, deviceId, vehicles]);
 
   // Fetch tracked vehicles - SEPARATE by registered GPS device
   useEffect(() => {
