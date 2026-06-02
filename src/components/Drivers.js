@@ -108,6 +108,43 @@ const Drivers = () => {
     }
   };
 
+  const handleUnassignVehicle = async (driver) => {
+    if (!canManageFleet) {
+      setError("Only fleet administrators can change vehicle assignments.");
+      return;
+    }
+    if (!driver?.id) return;
+    const vehicleName = (() => {
+      const v = vehiclesAll.find((x) => x.id === driver.assignedVehicleId);
+      return v ? `${v.make} ${v.model}` : "this vehicle";
+    })();
+    if (!window.confirm(`Unassign ${vehicleName} from ${driver.name || driver.email || "this driver"}? Their phone will stop sharing GPS for it.`)) {
+      return;
+    }
+    try {
+      const now = new Date().toISOString();
+      const ops = [
+        updateDoc(doc(db, "drivers", driver.id), {
+          assignedVehicleId: null,
+          updatedAt: now,
+        }),
+      ];
+      if (driver.assignedVehicleId) {
+        ops.push(
+          updateDoc(doc(db, "vehicles", driver.assignedVehicleId), {
+            assignedDriverUid: null,
+            assignedDriverEmail: null,
+            updatedAt: now,
+          })
+        );
+      }
+      await Promise.all(ops);
+      await fetchDrivers();
+    } catch (err) {
+      setError("Failed to unassign vehicle: " + err.message);
+    }
+  };
+
   const handleRemoveDriverAccount = async (driver) => {
     if (!canManageFleet) {
       setError("Only fleet administrators can remove driver accounts.");
@@ -536,12 +573,21 @@ const Drivers = () => {
                       <p className="text-xs text-amber-400">No login linked — add auth UID or sync account</p>
                     )}
                     {driver.assignedVehicleId ? (
-                      <div className={`text-xs ${darkMode ? "text-cyan-300/90" : "text-cyan-700"}`}>
-                        Vehicle:{" "}
-                        {(() => {
-                          const v = vehiclesAll.find((x) => x.id === driver.assignedVehicleId);
-                          return v ? `${v.make} ${v.model}` : driver.assignedVehicleId;
-                        })()}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className={`text-xs ${darkMode ? "text-cyan-300/90" : "text-cyan-700"}`}>
+                          Vehicle:{" "}
+                          {(() => {
+                            const v = vehiclesAll.find((x) => x.id === driver.assignedVehicleId);
+                            return v ? `${v.make} ${v.model}` : driver.assignedVehicleId;
+                          })()}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUnassignVehicle(driver)}
+                          className="text-xs text-red-400 hover:text-red-300 underline shrink-0"
+                        >
+                          Unassign
+                        </button>
                       </div>
                     ) : (
                       <div className="pt-2">
