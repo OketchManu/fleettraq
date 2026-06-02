@@ -78,11 +78,41 @@ html:not(.dark) ::-webkit-scrollbar-track {
 
 .leaflet-popup-content-wrapper {
   border-radius: 12px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
 }
 
 .leaflet-popup-content {
   margin: 12px;
   min-width: 200px;
+  color: #111827;
+}
+
+.leaflet-popup-tip {
+  background: #ffffff;
+}
+
+/* Map popups always use a light card — force readable text regardless of app theme */
+.map-popup-card {
+  color: #111827 !important;
+}
+
+.map-popup-card .map-popup-title {
+  color: #111827 !important;
+  font-weight: 700;
+}
+
+.map-popup-card .map-popup-text {
+  color: #374151 !important;
+}
+
+.map-popup-card .map-popup-muted {
+  color: #6b7280 !important;
+}
+
+.map-popup-card .map-popup-accent {
+  color: #0e7490 !important;
 }
 
 /* Smooth transitions */

@@ -66,26 +66,28 @@ export function computeMotionState(anchors, vehicleId, current, now = Date.now()
 }
 
 /** Display metadata (label + Tailwind classes) for a motion state. */
-export function getMotionMeta(state) {
+export function getMotionMeta(state, variant = "default") {
+  const isPopup = variant === "popup";
+
   switch (state) {
     case "moving":
       return {
         label: "Moving",
-        badgeClass: "bg-green-500/20 text-green-400",
-        dotClass: "bg-green-500",
+        badgeClass: isPopup ? "bg-green-100 text-green-800" : "bg-green-500/20 text-green-400",
+        dotClass: isPopup ? "bg-green-600" : "bg-green-500",
       };
     case "offline":
       return {
         label: "Offline",
-        badgeClass: "bg-gray-500/20 text-gray-400",
-        dotClass: "bg-gray-500",
+        badgeClass: isPopup ? "bg-gray-100 text-gray-700" : "bg-gray-500/20 text-gray-400",
+        dotClass: isPopup ? "bg-gray-600" : "bg-gray-500",
       };
     case "parked":
     default:
       return {
         label: "Parked",
-        badgeClass: "bg-amber-500/20 text-amber-400",
-        dotClass: "bg-amber-500",
+        badgeClass: isPopup ? "bg-amber-100 text-amber-900" : "bg-amber-500/20 text-amber-400",
+        dotClass: isPopup ? "bg-amber-600" : "bg-amber-500",
       };
   }
 }

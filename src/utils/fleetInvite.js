@@ -42,10 +42,14 @@ export async function ensureFleetInvite(organizationId) {
   if (!organizationId) return null;
 
   const existing = await getDocs(
-    query(collection(db, "invites"), where("organizationId", "==", organizationId))
+    query(
+      collection(db, "invites"),
+      where("organizationId", "==", organizationId),
+      where("active", "==", true)
+    )
   );
 
-  const activeDoc = existing.docs.find((d) => d.data()?.active === true);
+  const activeDoc = existing.docs[0];
   if (activeDoc) {
     return { code: activeDoc.id, organizationId, id: activeDoc.id };
   }

@@ -62,7 +62,9 @@ service cloud.firestore {
 
     // ---- Fleet invite codes (document id = the code) ----
     match /invites/{code} {
-      allow read: if resource.data.active == true;
+      // Public read for active codes (driver signup). Admins can list all org invites.
+      allow read: if resource.data.active == true ||
+        (signedIn() && isAdmin() && resource.data.organizationId == myOrg());
       allow create: if signedIn() &&
         request.auth.uid == request.resource.data.organizationId &&
         request.resource.data.active == true;

@@ -48,8 +48,10 @@ const FleetOrganizationIdCard = ({
             </p>
           )}
           <code
-            className={`block text-lg sm:text-xl font-bold tracking-widest rounded-lg px-3 py-2 text-center ${
-              darkMode ? "bg-black/40 text-white" : "bg-white text-gray-900 border border-gray-200"
+            className={`block font-mono text-2xl sm:text-3xl font-bold tracking-[0.2em] rounded-xl px-4 py-3 text-center border-2 ${
+              darkMode
+                ? "bg-gray-950 text-yellow-400 border-yellow-500/60 shadow-inner"
+                : "bg-white text-gray-900 border-yellow-300 shadow-sm"
             }`}
           >
             {inviteCode}

@@ -53,38 +53,40 @@ const VehicleMarker = ({ track, vehicle }) => {
     }
   }, [track.lat, track.lng]);
 
+  const motionMeta = track.motionState ? getMotionMeta(track.motionState, "popup") : null;
+
   return (
     <Marker ref={markerRef} position={position} icon={CarIcon}>
       <Popup>
-        <div className="min-w-[220px] p-3">
+        <div className="map-popup-card min-w-[220px] p-1">
           <div className="flex items-center gap-2 mb-2">
             <Car className="w-5 h-5 text-yellow-500" />
-            <strong className="text-lg text-gray-900 dark:text-gray-100">
+            <strong className="map-popup-title text-lg">
               {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
             </strong>
           </div>
-          {track.motionState && (
+          {motionMeta && (
             <div className="mb-2">
-              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${getMotionMeta(track.motionState).badgeClass}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${getMotionMeta(track.motionState).dotClass}`} />
-                {getMotionMeta(track.motionState).label}
+              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${motionMeta.badgeClass}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${motionMeta.dotClass}`} />
+                {motionMeta.label}
               </span>
             </div>
           )}
           <div className="space-y-1 text-sm">
-            <p className="text-gray-700 dark:text-gray-300">
+            <p className="map-popup-text">
               <span className="font-semibold">Plate:</span> {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
             </p>
             {track.locationName && (
-              <p className="text-gray-700 dark:text-gray-300">
+              <p className="map-popup-text">
                 <span className="font-semibold">Location:</span> {track.locationName}
               </p>
             )}
-            <p className="text-gray-500 dark:text-gray-400 text-xs">
+            <p className="map-popup-muted text-xs">
               <span className="font-semibold">Last Update:</span> {new Date(track.timestamp).toLocaleString()}
             </p>
             {track.deviceId && (
-              <p className="text-xs text-cyan-500 mt-1">GPS device: {String(track.deviceId).slice(0, 8)}…</p>
+              <p className="map-popup-accent text-xs mt-1">GPS device: {String(track.deviceId).slice(0, 8)}…</p>
             )}
           </div>
         </div>
@@ -95,7 +97,7 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetId, inviteCode, inviteLoading, regenerateInvite } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetId, inviteCode, inviteLoading, inviteError, loadInviteCode, regenerateInvite } = useFleet();
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -339,7 +341,26 @@ const Dashboard = () => {
                 <div className={`mb-6 p-4 rounded-2xl border animate-pulse ${darkMode ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-200"}`}>
                   <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Loading your driver invite code…</p>
                 </div>
-              ) : null
+              ) : inviteError ? (
+                <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-red-500/10 border-red-500/30" : "bg-red-50 border-red-200"}`}>
+                  <p className={`text-sm font-medium ${darkMode ? "text-red-200" : "text-red-800"}`}>
+                    Could not load your driver invite code.
+                  </p>
+                  <p className={`text-xs mt-1 ${darkMode ? "text-red-300/80" : "text-red-700"}`}>{inviteError}</p>
+                  <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={loadInviteCode}>
+                    Try again
+                  </Button>
+                </div>
+              ) : (
+                <div className={`mb-6 p-4 rounded-2xl border ${darkMode ? "bg-yellow-500/10 border-yellow-500/30" : "bg-yellow-50 border-yellow-200"}`}>
+                  <p className={`text-sm ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}>
+                    Your driver invite code is not ready yet.
+                  </p>
+                  <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={loadInviteCode}>
+                    Generate invite code
+                  </Button>
+                </div>
+              )
             )}
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

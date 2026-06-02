@@ -72,6 +72,7 @@ export const FleetProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [inviteCode, setInviteCode] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState(null);
 
   const fleetId = fleetIdFromUser(user);
 
@@ -330,25 +331,34 @@ export const FleetProvider = ({ children }) => {
   }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
 
   // Ensure fleet admin has an invite code for driver onboarding.
-  useEffect(() => {
+  const loadInviteCode = useCallback(async () => {
     if (!roleCanManageFleet(user?.role) || !fleetIdFromUser(user)) {
       setInviteCode(null);
-      return;
+      setInviteError(null);
+      return null;
     }
-    let cancelled = false;
     setInviteLoading(true);
-    ensureFleetInvite(fleetIdFromUser(user))
-      .then((invite) => {
-        if (!cancelled) setInviteCode(invite?.code || null);
-      })
-      .catch((err) => console.error("Failed to load invite code:", err))
-      .finally(() => {
-        if (!cancelled) setInviteLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
+    setInviteError(null);
+    try {
+      const invite = await ensureFleetInvite(fleetIdFromUser(user));
+      setInviteCode(invite?.code || null);
+      if (!invite?.code) {
+        setInviteError("Could not create a driver invite code. Try again.");
+      }
+      return invite?.code || null;
+    } catch (err) {
+      console.error("Failed to load invite code:", err);
+      setInviteError(err?.message || "Failed to load driver invite code.");
+      setInviteCode(null);
+      return null;
+    } finally {
+      setInviteLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadInviteCode();
+  }, [loadInviteCode]);
 
   const regenerateInvite = useCallback(async () => {
     const fid = fleetIdFromUser(user);
@@ -498,6 +508,8 @@ export const FleetProvider = ({ children }) => {
     membershipSuspended: user?.membershipStatus === "suspended",
     inviteCode,
     inviteLoading,
+    inviteError,
+    loadInviteCode,
     regenerateInvite,
     fetchVehicles,
     fetchDrivers,

@@ -41,9 +41,9 @@ const DemoMarker = ({ vehicle }) => {
   return (
     <Marker ref={markerRef} position={[vehicle.lat, vehicle.lng]} icon={getIcon(vehicle.color)}>
       <Popup>
-        <div className="min-w-[200px] p-1">
-          <strong className="text-base">{vehicle.make} {vehicle.model}</strong>
-          <div className="text-sm mt-1 space-y-0.5">
+        <div className="map-popup-card min-w-[200px] p-1">
+          <strong className="map-popup-title text-base">{vehicle.make} {vehicle.model}</strong>
+          <div className="map-popup-text text-sm mt-1 space-y-0.5">
             <p><b>Plate:</b> {vehicle.plate}</p>
             <p><b>Driver:</b> {vehicle.driver}</p>
             <p><b>Speed:</b> {Math.round(vehicle.speed)} km/h</p>

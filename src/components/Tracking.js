@@ -543,23 +543,23 @@ const Tracking = () => {
         {currentLocation && (
           <Marker position={[currentLocation.lat, currentLocation.lng]} icon={CarIcon}>
             <Popup>
-              <div className="min-w-[200px] p-2">
+              <div className="map-popup-card min-w-[200px] p-1">
                 <div className="flex items-center gap-2 mb-2">
                   <Car className="w-4 h-4 text-yellow-500" />
-                  <strong className="text-gray-800 dark:text-gray-200">
+                  <strong className="map-popup-title">
                     {vehicles.find((v) => v.id === selectedVehicle)?.make || "Vehicle"}{" "}
                     {vehicles.find((v) => v.id === selectedVehicle)?.model || ""}
                   </strong>
                 </div>
                 {currentLocation.name && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="map-popup-text text-sm">
                     <strong>Location:</strong> {currentLocation.name}
                   </p>
                 )}
-                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                <p className="map-popup-muted text-xs mt-1">
                   {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
                 </p>
-                <p className="text-xs text-cyan-400 mt-1 flex items-center gap-1">
+                <p className="map-popup-accent text-xs mt-1 flex items-center gap-1">
                   <Shield size={10} /> Tracked from this device
                 </p>
               </div>
