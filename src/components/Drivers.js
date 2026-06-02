@@ -64,6 +64,40 @@ const Drivers = () => {
     }
   };
 
+  const approveDriver = async (account) => {
+    if (!canManageFleet) {
+      setError("Only fleet administrators can approve drivers.");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "users", account.uid), { membershipStatus: "active" });
+      await ensureDriverRosterEntry({
+        uid: account.uid,
+        email: account.email,
+        displayName: account.name,
+        fleetId,
+      });
+      await fetchDrivers();
+    } catch (err) {
+      setError("Failed to approve driver: " + err.message);
+    }
+  };
+
+  const suspendDriver = async (account) => {
+    if (!canManageFleet) {
+      setError("Only fleet administrators can suspend drivers.");
+      return;
+    }
+    if (!window.confirm(`Suspend ${account.name || account.email}? They will lose access until reactivated.`)) {
+      return;
+    }
+    try {
+      await updateDoc(doc(db, "users", account.uid), { membershipStatus: "suspended" });
+    } catch (err) {
+      setError("Failed to suspend driver: " + err.message);
+    }
+  };
+
   const quickAssignVehicle = async (driver, vehicleId) => {
     if (!vehicleId || !fleetId) return;
     try {
@@ -336,6 +370,9 @@ const Drivers = () => {
                 const roster = drivers.find(
                   (d) => d.authUid === account.uid || (d.email && account.email && d.email.toLowerCase() === account.email.toLowerCase())
                 );
+                const status = account.membershipStatus || "active";
+                const isPending = status === "pending";
+                const isSuspended = status === "suspended";
                 return (
                   <div
                     key={account.uid}
@@ -354,9 +391,34 @@ const Drivers = () => {
                         <p className="text-xs text-gray-500 truncate">{account.email}</p>
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${roster ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"}`}>
-                      {roster ? "On roster" : "Needs sync"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {isPending && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-400">Awaiting approval</span>
+                      )}
+                      {isSuspended && (
+                        <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-400">Suspended</span>
+                      )}
+                      {!isPending && !isSuspended && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${roster ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"}`}>
+                          {roster ? "On roster" : "Needs sync"}
+                        </span>
+                      )}
+                      {(isPending || isSuspended) && (
+                        <Button size="sm" onClick={() => approveDriver(account)}>
+                          <Check size={14} />
+                          Approve
+                        </Button>
+                      )}
+                      {!isPending && !isSuspended && (
+                        <button
+                          type="button"
+                          onClick={() => suspendDriver(account)}
+                          className="text-xs text-red-400 hover:text-red-300 underline"
+                        >
+                          Suspend
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

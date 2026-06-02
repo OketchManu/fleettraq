@@ -37,7 +37,6 @@ const AuthCallback = () => {
           const data = userDoc.data();
           const role = normalizeRole(data.role || "user");
 
-          localStorage.setItem("token", await user.getIdToken());
           localStorage.setItem("role", role);
           navigate("/dashboard", { replace: true });
         } catch (err) {

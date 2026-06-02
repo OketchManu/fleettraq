@@ -8,7 +8,7 @@ import FleetNavBar from "./FleetNavBar";
 
 const AppLayout = ({ children }) => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, canManageFleet, isDriver } = useFleet();
+  const { darkMode, setDarkMode, user, canManageFleet, isDriver, membershipPending, membershipSuspended } = useFleet();
 
   const toggleDarkMode = async () => {
     const newMode = !darkMode;
@@ -43,6 +43,13 @@ const AppLayout = ({ children }) => {
         canManageFleet={canManageFleet}
         isDriver={isDriver}
       />
+      {(membershipPending || membershipSuspended) && (
+        <div className={`px-4 py-3 text-sm text-center ${membershipSuspended ? "bg-red-500/15 text-red-300 border-b border-red-500/30" : "bg-amber-500/15 text-amber-300 border-b border-amber-500/30"}`}>
+          {membershipSuspended
+            ? "Your access has been suspended by your fleet administrator. Please contact them to restore access."
+            : "Your account is awaiting approval from your fleet administrator. You'll see your assigned vehicles once you're approved."}
+        </div>
+      )}
       {children}
     </>
   );

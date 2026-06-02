@@ -111,6 +111,8 @@ export const FleetProvider = ({ children }) => {
             ? String(data.organizationId).trim()
             : firebaseUser.uid;
         const fid = organizationId;
+        const membershipStatus = data.membershipStatus || "active";
+        const isActiveMember = membershipStatus !== "pending" && membershipStatus !== "suspended";
 
         setUser({
           uid: firebaseUser.uid,
@@ -119,9 +121,11 @@ export const FleetProvider = ({ children }) => {
           role,
           organizationId: fid,
           fleetId: fid,
+          membershipStatus,
         });
 
-        if (role === "driver") {
+        // Only approved drivers may write to the fleet roster.
+        if (role === "driver" && isActiveMember) {
           try {
             await ensureDriverRosterEntry({
               uid: firebaseUser.uid,
@@ -452,6 +456,8 @@ export const FleetProvider = ({ children }) => {
     canManageFleet: roleCanManageFleet(user?.role),
     isDriver: roleIsDriver(user?.role),
     isAdmin: isAdminRole(user?.role),
+    membershipPending: user?.membershipStatus === "pending",
+    membershipSuspended: user?.membershipStatus === "suspended",
     fetchVehicles,
     fetchDrivers,
     fetchReports,

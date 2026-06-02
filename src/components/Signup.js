@@ -6,7 +6,6 @@ import { doc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFleet } from "../context/FleetContext";
-import { ensureDriverRosterEntry } from "../utils/driverRoster";
 import { friendlyAuthError } from "../utils/authErrors";
 import GoogleSignInButton from "./GoogleSignInButton";
 
@@ -61,34 +60,24 @@ const Signup = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      let organizationId = user.uid;
-      if (role === "driver") {
-        organizationId = fleetOrganizationId.trim();
-      }
+      const isDriverRole = role === "driver";
+      const organizationId = isDriverRole ? fleetOrganizationId.trim() : user.uid;
 
       await updateProfile(user, { displayName: name });
 
+      // Drivers join in a 'pending' state and gain access only after a fleet
+      // admin approves them. Admins are active in their own organization.
       await setDoc(doc(db, "users", user.uid), {
         name,
         email,
         role,
         organizationId,
+        membershipStatus: isDriverRole ? "pending" : "active",
         createdAt: new Date().toISOString(),
       });
 
-      if (role === "driver") {
-        await ensureDriverRosterEntry({
-          uid: user.uid,
-          email,
-          displayName: name,
-          fleetId: organizationId,
-        });
-      }
-
       await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
 
-      const idToken = await user.getIdToken();
-      localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
       localStorage.setItem("profilePicture", `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`);
       
@@ -102,7 +91,8 @@ const Signup = () => {
   };
 
   const completeGoogleSignup = async (user, roleArg, orgIdArg) => {
-    const organizationId = roleArg === "driver" ? orgIdArg : user.uid;
+    const isDriverRole = roleArg === "driver";
+    const organizationId = isDriverRole ? orgIdArg : user.uid;
 
     await setDoc(
       doc(db, "users", user.uid),
@@ -111,24 +101,14 @@ const Signup = () => {
         email: user.email,
         role: roleArg,
         organizationId,
+        membershipStatus: isDriverRole ? "pending" : "active",
         createdAt: new Date().toISOString(),
       },
       { merge: true }
     );
 
-    if (roleArg === "driver") {
-      await ensureDriverRosterEntry({
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        fleetId: organizationId,
-      });
-    }
-
     await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
 
-    const idToken = await user.getIdToken();
-    localStorage.setItem("token", idToken);
     localStorage.setItem("role", roleArg);
     localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
 

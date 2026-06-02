@@ -22,19 +22,35 @@ service cloud.firestore {
       return myProfile().organizationId;
     }
 
-    function isAdmin() {
+    // A member can act on fleet data unless they are explicitly pending an
+    // admin's approval, or have been suspended. Missing status == legacy active.
+    function memberStatusOk() {
       return hasProfile() &&
-        (myProfile().role == 'admin' || myProfile().role == 'manager');
+        !(('membershipStatus' in myProfile()) &&
+          (myProfile().membershipStatus == 'pending' ||
+           myProfile().membershipStatus == 'suspended'));
     }
 
-    // A document belongs to the caller's fleet (existing doc).
-    function ownFleet() {
-      return hasProfile() && resource.data.accountId == myOrg();
+    // Only an approved administrator may manage fleet structure.
+    function isAdmin() {
+      return hasProfile() && myProfile().role == 'admin' && memberStatusOk();
+    }
+
+    // An existing doc belongs to the caller's fleet and caller is active.
+    function activeFleet() {
+      return memberStatusOk() && resource.data.accountId == myOrg();
     }
 
     // An incoming write is stamped with the caller's own fleet id.
-    function writeForOwnFleet() {
-      return hasProfile() && request.resource.data.accountId == myOrg();
+    function writeActiveFleet() {
+      return memberStatusOk() && request.resource.data.accountId == myOrg();
+    }
+
+    // Optional base64 photo, capped to keep documents small (~1 MB).
+    function photoWithinLimit() {
+      return !('photoUrl' in request.resource.data) ||
+        request.resource.data.photoUrl == null ||
+        request.resource.data.photoUrl.size() < 1000000;
     }
 
     // ---- User profiles ----
@@ -45,14 +61,32 @@ service cloud.firestore {
         (request.auth.uid == userId ||
           (hasProfile() && resource.data.organizationId == myOrg()));
 
-      // You can only create your own profile.
-      allow create: if signedIn() && request.auth.uid == userId;
+      // You may only create your OWN profile. You can become admin of your own
+      // personal org only, and drivers must start in 'pending' (an admin
+      // approves them). This blocks self-granted access to another fleet.
+      allow create: if signedIn() && request.auth.uid == userId && (
+        (request.resource.data.role == 'admin' &&
+          request.resource.data.organizationId == userId) ||
+        (request.resource.data.role == 'driver' &&
+          request.resource.data.membershipStatus == 'pending')
+      );
 
-      // You may update your own profile, but role and organizationId are
-      // immutable from the client (prevents self privilege escalation).
+      // Self-service updates may NOT change role, organization or membership
+      // status (prevents privilege escalation / self-approval).
       allow update: if signedIn() && request.auth.uid == userId &&
         request.resource.data.role == resource.data.role &&
-        request.resource.data.organizationId == resource.data.organizationId;
+        request.resource.data.organizationId == resource.data.organizationId &&
+        request.resource.data.membershipStatus == resource.data.membershipStatus;
+
+      // A fleet admin may approve or suspend a driver who targets THEIR org,
+      // but cannot change that driver's role or move them to another org.
+      allow update: if isAdmin() &&
+        resource.data.organizationId == myOrg() &&
+        request.resource.data.organizationId == resource.data.organizationId &&
+        request.resource.data.role == resource.data.role &&
+        (request.resource.data.membershipStatus == 'active' ||
+         request.resource.data.membershipStatus == 'pending' ||
+         request.resource.data.membershipStatus == 'suspended');
 
       // You may delete your own profile, or an admin may remove a profile that
       // belongs to their own fleet (revoking a driver's access).
@@ -62,53 +96,57 @@ service cloud.firestore {
     }
 
     // ---- Per-user settings ("{uid}_user") ----
+    // Scoped strictly to the owner; admins may delete on driver removal only.
     match /userSettings/{docId} {
-      allow read: if signedIn();
-      allow write: if signedIn() &&
-        (docId == request.auth.uid + '_user' || isAdmin());
+      allow read, write: if signedIn() && docId == request.auth.uid + '_user';
+      allow delete: if isAdmin();
     }
 
     // ---- Fleet-scoped collections (scoped by accountId == organization) ----
+    // Structural data (vehicles, drivers): members read/write, admin-only delete.
     match /vehicles/{docId} {
-      allow read: if ownFleet();
-      allow create: if writeForOwnFleet();
-      allow update, delete: if ownFleet();
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet();
+      allow update: if activeFleet() && writeActiveFleet();
+      allow delete: if activeFleet() && isAdmin();
     }
 
     match /drivers/{docId} {
-      allow read: if ownFleet();
-      allow create: if writeForOwnFleet();
-      allow update, delete: if ownFleet();
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet() && photoWithinLimit();
+      allow update: if activeFleet() && writeActiveFleet() && photoWithinLimit();
+      allow delete: if activeFleet() && isAdmin();
     }
 
+    // Operational data: members may read/write/delete within their own fleet.
     match /tracking/{docId} {
-      allow read: if ownFleet();
-      allow create: if writeForOwnFleet();
-      allow update, delete: if ownFleet();
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet();
+      allow update, delete: if activeFleet();
     }
 
     match /reports/{docId} {
-      allow read: if ownFleet();
-      allow create: if writeForOwnFleet();
-      allow update, delete: if ownFleet();
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet();
+      allow update, delete: if activeFleet();
     }
 
     match /fuelRecords/{docId} {
-      allow read: if ownFleet();
-      allow create: if writeForOwnFleet();
-      allow update, delete: if ownFleet();
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet();
+      allow update, delete: if activeFleet();
     }
 
     match /sessions/{docId} {
-      allow read: if ownFleet();
-      allow create: if writeForOwnFleet();
-      allow update, delete: if ownFleet();
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet();
+      allow update, delete: if activeFleet();
     }
 
     match /deletionRequests/{docId} {
-      allow read: if ownFleet();
-      allow create: if writeForOwnFleet();
-      allow update, delete: if ownFleet();
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet();
+      allow update, delete: if activeFleet();
     }
 
     // ---- Per-user notifications (scoped by userId) ----

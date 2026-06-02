@@ -66,8 +66,6 @@ const Login = () => {
         return;
       }
       
-      const idToken = await user.getIdToken();
-      localStorage.setItem("token", idToken);
       localStorage.setItem("role", role);
       localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}`);
       
@@ -100,8 +98,6 @@ const Login = () => {
       return;
     }
 
-    const idToken = await user.getIdToken();
-    localStorage.setItem("token", idToken);
     localStorage.setItem("role", roleArg);
     localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
 
