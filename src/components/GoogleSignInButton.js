@@ -9,25 +9,26 @@ const GoogleSignInButton = ({
   role,
   darkMode,
   label = "Google",
+  driverNeedsInviteCode = false,
   driverNeedsOrgId = false,
 }) => {
   const [hovered, setHovered] = useState(false);
 
+  const needsInvite = driverNeedsInviteCode || driverNeedsOrgId;
   const roleLabel = role === "admin" ? "Administrator" : role === "driver" ? "Driver" : null;
   const needsRole = !role;
-  const needsOrgId = role === "driver" && driverNeedsOrgId;
-  const showHint = hovered && (needsRole || needsOrgId);
+  const showHint = hovered && (needsRole || needsInvite);
 
   let hintText = "";
   if (needsRole) {
     hintText = "Select Administrator or Driver above before signing in with Google.";
-  } else if (needsOrgId) {
-    hintText = "Enter your Fleet Organization ID above before signing up with Google.";
+  } else if (needsInvite) {
+    hintText = "Enter your Fleet Invite Code above before signing up with Google.";
   } else {
     hintText = `Continue with Google as ${roleLabel}.`;
   }
 
-  const blocked = disabled || isLoading || needsRole || needsOrgId;
+  const blocked = disabled || isLoading || needsRole || needsInvite;
 
   return (
     <div
@@ -39,7 +40,7 @@ const GoogleSignInButton = ({
         <div
           role="tooltip"
           className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[min(100%,280px)] px-3 py-2 rounded-xl text-xs text-center shadow-lg border z-20 ${
-            needsRole || needsOrgId
+            needsRole || needsInvite
               ? darkMode
                 ? "bg-amber-500/20 border-amber-500/40 text-amber-100"
                 : "bg-amber-50 border-amber-300 text-amber-900"
@@ -71,11 +72,11 @@ const GoogleSignInButton = ({
         {label}
       </button>
 
-      {(needsRole || needsOrgId) && (
+      {(needsRole || needsInvite) && (
         <p className={`text-xs text-center mt-2 ${darkMode ? "text-amber-300/90" : "text-amber-700"}`}>
           {needsRole
             ? "Choose your role above, then use Google sign-in."
-            : "Paste your Fleet Organization ID above, then use Google sign-up."}
+            : "Enter your Fleet Invite Code above, then use Google sign-up."}
         </p>
       )}
     </div>

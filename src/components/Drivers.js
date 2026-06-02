@@ -14,7 +14,7 @@ import DriverAvatar from "./DriverAvatar";
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet } = useFleet();
+  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet, inviteCode, inviteLoading, regenerateInvite } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -343,8 +343,14 @@ const Drivers = () => {
           </div>
         )}
 
-        {canManageFleet && fleetId && (
-          <FleetOrganizationIdCard fleetId={fleetId} darkMode={darkMode} className="mb-6" />
+        {canManageFleet && inviteCode && (
+          <FleetOrganizationIdCard
+            inviteCode={inviteCode}
+            darkMode={darkMode}
+            className="mb-6"
+            onRegenerate={regenerateInvite}
+            regenerating={inviteLoading}
+          />
         )}
 
         <SetupHelpBanner darkMode={darkMode} className="mb-6" />
@@ -362,7 +368,7 @@ const Drivers = () => {
           </div>
           {fleetDriverAccounts.length === 0 ? (
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-              No drivers have signed up with your Organization ID yet.
+              No drivers have signed up with your invite code yet.
             </p>
           ) : (
             <div className="space-y-2">
@@ -438,7 +444,7 @@ const Drivers = () => {
             <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>
               {fleetDriverAccounts.length > 0
                 ? "Click Sync to roster above to import drivers who already signed up."
-                : "Add drivers manually or wait for them to sign up with your Organization ID."}
+                : "Add drivers manually or wait for them to sign up with your invite code."}
             </p>
             <div className="flex flex-wrap gap-2 justify-center">
               {fleetDriverAccounts.length > 0 && (

@@ -1,22 +1,24 @@
 import React, { useState } from "react";
-import { Copy, Check, Shield, Share2 } from "lucide-react";
+import { Copy, Check, KeyRound, Share2, RefreshCw } from "lucide-react";
 import Button from "./Button";
 
 const FleetOrganizationIdCard = ({
-  fleetId,
+  inviteCode,
   darkMode,
   className = "",
   compact = false,
-  title = "Fleet Organization ID",
-  description = "Share this ID with drivers when they sign up so they join your fleet.",
+  title = "Driver Invite Code",
+  description = "Share this code with drivers when they sign up. It links them to your fleet without exposing your account ID.",
+  onRegenerate,
+  regenerating = false,
 }) => {
   const [copied, setCopied] = useState(false);
 
-  if (!fleetId) return null;
+  if (!inviteCode) return null;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(fleetId);
+      await navigator.clipboard.writeText(inviteCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
@@ -37,7 +39,7 @@ const FleetOrganizationIdCard = ({
               compact ? "text-sm" : "text-sm mb-1"
             } ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}
           >
-            <Shield className="w-4 h-4 shrink-0 text-yellow-500" />
+            <KeyRound className="w-4 h-4 shrink-0 text-yellow-500" />
             {title}
           </p>
           {!compact && (
@@ -46,22 +48,30 @@ const FleetOrganizationIdCard = ({
             </p>
           )}
           <code
-            className={`block text-xs sm:text-sm break-all rounded-lg px-3 py-2 ${
+            className={`block text-lg sm:text-xl font-bold tracking-widest rounded-lg px-3 py-2 text-center ${
               darkMode ? "bg-black/40 text-white" : "bg-white text-gray-900 border border-gray-200"
             }`}
           >
-            {fleetId}
+            {inviteCode}
           </code>
         </div>
-        <Button type="button" variant="secondary" size="sm" onClick={handleCopy}>
-          {copied ? <Check size={14} /> : <Copy size={14} />}
-          {copied ? "Copied" : "Copy ID"}
-        </Button>
+        <div className="flex flex-col gap-2 shrink-0">
+          <Button type="button" variant="secondary" size="sm" onClick={handleCopy}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            {copied ? "Copied" : "Copy code"}
+          </Button>
+          {onRegenerate && (
+            <Button type="button" variant="outline" size="sm" onClick={onRegenerate} disabled={regenerating}>
+              <RefreshCw size={14} className={regenerating ? "animate-spin" : ""} />
+              {regenerating ? "…" : "New code"}
+            </Button>
+          )}
+        </div>
       </div>
       {!compact && (
         <p className={`text-xs mt-2 flex items-center gap-1 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
           <Share2 size={12} />
-          Drivers enter this on the sign-up page under &quot;Fleet Organization ID&quot;.
+          Drivers enter this on the sign-up page under &quot;Fleet Invite Code&quot;.
         </p>
       )}
     </div>

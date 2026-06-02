@@ -94,7 +94,7 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetId } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetId, inviteCode, inviteLoading, regenerateInvite } = useFleet();
   const [error, setError] = useState(null);
   const [idCopied, setIdCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -318,13 +318,14 @@ const Dashboard = () => {
                 <BookOpen size={16} />
                 Setup guide & help
               </Button>
-              {canManageFleet && fleetId && (
+              {canManageFleet && inviteCode && (
                 <Button
                   variant="secondary"
                   size="sm"
+                  disabled={inviteLoading}
                   onClick={async () => {
                     try {
-                      await navigator.clipboard.writeText(fleetId);
+                      await navigator.clipboard.writeText(inviteCode);
                       setIdCopied(true);
                       setTimeout(() => setIdCopied(false), 2000);
                     } catch {
@@ -333,7 +334,7 @@ const Dashboard = () => {
                   }}
                 >
                   {idCopied ? <Check size={16} /> : <Copy size={16} />}
-                  {idCopied ? "Organization ID copied" : "Copy Organization ID"}
+                  {idCopied ? "Invite code copied" : "Copy invite code"}
                 </Button>
               )}
               {canManageFleet && (

@@ -7,7 +7,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // The caller's own profile document.
     function myProfile() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -17,13 +16,10 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    // Fleet/organization id the caller belongs to.
     function myOrg() {
       return myProfile().organizationId;
     }
 
-    // A member can act on fleet data unless they are explicitly pending an
-    // admin's approval, or have been suspended. Missing status == legacy active.
     function memberStatusOk() {
       return hasProfile() &&
         !(('membershipStatus' in myProfile()) &&
@@ -31,55 +27,67 @@ service cloud.firestore {
            myProfile().membershipStatus == 'suspended'));
     }
 
-    // Only an approved administrator may manage fleet structure.
     function isAdmin() {
       return hasProfile() && myProfile().role == 'admin' && memberStatusOk();
     }
 
-    // An existing doc belongs to the caller's fleet and caller is active.
+    function isDriverRole() {
+      return hasProfile() && myProfile().role == 'driver' && memberStatusOk();
+    }
+
     function activeFleet() {
       return memberStatusOk() && resource.data.accountId == myOrg();
     }
 
-    // An incoming write is stamped with the caller's own fleet id.
     function writeActiveFleet() {
       return memberStatusOk() && request.resource.data.accountId == myOrg();
     }
 
-    // Optional base64 photo, capped to keep documents small (~1 MB).
+    function orgHasAdmin(orgId) {
+      return exists(/databases/$(database)/documents/users/$(orgId)) &&
+        get(/databases/$(database)/documents/users/$(orgId)).data.role == 'admin';
+    }
+
+    function vehicleAssignedToMe(vehicleId) {
+      return vehicleId is string &&
+        exists(/databases/$(database)/documents/vehicles/$(vehicleId)) &&
+        get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.assignedDriverUid == request.auth.uid;
+    }
+
     function photoWithinLimit() {
       return !('photoUrl' in request.resource.data) ||
         request.resource.data.photoUrl == null ||
         request.resource.data.photoUrl.size() < 1000000;
     }
 
+    // ---- Fleet invite codes (document id = the code) ----
+    match /invites/{code} {
+      allow read: if resource.data.active == true;
+      allow create: if signedIn() &&
+        request.auth.uid == request.resource.data.organizationId &&
+        request.resource.data.active == true;
+      allow update, delete: if isAdmin() && resource.data.organizationId == myOrg();
+    }
+
     // ---- User profiles ----
     match /users/{userId} {
-      // A user may read their own profile; fleet members may read profiles in
-      // the same organization (needed for the driver roster).
       allow read: if signedIn() &&
         (request.auth.uid == userId ||
-          (hasProfile() && resource.data.organizationId == myOrg()));
+          (hasProfile() && memberStatusOk() && resource.data.organizationId == myOrg()));
 
-      // You may only create your OWN profile. You can become admin of your own
-      // personal org only, and drivers must start in 'pending' (an admin
-      // approves them). This blocks self-granted access to another fleet.
       allow create: if signedIn() && request.auth.uid == userId && (
         (request.resource.data.role == 'admin' &&
           request.resource.data.organizationId == userId) ||
         (request.resource.data.role == 'driver' &&
-          request.resource.data.membershipStatus == 'pending')
+          request.resource.data.membershipStatus == 'pending' &&
+          orgHasAdmin(request.resource.data.organizationId))
       );
 
-      // Self-service updates may NOT change role, organization or membership
-      // status (prevents privilege escalation / self-approval).
       allow update: if signedIn() && request.auth.uid == userId &&
         request.resource.data.role == resource.data.role &&
         request.resource.data.organizationId == resource.data.organizationId &&
         request.resource.data.membershipStatus == resource.data.membershipStatus;
 
-      // A fleet admin may approve or suspend a driver who targets THEIR org,
-      // but cannot change that driver's role or move them to another org.
       allow update: if isAdmin() &&
         resource.data.organizationId == myOrg() &&
         request.resource.data.organizationId == resource.data.organizationId &&
@@ -88,22 +96,16 @@ service cloud.firestore {
          request.resource.data.membershipStatus == 'pending' ||
          request.resource.data.membershipStatus == 'suspended');
 
-      // You may delete your own profile, or an admin may remove a profile that
-      // belongs to their own fleet (revoking a driver's access).
       allow delete: if signedIn() &&
         (request.auth.uid == userId ||
           (isAdmin() && resource.data.organizationId == myOrg()));
     }
 
-    // ---- Per-user settings ("{uid}_user") ----
-    // Scoped strictly to the owner; admins may delete on driver removal only.
     match /userSettings/{docId} {
       allow read, write: if signedIn() && docId == request.auth.uid + '_user';
       allow delete: if isAdmin();
     }
 
-    // ---- Fleet-scoped collections (scoped by accountId == organization) ----
-    // Structural data (vehicles, drivers): members read/write, admin-only delete.
     match /vehicles/{docId} {
       allow read: if activeFleet();
       allow create: if writeActiveFleet();
@@ -118,7 +120,6 @@ service cloud.firestore {
       allow delete: if activeFleet() && isAdmin();
     }
 
-    // Operational data: members may read/write/delete within their own fleet.
     match /tracking/{docId} {
       allow read: if activeFleet();
       allow create: if writeActiveFleet();
@@ -131,10 +132,27 @@ service cloud.firestore {
       allow update, delete: if activeFleet();
     }
 
+    // Drivers may only manage fuel for vehicles assigned to them.
     match /fuelRecords/{docId} {
       allow read: if activeFleet();
-      allow create: if writeActiveFleet();
-      allow update, delete: if activeFleet();
+      allow create: if writeActiveFleet() && (
+        isAdmin() ||
+        (isDriverRole() &&
+          vehicleAssignedToMe(request.resource.data.vehicleId) &&
+          request.resource.data.recordedByUid == request.auth.uid)
+      );
+      allow update: if activeFleet() && writeActiveFleet() && (
+        isAdmin() ||
+        (isDriverRole() &&
+          resource.data.recordedByUid == request.auth.uid &&
+          vehicleAssignedToMe(resource.data.vehicleId))
+      );
+      allow delete: if activeFleet() && (
+        isAdmin() ||
+        (isDriverRole() &&
+          resource.data.recordedByUid == request.auth.uid &&
+          vehicleAssignedToMe(resource.data.vehicleId))
+      );
     }
 
     match /sessions/{docId} {
@@ -149,14 +167,12 @@ service cloud.firestore {
       allow update, delete: if activeFleet();
     }
 
-    // ---- Per-user notifications (scoped by userId) ----
     match /notifications/{docId} {
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
       allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
-    // Deny everything not explicitly allowed above.
     match /{document=**} {
       allow read, write: if false;
     }

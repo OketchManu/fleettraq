@@ -10,6 +10,7 @@ const FleetSetupGuidePanel = ({
   userId,
   fleetSetupComplete = false,
   organizationId,
+  inviteCode,
 }) => {
   const [visible, setVisible] = useState(() =>
     isSetupGuideVisible(userId, fleetSetupComplete)
@@ -79,6 +80,7 @@ const FleetSetupGuidePanel = ({
           <FleetSetupGuide
             darkMode={darkMode}
             variant={variant}
+            inviteCode={inviteCode || organizationId}
             organizationId={organizationId}
             className="pt-4"
           />

@@ -52,7 +52,7 @@ const Login = () => {
       if (!userDoc.exists()) {
         await auth.signOut();
         setError(
-          "This email is not registered with FleetTraq yet. Please create an account on the sign-up page, or ask your fleet administrator for your Organization ID."
+          "This email is not registered with FleetTraq yet. Please create an account on the sign-up page, or ask your fleet administrator for your invite code."
         );
         setIsLoading(false);
         return;

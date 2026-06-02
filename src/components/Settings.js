@@ -48,7 +48,7 @@ const DEFAULT_FLEET_SETTINGS = {
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, sendNotification, canManageFleet, isAdmin, fleetId } = useFleet();
+  const { darkMode, setDarkMode, user, sendNotification, canManageFleet, isAdmin, fleetId, inviteCode, inviteLoading, regenerateInvite } = useFleet();
   const [settings, setSettings] = useState(DEFAULT_FLEET_SETTINGS);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -279,8 +279,14 @@ const Settings = () => {
         )}
 
         {/* Fleet ID Card */}
-        {canManageFleet && fleetId && (
-          <FleetOrganizationIdCard fleetId={fleetId} darkMode={darkMode} className="mb-6" />
+        {canManageFleet && inviteCode && (
+          <FleetOrganizationIdCard
+            inviteCode={inviteCode}
+            darkMode={darkMode}
+            className="mb-6"
+            onRegenerate={regenerateInvite}
+            regenerating={inviteLoading}
+          />
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

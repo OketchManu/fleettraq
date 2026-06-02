@@ -7,6 +7,7 @@ import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFleet } from "../context/FleetContext";
 import { friendlyAuthError } from "../utils/authErrors";
+import { resolveInviteCode, ensureFleetInvite } from "../utils/fleetInvite";
 import GoogleSignInButton from "./GoogleSignInButton";
 
 const Signup = () => {
@@ -21,7 +22,15 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [fleetOrganizationId, setFleetOrganizationId] = useState("");
+  const [fleetInviteCode, setFleetInviteCode] = useState("");
+
+  const resolveDriverOrg = async (rawCode) => {
+    const invite = await resolveInviteCode(rawCode);
+    if (!invite) {
+      throw new Error("Invalid or expired invite code. Ask your fleet administrator for a current code.");
+    }
+    return invite.organizationId;
+  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -50,23 +59,26 @@ const Signup = () => {
       return;
     }
 
-    if (role === "driver" && !fleetOrganizationId.trim()) {
-      setError("Drivers must enter the fleet Organization ID provided by the fleet administrator.");
+    if (role === "driver" && !fleetInviteCode.trim()) {
+      setError("Drivers must enter the invite code provided by their fleet administrator.");
       setIsLoading(false);
       return;
     }
 
     try {
+      let organizationId = null;
+      if (role === "driver") {
+        organizationId = await resolveDriverOrg(fleetInviteCode);
+      }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       const isDriverRole = role === "driver";
-      const organizationId = isDriverRole ? fleetOrganizationId.trim() : user.uid;
+      if (!isDriverRole) organizationId = user.uid;
 
       await updateProfile(user, { displayName: name });
 
-      // Drivers join in a 'pending' state and gain access only after a fleet
-      // admin approves them. Admins are active in their own organization.
       await setDoc(doc(db, "users", user.uid), {
         name,
         email,
@@ -76,6 +88,10 @@ const Signup = () => {
         createdAt: new Date().toISOString(),
       });
 
+      if (!isDriverRole) {
+        await ensureFleetInvite(user.uid);
+      }
+
       await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
 
       localStorage.setItem("role", role);
@@ -84,7 +100,7 @@ const Signup = () => {
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Signup error:", err.code, err.message);
-      setError(friendlyAuthError(err, "signup"));
+      setError(err.message && !err.code ? err.message : friendlyAuthError(err, "signup"));
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +122,10 @@ const Signup = () => {
       },
       { merge: true }
     );
+
+    if (!isDriverRole) {
+      await ensureFleetInvite(user.uid);
+    }
 
     await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
 
@@ -151,16 +171,20 @@ const Signup = () => {
       return;
     }
 
-    if (role === "driver" && !fleetOrganizationId.trim()) {
-      setError("Drivers must enter the fleet Organization ID before signing up with Google.");
+    if (role === "driver" && !fleetInviteCode.trim()) {
+      setError("Drivers must enter the fleet invite code before signing up with Google.");
       return;
     }
 
     setIsLoading(true);
 
     try {
+      let organizationId = null;
+      if (role === "driver") {
+        organizationId = await resolveDriverOrg(fleetInviteCode);
+      }
       const result = await signInWithPopup(auth, googleProvider);
-      await completeGoogleSignup(result.user, role, fleetOrganizationId.trim());
+      await completeGoogleSignup(result.user, role, organizationId);
     } catch (err) {
       console.error("Google signup error:", err.code, err.message);
       // If the popup was blocked/closed by the browser, fall back to a redirect.
@@ -170,8 +194,12 @@ const Signup = () => {
         err.code === "auth/cancelled-popup-request"
       ) {
         try {
+          let organizationId = null;
+          if (role === "driver") {
+            organizationId = await resolveDriverOrg(fleetInviteCode);
+          }
           sessionStorage.setItem("pendingGoogleRole", role);
-          sessionStorage.setItem("pendingGoogleOrgId", fleetOrganizationId.trim());
+          sessionStorage.setItem("pendingGoogleOrgId", organizationId || "");
           await signInWithRedirect(auth, googleProvider);
           return;
         } catch (redirectErr) {
@@ -344,23 +372,23 @@ const Signup = () => {
             {role === "driver" && (
               <div>
                 <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                  Fleet Organization ID *
+                  Fleet Invite Code *
                 </label>
                 <input
                   type="text"
-                  value={fleetOrganizationId}
-                  onChange={(e) => setFleetOrganizationId(e.target.value)}
-                  className={`w-full px-4 py-3 border rounded-xl font-mono text-sm focus:outline-none focus:border-yellow-500 transition-all ${
+                  value={fleetInviteCode}
+                  onChange={(e) => setFleetInviteCode(e.target.value.toUpperCase())}
+                  className={`w-full px-4 py-3 border rounded-xl font-mono text-sm tracking-widest uppercase focus:outline-none focus:border-yellow-500 transition-all ${
                     darkMode
                       ? "bg-white/10 border-white/20 text-white placeholder-gray-500"
                       : "bg-white border-gray-300 text-gray-900 placeholder-gray-400"
                   }`}
-                  placeholder="Paste the ID from your fleet administrator"
+                  placeholder="e.g. X7K9MP2R"
                   disabled={isLoading}
                   required
                 />
                 <p className={`text-xs mt-1.5 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
-                  Required so your account is linked to the correct fleet and vehicle.
+                  Ask your fleet administrator for this code. Your account will be pending until they approve you.
                 </p>
               </div>
             )}
@@ -449,7 +477,7 @@ const Signup = () => {
             role={role}
             darkMode={darkMode}
             label="Sign up with Google"
-            driverNeedsOrgId={role === "driver" && !fleetOrganizationId.trim()}
+            driverNeedsInviteCode={role === "driver" && !fleetInviteCode.trim()}
           />
 
           <p className={`mt-6 text-center text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>

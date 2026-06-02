@@ -4,7 +4,8 @@ import { Monitor, Smartphone, MapPin } from "lucide-react";
 const stepClass = (darkMode) =>
   `text-sm space-y-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`;
 
-const FleetSetupGuide = ({ darkMode, variant = "full", className = "", organizationId }) => {
+const FleetSetupGuide = ({ darkMode, variant = "full", className = "", inviteCode, organizationId }) => {
+  const code = inviteCode || organizationId;
   const showAdminOffice = variant === "full" || variant === "admin-office";
   const showDriver = variant === "full" || variant === "driver";
   const showAdminTrack = variant === "full" || variant === "admin-track";
@@ -31,11 +32,11 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "", organizat
           </h4>
           <ol className={`${stepClass(darkMode)} list-decimal list-inside space-y-1.5`}>
             <li>
-              Copy your <strong>Fleet Organization ID</strong>
-              {organizationId ? (
-                <> (<code className="text-xs break-all">{organizationId}</code>)</>
+              Copy your <strong>Driver Invite Code</strong>
+              {code ? (
+                <> (<code className="text-xs tracking-widest">{code}</code>)</>
               ) : (
-                <> (shown at the top of the Dashboard and under <strong>More → Account</strong>)</>
+                <> (shown on the Dashboard, Drivers page, and Help)</>
               )}{" "}
               and send it to each driver.
             </li>
@@ -43,8 +44,8 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "", organizat
               Add your vehicles under <strong>More → Vehicles</strong> (you can do this from a laptop).
             </li>
             <li>
-              When a driver has signed up, open <strong>More → Drivers</strong> and click{" "}
-              <strong>Sync to roster</strong>.
+              When a driver signs up, open <strong>More → Drivers</strong> and click{" "}
+              <strong>Approve</strong>, then <strong>Sync to roster</strong> if needed.
             </li>
             <li>
               Assign each driver to a vehicle on the <strong>Drivers</strong> page or under{" "}
@@ -64,8 +65,8 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "", organizat
           </h4>
           <ol className={`${stepClass(darkMode)} list-decimal list-inside space-y-1.5`}>
             <li>
-              Sign up or log in as <strong>Driver</strong> and paste the administrator&apos;s{" "}
-              <strong>Fleet Organization ID</strong>.
+              Sign up or log in as <strong>Driver</strong> and enter the administrator&apos;s{" "}
+              <strong>Invite Code</strong>. Wait for approval before using the app.
             </li>
             <li>
               Open <strong>Tracking</strong>, select your assigned vehicle, then tap{" "}

@@ -3,6 +3,7 @@ import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole, normalizeRole } from "../utils/fleetAccess";
 import { ensureDriverRosterEntry } from "../utils/driverRoster";
+import { ensureFleetInvite, regenerateFleetInvite } from "../utils/fleetInvite";
 import { getDeviceId } from "../utils/deviceId";
 import { isAdminFleetSetupComplete, isDriverFleetSetupComplete } from "../utils/fleetSetupStatus";
 
@@ -69,6 +70,8 @@ export const FleetProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [inviteCode, setInviteCode] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const fleetId = fleetIdFromUser(user);
 
@@ -154,6 +157,7 @@ export const FleetProvider = ({ children }) => {
         setTrackingData(null);
         setNotifications([]);
         setUnreadCount(0);
+        setInviteCode(null);
       }
       setLoading(false);
     });
@@ -325,6 +329,40 @@ export const FleetProvider = ({ children }) => {
     return () => unsubscribe();
   }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
 
+  // Ensure fleet admin has an invite code for driver onboarding.
+  useEffect(() => {
+    if (!roleCanManageFleet(user?.role) || !fleetIdFromUser(user)) {
+      setInviteCode(null);
+      return;
+    }
+    let cancelled = false;
+    setInviteLoading(true);
+    ensureFleetInvite(fleetIdFromUser(user))
+      .then((invite) => {
+        if (!cancelled) setInviteCode(invite?.code || null);
+      })
+      .catch((err) => console.error("Failed to load invite code:", err))
+      .finally(() => {
+        if (!cancelled) setInviteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
+
+  const regenerateInvite = useCallback(async () => {
+    const fid = fleetIdFromUser(user);
+    if (!fid || !roleCanManageFleet(user?.role)) return null;
+    setInviteLoading(true);
+    try {
+      const invite = await regenerateFleetInvite(fid);
+      setInviteCode(invite?.code || null);
+      return invite?.code;
+    } finally {
+      setInviteLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     const fid = fleetIdFromUser(user);
     if (!fid) {
@@ -458,6 +496,9 @@ export const FleetProvider = ({ children }) => {
     isAdmin: isAdminRole(user?.role),
     membershipPending: user?.membershipStatus === "pending",
     membershipSuspended: user?.membershipStatus === "suspended",
+    inviteCode,
+    inviteLoading,
+    regenerateInvite,
     fetchVehicles,
     fetchDrivers,
     fetchReports,

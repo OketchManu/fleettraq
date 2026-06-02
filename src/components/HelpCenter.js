@@ -17,6 +17,9 @@ const HelpCenter = () => {
     canManageFleet,
     isDriver,
     fleetSetupComplete,
+    inviteCode,
+    inviteLoading,
+    regenerateInvite,
   } = useFleet();
 
   return (
@@ -50,12 +53,14 @@ const HelpCenter = () => {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {canManageFleet && fleetId && (
+        {canManageFleet && inviteCode && (
           <FleetOrganizationIdCard
-            fleetId={fleetId}
+            inviteCode={inviteCode}
             darkMode={darkMode}
-            title="Your Fleet Organization ID"
-            description="Share this with every driver before they create an account. It links them to your fleet."
+            title="Your Driver Invite Code"
+            description="Share this code with every driver before they create an account. It links them to your fleet securely."
+            onRegenerate={regenerateInvite}
+            regenerating={inviteLoading}
           />
         )}
 
@@ -64,6 +69,7 @@ const HelpCenter = () => {
           variant={isDriver ? "driver" : "full"}
           userId={user?.uid}
           fleetSetupComplete={fleetSetupComplete}
+          inviteCode={canManageFleet ? inviteCode : undefined}
           organizationId={canManageFleet ? fleetId : undefined}
         />
 
@@ -87,7 +93,7 @@ const HelpCenter = () => {
               <FleetSetupGuide
                 darkMode={darkMode}
                 variant="admin-office"
-                organizationId={fleetId}
+                inviteCode={inviteCode}
               />
               <div className={`mt-4 pt-4 border-t ${darkMode ? "border-white/10" : "border-gray-100"}`}>
                 <FleetSetupGuide darkMode={darkMode} variant="admin-track" />
@@ -128,7 +134,7 @@ const HelpCenter = () => {
               </Button>
               {!isDriver && (
                 <p className={`text-xs w-full ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
-                  Share this section with drivers after giving them your Organization ID.
+                  Share this section with drivers after giving them your invite code.
                 </p>
               )}
             </div>
@@ -146,9 +152,9 @@ const HelpCenter = () => {
           </h2>
           <dl className={`space-y-3 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
             <div>
-              <dt className="font-medium text-yellow-500">Where is my Organization ID?</dt>
+              <dt className="font-medium text-yellow-500">Where is my invite code?</dt>
               <dd className="mt-0.5">
-                Administrators see it on the Dashboard, this page, Drivers, Account, and Fleet Settings.
+                Administrators see it on the Dashboard, this page, Drivers, Account, and Fleet Settings. Use &quot;New code&quot; to revoke an old one.
               </dd>
             </div>
             <div>

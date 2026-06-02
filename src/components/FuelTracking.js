@@ -176,7 +176,10 @@ const FuelTracking = () => {
       };
 
       if (editingRecord) {
-        await updateDoc(doc(db, "fuelRecords", editingRecord.id), recordData);
+        await updateDoc(doc(db, "fuelRecords", editingRecord.id), {
+          ...recordData,
+          recordedByUid: editingRecord.recordedByUid || auth.currentUser.uid,
+        });
         sendNotification("Fuel record updated successfully", "success");
       } else {
         await addDoc(collection(db, "fuelRecords"), {

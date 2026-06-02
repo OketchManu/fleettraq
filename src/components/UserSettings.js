@@ -12,7 +12,7 @@ import SetupHelpBanner from "./SetupHelpBanner";
 
 const UserSettings = () => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, fleetId, canManageFleet, isDriver, sendNotification } = useFleet();
+  const { darkMode, setDarkMode, user, canManageFleet, isDriver, sendNotification, inviteCode, inviteLoading, regenerateInvite } = useFleet();
   const [settings, setSettings] = useState({
     darkMode: true,
     emailNotifications: false,
@@ -275,13 +275,15 @@ const UserSettings = () => {
           </p>
         )}
 
-        {canManageFleet && fleetId && (
+        {canManageFleet && inviteCode && (
           <>
             <FleetOrganizationIdCard
-              fleetId={fleetId}
+              inviteCode={inviteCode}
               darkMode={darkMode}
               className="mb-6"
-              description="Drivers need this ID when they create an account. It is also shown at the top of your Dashboard."
+              description="Drivers need this invite code when they create an account. It is also on your Dashboard and Drivers page."
+              onRegenerate={regenerateInvite}
+              regenerating={inviteLoading}
             />
             <SetupHelpBanner darkMode={darkMode} className="mb-6" />
           </>
