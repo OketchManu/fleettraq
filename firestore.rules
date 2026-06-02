@@ -28,11 +28,12 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return hasProfile() && myProfile().role == 'admin' && memberStatusOk();
+      return hasProfile() && memberStatusOk() &&
+        (myProfile().role == 'admin' || myProfile().role == 'manager');
     }
 
     function isDriverRole() {
-      return hasProfile() && myProfile().role == 'driver' && memberStatusOk();
+      return hasProfile() && memberStatusOk() && myProfile().role == 'driver';
     }
 
     function activeFleet() {
@@ -45,7 +46,9 @@ service cloud.firestore {
 
     function orgHasAdmin(orgId) {
       return exists(/databases/$(database)/documents/users/$(orgId)) &&
-        get(/databases/$(database)/documents/users/$(orgId)).data.role == 'admin';
+        get(/databases/$(database)/documents/users/$(orgId)).data.role == 'admin' &&
+        (!('membershipStatus' in get(/databases/$(database)/documents/users/$(orgId)).data) ||
+          get(/databases/$(database)/documents/users/$(orgId)).data.membershipStatus == 'active');
     }
 
     function vehicleAssignedToMe(vehicleId) {
@@ -54,17 +57,44 @@ service cloud.firestore {
         get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.assignedDriverUid == request.auth.uid;
     }
 
+    function validInviteForOrg(code, orgId) {
+      return code is string &&
+        code.size() >= 6 &&
+        exists(/databases/$(database)/documents/invites/$(code)) &&
+        get(/databases/$(database)/documents/invites/$(code)).data.active == true &&
+        get(/databases/$(database)/documents/invites/$(code)).data.organizationId == orgId;
+    }
+
     function photoWithinLimit() {
       return !('photoUrl' in request.resource.data) ||
         request.resource.data.photoUrl == null ||
         request.resource.data.photoUrl.size() < 1000000;
     }
 
+    function driverDeviceMatchesVehicle(vehicleId, deviceId) {
+      return vehicleId is string &&
+        deviceId is string &&
+        exists(/databases/$(database)/documents/vehicles/$(vehicleId)) &&
+        (
+          !('registeredDeviceId' in get(/databases/$(database)/documents/vehicles/$(vehicleId)).data) ||
+          get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.registeredDeviceId == null ||
+          get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.registeredDeviceId == deviceId
+        );
+    }
+
+    function driverCanRegisterDevice(vehicleId) {
+      return isDriverRole() &&
+        vehicleAssignedToMe(vehicleId) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['registeredDeviceId', 'registeredDeviceAt', 'registeredByUid', 'updatedAt']) &&
+        request.resource.data.accountId == resource.data.accountId &&
+        request.resource.data.registeredByUid == request.auth.uid;
+    }
+
     // ---- Fleet invite codes (document id = the code) ----
     match /invites/{code} {
-      // Public read for active codes (driver signup). Admins can list all org invites.
-      allow read: if resource.data.active == true ||
-        (signedIn() && isAdmin() && resource.data.organizationId == myOrg());
+      allow get: if signedIn() && resource.data.active == true;
+      allow list: if isAdmin() && resource.data.organizationId == myOrg();
       allow create: if signedIn() &&
         request.auth.uid == request.resource.data.organizationId &&
         request.resource.data.active == true;
@@ -79,10 +109,13 @@ service cloud.firestore {
 
       allow create: if signedIn() && request.auth.uid == userId && (
         (request.resource.data.role == 'admin' &&
-          request.resource.data.organizationId == userId) ||
+          request.resource.data.organizationId == userId &&
+          request.resource.data.membershipStatus == 'active') ||
         (request.resource.data.role == 'driver' &&
           request.resource.data.membershipStatus == 'pending' &&
-          orgHasAdmin(request.resource.data.organizationId))
+          request.resource.data.keys().hasAll(['inviteCodeUsed']) &&
+          orgHasAdmin(request.resource.data.organizationId) &&
+          validInviteForOrg(request.resource.data.inviteCodeUsed, request.resource.data.organizationId))
       );
 
       allow update: if signedIn() && request.auth.uid == userId &&
@@ -105,36 +138,50 @@ service cloud.firestore {
 
     match /userSettings/{docId} {
       allow read, write: if signedIn() && docId == request.auth.uid + '_user';
-      allow delete: if isAdmin();
     }
 
     match /vehicles/{docId} {
       allow read: if activeFleet();
-      allow create: if writeActiveFleet();
-      allow update: if activeFleet() && writeActiveFleet();
+      allow create: if writeActiveFleet() && isAdmin();
+      allow update: if activeFleet() && (
+        (isAdmin() && writeActiveFleet()) ||
+        driverCanRegisterDevice(docId)
+      );
       allow delete: if activeFleet() && isAdmin();
     }
 
     match /drivers/{docId} {
       allow read: if activeFleet();
-      allow create: if writeActiveFleet() && photoWithinLimit();
-      allow update: if activeFleet() && writeActiveFleet() && photoWithinLimit();
+      allow create: if writeActiveFleet() && isAdmin() && photoWithinLimit();
+      allow update: if activeFleet() && isAdmin() && writeActiveFleet() && photoWithinLimit();
       allow delete: if activeFleet() && isAdmin();
     }
 
     match /tracking/{docId} {
       allow read: if activeFleet();
-      allow create: if writeActiveFleet();
-      allow update, delete: if activeFleet();
+      allow create: if writeActiveFleet() && (
+        isAdmin() ||
+        (isDriverRole() &&
+          vehicleAssignedToMe(request.resource.data.vehicleId) &&
+          driverDeviceMatchesVehicle(request.resource.data.vehicleId, request.resource.data.deviceId))
+      );
+      allow update: if activeFleet() && resource.data.accountId == myOrg() && (
+        isAdmin() ||
+        (isDriverRole() &&
+          vehicleAssignedToMe(resource.data.vehicleId) &&
+          request.resource.data.vehicleId == resource.data.vehicleId &&
+          request.resource.data.accountId == resource.data.accountId &&
+          request.resource.data.deviceId == resource.data.deviceId &&
+          driverDeviceMatchesVehicle(resource.data.vehicleId, resource.data.deviceId))
+      );
+      allow delete: if activeFleet() && isAdmin();
     }
 
     match /reports/{docId} {
       allow read: if activeFleet();
-      allow create: if writeActiveFleet();
-      allow update, delete: if activeFleet();
+      allow create, update, delete: if writeActiveFleet() && isAdmin();
     }
 
-    // Drivers may only manage fuel for vehicles assigned to them.
     match /fuelRecords/{docId} {
       allow read: if activeFleet();
       allow create: if writeActiveFleet() && (
@@ -147,7 +194,9 @@ service cloud.firestore {
         isAdmin() ||
         (isDriverRole() &&
           resource.data.recordedByUid == request.auth.uid &&
-          vehicleAssignedToMe(resource.data.vehicleId))
+          vehicleAssignedToMe(resource.data.vehicleId) &&
+          request.resource.data.vehicleId == resource.data.vehicleId &&
+          request.resource.data.recordedByUid == request.auth.uid)
       );
       allow delete: if activeFleet() && (
         isAdmin() ||
@@ -158,15 +207,11 @@ service cloud.firestore {
     }
 
     match /sessions/{docId} {
-      allow read: if activeFleet();
-      allow create: if writeActiveFleet();
-      allow update, delete: if activeFleet();
+      allow read, create, update, delete: if activeFleet() && isAdmin();
     }
 
     match /deletionRequests/{docId} {
-      allow read: if activeFleet();
-      allow create: if writeActiveFleet();
-      allow update, delete: if activeFleet();
+      allow read, create, update, delete: if activeFleet() && isAdmin();
     }
 
     match /notifications/{docId} {

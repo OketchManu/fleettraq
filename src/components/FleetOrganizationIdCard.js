@@ -42,8 +42,18 @@ const FleetOrganizationIdCard = ({
         {copied ? <Check size={12} /> : <Copy size={12} />}
         {copied ? "Copied" : compact ? "Copy" : "Copy code"}
       </Button>
-      {onRegenerate && (
-        <Button type="button" variant="outline" size="sm" onClick={onRegenerate} disabled={regenerating}>
+          {onRegenerate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (window.confirm("Generate a new invite code? The current code will stop working immediately.")) {
+                  onRegenerate();
+                }
+              }}
+              disabled={regenerating}
+            >
           <RefreshCw size={12} className={regenerating ? "animate-spin" : ""} />
           {regenerating ? "…" : "New code"}
         </Button>

@@ -15,6 +15,7 @@ import { getDeviceId, formatDeviceId, canDeviceTrackVehicle } from "../utils/dev
 import { computeMotionState, getMotionMeta } from "../utils/vehicleMotion";
 import { CarIcon } from "./assets/car-icon";
 import SetupHelpBanner from "./SetupHelpBanner";
+import MembershipBlockedScreen from "./MembershipBlockedScreen";
 
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -38,7 +39,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver, membershipPending, membershipSuspended } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -550,6 +551,20 @@ const Tracking = () => {
   const selectedVehicleData = vehicles.find(v => v.id === selectedVehicle);
   const isSelectedVehicleTrackedByMe = myDeviceTrackedVehicles.some(v => v.vehicleId === selectedVehicle);
   const isSelectedVehicleTrackedByOther = otherDeviceTrackedVehicles.some(v => v.vehicleId === selectedVehicle);
+  const accessBlocked = membershipPending || membershipSuspended;
+
+  if (accessBlocked) {
+    return (
+      <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
+        <MembershipBlockedScreen
+          darkMode={darkMode}
+          membershipSuspended={membershipSuspended}
+          title="Tracking unavailable"
+          icon={MapPin}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>

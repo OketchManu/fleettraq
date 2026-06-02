@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, Shield, ArrowLeft, Home, Sun, Moon } from "lucide-react";
-import { createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, updateProfile, signOut } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,13 +24,6 @@ const Signup = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fleetInviteCode, setFleetInviteCode] = useState("");
 
-  const resolveDriverOrg = async (rawCode) => {
-    const invite = await resolveInviteCode(rawCode);
-    if (!invite) {
-      throw new Error("Invalid or expired invite code. Ask your fleet administrator for a current code.");
-    }
-    return invite.organizationId;
-  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -47,8 +40,8 @@ const Signup = () => {
       setIsLoading(false);
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       setIsLoading(false);
       return;
     }
@@ -66,27 +59,38 @@ const Signup = () => {
     }
 
     try {
-      let organizationId = null;
-      if (role === "driver") {
-        organizationId = await resolveDriverOrg(fleetInviteCode);
-      }
-
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
       const isDriverRole = role === "driver";
-      if (!isDriverRole) organizationId = user.uid;
+
+      let organizationId = user.uid;
+      let inviteCodeUsed = null;
+
+      if (isDriverRole) {
+        const invite = await resolveInviteCode(fleetInviteCode);
+        if (!invite) {
+          await signOut(auth);
+          throw new Error("Invalid or expired invite code. Ask your fleet administrator for a current code.");
+        }
+        organizationId = invite.organizationId;
+        inviteCodeUsed = invite.code;
+      }
 
       await updateProfile(user, { displayName: name });
 
-      await setDoc(doc(db, "users", user.uid), {
+      const profile = {
         name,
         email,
         role,
         organizationId,
         membershipStatus: isDriverRole ? "pending" : "active",
         createdAt: new Date().toISOString(),
-      });
+      };
+      if (inviteCodeUsed) {
+        profile.inviteCodeUsed = inviteCodeUsed;
+      }
+
+      await setDoc(doc(db, "users", user.uid), profile);
 
       if (!isDriverRole) {
         await ensureFleetInvite(user.uid);
@@ -106,22 +110,23 @@ const Signup = () => {
     }
   };
 
-  const completeGoogleSignup = async (user, roleArg, orgIdArg) => {
+  const completeGoogleSignup = async (user, roleArg, orgIdArg, inviteCodeUsedArg = null) => {
     const isDriverRole = roleArg === "driver";
     const organizationId = isDriverRole ? orgIdArg : user.uid;
 
-    await setDoc(
-      doc(db, "users", user.uid),
-      {
-        name: user.displayName,
-        email: user.email,
-        role: roleArg,
-        organizationId,
-        membershipStatus: isDriverRole ? "pending" : "active",
-        createdAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    const profile = {
+      name: user.displayName,
+      email: user.email,
+      role: roleArg,
+      organizationId,
+      membershipStatus: isDriverRole ? "pending" : "active",
+      createdAt: new Date().toISOString(),
+    };
+    if (inviteCodeUsedArg) {
+      profile.inviteCodeUsed = inviteCodeUsedArg;
+    }
+
+    await setDoc(doc(db, "users", user.uid), profile, { merge: true });
 
     if (!isDriverRole) {
       await ensureFleetInvite(user.uid);
@@ -142,12 +147,24 @@ const Signup = () => {
         const result = await getRedirectResult(auth);
         if (!result?.user) return;
         const pendingRole = sessionStorage.getItem("pendingGoogleRole");
-        const pendingOrgId = sessionStorage.getItem("pendingGoogleOrgId") || "";
+        const pendingInviteRaw = sessionStorage.getItem("pendingGoogleInviteCode") || "";
         sessionStorage.removeItem("pendingGoogleRole");
         sessionStorage.removeItem("pendingGoogleOrgId");
+        sessionStorage.removeItem("pendingGoogleInviteCode");
         if (!pendingRole) return;
         setIsLoading(true);
-        await completeGoogleSignup(result.user, pendingRole, pendingOrgId);
+        if (pendingRole === "driver") {
+          const invite = await resolveInviteCode(pendingInviteRaw);
+          if (!invite) {
+            await signOut(auth);
+            setError("Invalid or expired invite code. Ask your fleet administrator for a current code.");
+            setIsLoading(false);
+            return;
+          }
+          await completeGoogleSignup(result.user, pendingRole, invite.organizationId, invite.code);
+        } else {
+          await completeGoogleSignup(result.user, pendingRole, result.user.uid, null);
+        }
       } catch (err) {
         console.error("Google redirect signup error:", err.code, err.message);
         setError(friendlyAuthError(err, "signup"));
@@ -179,12 +196,17 @@ const Signup = () => {
     setIsLoading(true);
 
     try {
-      let organizationId = null;
-      if (role === "driver") {
-        organizationId = await resolveDriverOrg(fleetInviteCode);
-      }
       const result = await signInWithPopup(auth, googleProvider);
-      await completeGoogleSignup(result.user, role, organizationId);
+      if (role === "driver") {
+        const invite = await resolveInviteCode(fleetInviteCode);
+        if (!invite) {
+          await signOut(auth);
+          throw new Error("Invalid or expired invite code. Ask your fleet administrator for a current code.");
+        }
+        await completeGoogleSignup(result.user, role, invite.organizationId, invite.code);
+      } else {
+        await completeGoogleSignup(result.user, role, result.user.uid, null);
+      }
     } catch (err) {
       console.error("Google signup error:", err.code, err.message);
       // If the popup was blocked/closed by the browser, fall back to a redirect.
@@ -194,12 +216,9 @@ const Signup = () => {
         err.code === "auth/cancelled-popup-request"
       ) {
         try {
-          let organizationId = null;
-          if (role === "driver") {
-            organizationId = await resolveDriverOrg(fleetInviteCode);
-          }
           sessionStorage.setItem("pendingGoogleRole", role);
-          sessionStorage.setItem("pendingGoogleOrgId", organizationId || "");
+          sessionStorage.setItem("pendingGoogleInviteCode", fleetInviteCode.trim().toUpperCase());
+          sessionStorage.removeItem("pendingGoogleOrgId");
           await signInWithRedirect(auth, googleProvider);
           return;
         } catch (redirectErr) {

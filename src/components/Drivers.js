@@ -277,7 +277,12 @@ const Drivers = () => {
       setError("Only fleet administrators can delete drivers.");
       return;
     }
-    if (!window.confirm("Are you sure you want to delete this driver?")) return;
+    const driver = drivers.find((d) => d.id === id);
+    if (driver?.authUid) {
+      setError("This driver has a login account. Use “Permanently delete account” instead.");
+      return;
+    }
+    if (!window.confirm("Remove this manual roster entry? This does not affect any login account.")) return;
 
     if (!auth.currentUser) {
       setError("You must be logged in to delete drivers.");
@@ -454,7 +459,7 @@ const Drivers = () => {
                       {(isPending || isSuspended) && (
                         <Button size="sm" onClick={() => approveDriver(account)}>
                           <Check size={14} />
-                          Approve
+                          {isSuspended ? "Reactivate" : "Approve"}
                         </Button>
                       )}
                       {!isPending && !isSuspended && (
@@ -520,16 +525,19 @@ const Drivers = () => {
                     <button
                       onClick={() => handleEdit(driver)}
                       className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+                      title="Edit driver"
                     >
                       <Edit size={16} className="text-yellow-500" />
                     </button>
-                    <button
-                      onClick={() => handleDelete(driver.id)}
-                      className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
-                      title="Remove from roster"
-                    >
-                      <Trash2 size={16} className="text-red-400" />
-                    </button>
+                    {!driver.authUid && (
+                      <button
+                        onClick={() => handleDelete(driver.id)}
+                        className="p-2 rounded-lg bg-white/10 hover:bg-red-500/20 transition-all"
+                        title="Remove manual roster entry"
+                      >
+                        <Trash2 size={16} className="text-red-400" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 

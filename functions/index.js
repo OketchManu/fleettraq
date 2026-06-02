@@ -16,6 +16,30 @@ function memberStatusOk(profile) {
   return status !== "pending" && status !== "suspended";
 }
 
+async function deleteQueryBatch(query, batchSize = 100) {
+  const snap = await query.limit(batchSize).get();
+  if (snap.empty) return 0;
+  const batch = getFirestore().batch();
+  snap.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+  await batch.commit();
+  return snap.size;
+}
+
+async function deleteCollectionWhere(collectionName, field, value) {
+  let deleted = 0;
+  let count = batchSize => deleteQueryBatch(
+    getFirestore().collection(collectionName).where(field, "==", value),
+    batchSize
+  );
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const n = await count(100);
+    if (!n) break;
+    deleted += n;
+  }
+  return deleted;
+}
+
 /**
  * Admin-only: permanently delete a driver from the fleet and Firebase Auth.
  * Callable data: { driverUid: string }
@@ -74,13 +98,18 @@ exports.permanentlyDeleteDriver = onCall(async (request) => {
     .where("authUid", "==", driverUid)
     .get();
 
+  const assignedVehicleIds = new Set();
   for (const rosterDoc of rosterSnap.docs) {
     const assignedVehicleId = rosterDoc.data()?.assignedVehicleId;
     if (assignedVehicleId) {
+      assignedVehicleIds.add(assignedVehicleId);
       await db.collection("vehicles").doc(assignedVehicleId).set(
         {
           assignedDriverUid: null,
           assignedDriverEmail: null,
+          registeredDeviceId: null,
+          registeredDeviceAt: null,
+          registeredByUid: null,
           updatedAt: now,
         },
         { merge: true }
@@ -88,6 +117,18 @@ exports.permanentlyDeleteDriver = onCall(async (request) => {
     }
     await rosterDoc.ref.delete();
   }
+
+  if (assignedVehicleIds.size > 0) {
+    const trackingSnap = await db.collection("tracking").where("accountId", "==", orgId).get();
+    for (const t of trackingSnap.docs) {
+      if (assignedVehicleIds.has(t.data()?.vehicleId)) {
+        await t.ref.delete();
+      }
+    }
+  }
+
+  await deleteCollectionWhere("fuelRecords", "recordedByUid", driverUid);
+  await deleteCollectionWhere("notifications", "userId", driverUid);
 
   const settingsRef = db.collection("userSettings").doc(`${driverUid}_user`);
   const settingsSnap = await settingsRef.get();
@@ -101,7 +142,10 @@ exports.permanentlyDeleteDriver = onCall(async (request) => {
     await getAuth().deleteUser(driverUid);
   } catch (err) {
     if (err.code !== "auth/user-not-found") {
-      throw new HttpsError("internal", "Driver data was removed but login deletion failed. Try again or remove the user in Firebase Console.");
+      throw new HttpsError(
+        "internal",
+        "Driver data was removed but login deletion failed. Try again or remove the user in Firebase Console."
+      );
     }
   }
 

@@ -17,8 +17,8 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "", inviteCod
           How to set up your fleet
         </h3>
         <p className={`text-sm mt-1 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Complete this once for each driver and vehicle. After setup, live GPS appears on the Dashboard
-          while the driver&apos;s phone sends location from the Tracking page.
+          Complete this once for each driver and vehicle. After approval and assignment, the driver&apos;s phone
+          shares GPS automatically while logged in — no manual start button needed.
         </p>
       </div>
 
@@ -66,15 +66,14 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "", inviteCod
           <ol className={`${stepClass(darkMode)} list-decimal list-inside space-y-1.5`}>
             <li>
               Sign up or log in as <strong>Driver</strong> and enter the administrator&apos;s{" "}
-              <strong>Invite Code</strong>. Wait for approval before using the app.
+              <strong>Invite Code</strong>. Wait for approval before using fleet features.
             </li>
             <li>
-              Open <strong>Tracking</strong>, select your assigned vehicle, then tap{" "}
-              <strong>Start tracking on THIS device</strong>.
+              After approval, log in and <strong>allow location access</strong> when prompted. Keep the FleetTraq tab
+              open — your phone shares GPS automatically in the background.
             </li>
             <li>
-              If the vehicle was first added on the admin laptop, tap <strong>Use this device instead</strong>{" "}
-              once on <strong>Tracking</strong> or <strong>Vehicles</strong> so this phone becomes the GPS source.
+              Open <strong>Tracking</strong> to confirm your assigned vehicle and view your live position on the map.
             </li>
           </ol>
         </section>
@@ -90,11 +89,11 @@ const FleetSetupGuide = ({ darkMode, variant = "full", className = "", inviteCod
           </h4>
           <ol className={`${stepClass(darkMode)} list-decimal list-inside space-y-1.5`}>
             <li>
-              Open <strong>Dashboard → Live Fleet Location</strong>.
+              Open <strong>Dashboard → Live Fleet Location</strong> for vehicles with active GPS.
             </li>
             <li>
-              Each vehicle appears where the assigned driver&apos;s phone is reporting — you do not need to be on
-              that phone to view the map.
+              Check <strong>Live Vehicle Status</strong> for Moving, Parked, or Offline — offline means no recent GPS
+              from the driver&apos;s phone.
             </li>
           </ol>
         </section>

@@ -432,9 +432,9 @@ const Dashboard = () => {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <MapPin className="w-5 h-5 text-yellow-500 shrink-0" />
                   <h2 className={`font-semibold text-sm sm:text-base ${darkMode ? "text-white" : "text-gray-800"}`}>Live Fleet Location</h2>
-                  <span className="sm:ml-auto text-xs text-green-400 flex items-center gap-1">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    Live Tracking
+                  <span className={`sm:ml-auto text-xs flex items-center gap-1 ${trackedVehicles.length > 0 ? "text-green-400" : darkMode ? "text-gray-500" : "text-gray-400"}`}>
+                    <span className={`w-2 h-2 rounded-full ${trackedVehicles.length > 0 ? "bg-green-500 animate-pulse" : "bg-gray-500"}`}></span>
+                    {trackedVehicles.length > 0 ? "Live Tracking" : "No live GPS"}
                   </span>
                 </div>
               </div>

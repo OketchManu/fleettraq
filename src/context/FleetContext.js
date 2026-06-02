@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole, normalizeRole } from "../utils/fleetAccess";
-import { ensureDriverRosterEntry } from "../utils/driverRoster";
 import { ensureFleetInvite, regenerateFleetInvite } from "../utils/fleetInvite";
 import { getDeviceId } from "../utils/deviceId";
 import { isAdminFleetSetupComplete, isDriverFleetSetupComplete } from "../utils/fleetSetupStatus";
@@ -129,7 +128,6 @@ export const FleetProvider = ({ children }) => {
             : firebaseUser.uid;
         const fid = organizationId;
         const membershipStatus = data.membershipStatus || "active";
-        const isActiveMember = membershipStatus !== "pending" && membershipStatus !== "suspended";
 
         setUser({
           uid: firebaseUser.uid,
@@ -141,20 +139,7 @@ export const FleetProvider = ({ children }) => {
           membershipStatus,
         });
 
-        // Only approved drivers may write to the fleet roster.
-        if (role === "driver" && isActiveMember) {
-          try {
-            await ensureDriverRosterEntry({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || data.email,
-              displayName: firebaseUser.displayName || data.name,
-              fleetId: fid,
-            });
-          } catch (err) {
-            console.error("Failed to ensure driver roster entry:", err);
-          }
-        }
-
+        // Roster entries are created when the admin approves or syncs drivers.
         localStorage.setItem("role", role);
 
         const settingsRef = doc(db, "userSettings", `${firebaseUser.uid}_user`);
