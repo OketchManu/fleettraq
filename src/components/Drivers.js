@@ -75,6 +75,10 @@ const Drivers = () => {
   };
 
   const handleRemoveDriverAccount = async (driver) => {
+    if (!canManageFleet) {
+      setError("Only fleet administrators can remove driver accounts.");
+      return;
+    }
     if (!window.confirm(`Remove ${driver.name || driver.email}'s account from your fleet? They will no longer be able to log in.`)) {
       return;
     }
@@ -193,6 +197,10 @@ const Drivers = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!canManageFleet) {
+      setError("Only fleet administrators can delete drivers.");
+      return;
+    }
     if (!window.confirm("Are you sure you want to delete this driver?")) return;
 
     if (!auth.currentUser) {

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, Shield, ArrowLeft, Home, Sun, Moon } from "lucide-react";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth, googleProvider, db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
@@ -80,48 +80,86 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setError("");
-    setIsLoading(true);
-
-    if (!role) {
-      setError("Please select a role");
+  const completeGoogleLogin = async (user, roleArg) => {
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (!userDoc.exists()) {
+      await auth.signOut();
+      setError(
+        "This Google account is not registered with FleetTraq yet. Please sign up first on the sign-up page."
+      );
       setIsLoading(false);
       return;
     }
 
+    const registeredRole = normalizeRole(userDoc.data().role);
+    if (registeredRole !== roleArg) {
+      const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
+      await auth.signOut();
+      setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
+      setIsLoading(false);
+      return;
+    }
+
+    const idToken = await user.getIdToken();
+    localStorage.setItem("token", idToken);
+    localStorage.setItem("role", roleArg);
+    localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
+
+    navigate("/dashboard", { replace: true });
+  };
+
+  // Complete a Google login that fell back to a full-page redirect.
+  useEffect(() => {
+    const finishRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (!result?.user) return;
+        const pendingRole = sessionStorage.getItem("pendingGoogleRole");
+        sessionStorage.removeItem("pendingGoogleRole");
+        if (!pendingRole) return;
+        setIsLoading(true);
+        await completeGoogleLogin(result.user, pendingRole);
+      } catch (err) {
+        console.error("Google redirect login error:", err.code, err.message);
+        setError(friendlyAuthError(err, "login"));
+        setIsLoading(false);
+      }
+    };
+    finishRedirect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    setError("");
+
+    if (!role) {
+      setError("Please select a role");
+      return;
+    }
+
+    setIsLoading(true);
+
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (!userDoc.exists()) {
-        await auth.signOut();
-        setError(
-          "This Google account is not registered with FleetTraq yet. Please sign up first on the sign-up page."
-        );
-        setIsLoading(false);
-        return;
-      }
-      
-      const registeredRole = normalizeRole(userDoc.data().role);
-      if (registeredRole !== role) {
-        const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
-        setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
-        setIsLoading(false);
-        return;
-      }
-
-      const idToken = await user.getIdToken();
-      localStorage.setItem("token", idToken);
-      localStorage.setItem("role", role);
-      localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
-      
-      navigate("/dashboard", { replace: true });
+      await completeGoogleLogin(result.user, role);
     } catch (err) {
       console.error("Google login error:", err.code, err.message);
-      setError(friendlyAuthError(err, "login"));
-    } finally {
+      if (
+        err.code === "auth/popup-blocked" ||
+        err.code === "auth/popup-closed-by-user" ||
+        err.code === "auth/cancelled-popup-request"
+      ) {
+        try {
+          sessionStorage.setItem("pendingGoogleRole", role);
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectErr) {
+          console.error("Google redirect login error:", redirectErr.code, redirectErr.message);
+          setError(friendlyAuthError(redirectErr, "login"));
+        }
+      } else {
+        setError(friendlyAuthError(err, "login"));
+      }
       setIsLoading(false);
     }
   };

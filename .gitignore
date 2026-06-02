@@ -27,3 +27,32 @@ yarn-error.log*
 .env
 .env.local
 .env.production
+
+# Secrets & credentials — never commit these
+*.env
+secrets.json
+credentials.json
+# Firebase Admin SDK / service account keys
+serviceAccount*.json
+service-account*.json
+*-firebase-adminsdk-*.json
+firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Private keys & certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+
+# Local notes / private docs
+/private/
+*.private.md
+secrets/

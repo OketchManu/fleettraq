@@ -53,6 +53,12 @@ export function friendlyAuthError(error, context = "login") {
     case "auth/network-request-failed":
       return "Network error. Please check your internet connection and try again.";
 
+    case "auth/unauthorized-domain":
+      return "This website domain isn't authorized for Google sign-in yet. Add it under Firebase Authentication → Settings → Authorized domains.";
+
+    case "auth/internal-error":
+      return "Something went wrong with sign-in. Please try again.";
+
     case "auth/operation-not-allowed":
       return "This sign-in method is not enabled. Contact your fleet administrator.";
 

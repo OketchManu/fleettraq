@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, User, Shield, ArrowLeft, Home, Sun, Moon } from "lucide-react";
-import { createUserWithEmailAndPassword, signInWithPopup, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
@@ -101,70 +101,106 @@ const Signup = () => {
     }
   };
 
+  const completeGoogleSignup = async (user, roleArg, orgIdArg) => {
+    const organizationId = roleArg === "driver" ? orgIdArg : user.uid;
+
+    await setDoc(
+      doc(db, "users", user.uid),
+      {
+        name: user.displayName,
+        email: user.email,
+        role: roleArg,
+        organizationId,
+        createdAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+
+    if (roleArg === "driver") {
+      await ensureDriverRosterEntry({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        fleetId: organizationId,
+      });
+    }
+
+    await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
+
+    const idToken = await user.getIdToken();
+    localStorage.setItem("token", idToken);
+    localStorage.setItem("role", roleArg);
+    localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
+
+    navigate("/dashboard", { replace: true });
+  };
+
+  // Complete a Google sign-up that fell back to a full-page redirect.
+  useEffect(() => {
+    const finishRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (!result?.user) return;
+        const pendingRole = sessionStorage.getItem("pendingGoogleRole");
+        const pendingOrgId = sessionStorage.getItem("pendingGoogleOrgId") || "";
+        sessionStorage.removeItem("pendingGoogleRole");
+        sessionStorage.removeItem("pendingGoogleOrgId");
+        if (!pendingRole) return;
+        setIsLoading(true);
+        await completeGoogleSignup(result.user, pendingRole, pendingOrgId);
+      } catch (err) {
+        console.error("Google redirect signup error:", err.code, err.message);
+        setError(friendlyAuthError(err, "signup"));
+        setIsLoading(false);
+      }
+    };
+    finishRedirect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleGoogleSignup = async () => {
     setError("");
-    setIsLoading(true);
 
     if (!role) {
       setError("Please select a role");
-      setIsLoading(false);
       return;
     }
 
     if (role !== "admin" && role !== "driver") {
       setError("Please select Administrator or Driver");
-      setIsLoading(false);
       return;
     }
 
     if (role === "driver" && !fleetOrganizationId.trim()) {
       setError("Drivers must enter the fleet Organization ID before signing up with Google.");
-      setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
+
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      let organizationId = user.uid;
-      if (role === "driver") {
-        organizationId = fleetOrganizationId.trim();
-      }
-
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          name: user.displayName,
-          email: user.email,
-          role,
-          organizationId,
-          createdAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-
-      if (role === "driver") {
-        await ensureDriverRosterEntry({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          fleetId: organizationId,
-        });
-      }
-
-      await setDoc(doc(db, "userSettings", `${user.uid}_user`), { darkMode }, { merge: true });
-
-      const idToken = await user.getIdToken();
-      localStorage.setItem("token", idToken);
-      localStorage.setItem("role", role);
-      localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
-      
-      navigate("/dashboard", { replace: true });
+      await completeGoogleSignup(result.user, role, fleetOrganizationId.trim());
     } catch (err) {
       console.error("Google signup error:", err.code, err.message);
-      setError(friendlyAuthError(err, "signup"));
-    } finally {
+      // If the popup was blocked/closed by the browser, fall back to a redirect.
+      if (
+        err.code === "auth/popup-blocked" ||
+        err.code === "auth/popup-closed-by-user" ||
+        err.code === "auth/cancelled-popup-request"
+      ) {
+        try {
+          sessionStorage.setItem("pendingGoogleRole", role);
+          sessionStorage.setItem("pendingGoogleOrgId", fleetOrganizationId.trim());
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectErr) {
+          console.error("Google redirect signup error:", redirectErr.code, redirectErr.message);
+          setError(friendlyAuthError(redirectErr, "signup"));
+        }
+      } else {
+        setError(friendlyAuthError(err, "signup"));
+      }
       setIsLoading(false);
     }
   };

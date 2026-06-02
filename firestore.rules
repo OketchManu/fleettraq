@@ -3,59 +3,122 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    // User profiles. Any signed-in user can read profiles (needed for fleet
-    // roster lookups by organizationId); a user may only write their own.
+    // The caller's own profile document.
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Fleet/organization id the caller belongs to.
+    function myOrg() {
+      return myProfile().organizationId;
+    }
+
+    function isAdmin() {
+      return hasProfile() &&
+        (myProfile().role == 'admin' || myProfile().role == 'manager');
+    }
+
+    // A document belongs to the caller's fleet (existing doc).
+    function ownFleet() {
+      return hasProfile() && resource.data.accountId == myOrg();
+    }
+
+    // An incoming write is stamped with the caller's own fleet id.
+    function writeForOwnFleet() {
+      return hasProfile() && request.resource.data.accountId == myOrg();
+    }
+
+    // ---- User profiles ----
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
-      // Admins can remove a driver's profile to revoke access.
-      allow delete: if isSignedIn();
+      // A user may read their own profile; fleet members may read profiles in
+      // the same organization (needed for the driver roster).
+      allow read: if signedIn() &&
+        (request.auth.uid == userId ||
+          (hasProfile() && resource.data.organizationId == myOrg()));
+
+      // You can only create your own profile.
+      allow create: if signedIn() && request.auth.uid == userId;
+
+      // You may update your own profile, but role and organizationId are
+      // immutable from the client (prevents self privilege escalation).
+      allow update: if signedIn() && request.auth.uid == userId &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.organizationId == resource.data.organizationId;
+
+      // You may delete your own profile, or an admin may remove a profile that
+      // belongs to their own fleet (revoking a driver's access).
+      allow delete: if signedIn() &&
+        (request.auth.uid == userId ||
+          (isAdmin() && resource.data.organizationId == myOrg()));
     }
 
-    // Per-user settings document (e.g. "{uid}_user").
+    // ---- Per-user settings ("{uid}_user") ----
     match /userSettings/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if signedIn();
+      allow write: if signedIn() &&
+        (docId == request.auth.uid + '_user' || isAdmin());
     }
 
-    // Fleet-scoped collections. Access is limited to signed-in users; the app
-    // additionally scopes every query by accountId (the fleet organization id).
+    // ---- Fleet-scoped collections (scoped by accountId == organization) ----
     match /vehicles/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if ownFleet();
+      allow create: if writeForOwnFleet();
+      allow update, delete: if ownFleet();
     }
 
     match /drivers/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if ownFleet();
+      allow create: if writeForOwnFleet();
+      allow update, delete: if ownFleet();
     }
 
     match /tracking/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if ownFleet();
+      allow create: if writeForOwnFleet();
+      allow update, delete: if ownFleet();
     }
 
     match /reports/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if ownFleet();
+      allow create: if writeForOwnFleet();
+      allow update, delete: if ownFleet();
     }
 
     match /fuelRecords/{docId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /notifications/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if ownFleet();
+      allow create: if writeForOwnFleet();
+      allow update, delete: if ownFleet();
     }
 
     match /sessions/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if ownFleet();
+      allow create: if writeForOwnFleet();
+      allow update, delete: if ownFleet();
     }
 
     match /deletionRequests/{docId} {
-      allow read, write: if isSignedIn();
+      allow read: if ownFleet();
+      allow create: if writeForOwnFleet();
+      allow update, delete: if ownFleet();
     }
 
-    // Fallback: deny anything not explicitly listed above.
+    // ---- Per-user notifications (scoped by userId) ----
+    match /notifications/{docId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Deny everything not explicitly allowed above.
     match /{document=**} {
       allow read, write: if false;
     }
