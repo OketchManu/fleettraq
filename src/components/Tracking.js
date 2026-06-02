@@ -12,6 +12,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Button from "./Button";
 import { getDeviceId, formatDeviceId, canDeviceTrackVehicle } from "../utils/deviceId";
+import { computeMotionState, getMotionMeta } from "../utils/vehicleMotion";
 import { CarIcon } from "./assets/car-icon";
 import SetupHelpBanner from "./SetupHelpBanner";
 
@@ -51,6 +52,7 @@ const Tracking = () => {
   const [otherDeviceTrackedVehicles, setOtherDeviceTrackedVehicles] = useState([]);
   
   const deviceId = useMemo(() => getDeviceId(), []);
+  const motionAnchors = useRef(new Map());
   
   const [trackingDocId, setTrackingDocId] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -139,6 +141,17 @@ const Tracking = () => {
         const otherDevices = [];
         const seenMyVehicles = new Set();
         const seenOtherVehicles = new Set();
+        const now = Date.now();
+
+        const withMotion = (item) => ({
+          ...item,
+          motionState: computeMotionState(
+            motionAnchors.current,
+            item.vehicleId,
+            { lat: Number(item.lat), lng: Number(item.lng), timestamp: item.timestamp },
+            now
+          ),
+        });
         
         for (const item of allTracking) {
           const vehicle = vehicles.find((v) => v.id === item.vehicleId);
@@ -151,7 +164,7 @@ const Tracking = () => {
           if (isRegisteredHere && item.deviceId === deviceId && matchesRegisteredDevice) {
             if (!seenMyVehicles.has(item.vehicleId)) {
               seenMyVehicles.add(item.vehicleId);
-              myDevice.push(item);
+              myDevice.push(withMotion(item));
             }
           } else if (
             vehicle.registeredDeviceId &&
@@ -160,7 +173,7 @@ const Tracking = () => {
             !seenOtherVehicles.has(item.vehicleId)
           ) {
             seenOtherVehicles.add(item.vehicleId);
-            otherDevices.push(item);
+            otherDevices.push(withMotion(item));
           }
         }
         
@@ -658,14 +671,21 @@ const Tracking = () => {
             <div className="space-y-2">
               {myDeviceTrackedVehicles.map((track) => {
                 const vehicle = vehicles.find(v => v.id === track.vehicleId);
+                const meta = getMotionMeta(track.motionState);
                 return (
                   <div key={track.id} className={`flex items-center justify-between p-3 rounded-lg ${darkMode ? "bg-green-500/5" : "bg-green-100/50"}`}>
                     <div className="flex items-center gap-3">
                       <Car className="w-5 h-5 text-yellow-500" />
                       <div>
-                        <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
-                          {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>
+                            {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
+                          </p>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${meta.badgeClass}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${meta.dotClass} ${track.motionState === "moving" ? "animate-pulse" : ""}`} />
+                            {meta.label}
+                          </span>
+                        </div>
                         <p className="text-xs text-gray-400">
                           Last update: {new Date(track.timestamp).toLocaleString()}
                           {track.isTracking && <span className="text-green-500 ml-2">● Live</span>}
@@ -739,14 +759,21 @@ const Tracking = () => {
             <div className="space-y-2">
               {otherDeviceTrackedVehicles.map((track) => {
                 const vehicle = vehicles.find(v => v.id === track.vehicleId);
+                const meta = getMotionMeta(track.motionState);
                 return (
                   <div key={track.id} className={`flex items-center justify-between p-3 rounded-lg ${darkMode ? "bg-gray-500/5" : "bg-gray-50"}`}>
                     <div className="flex items-center gap-3">
                       <Car className="w-5 h-5 text-gray-500" />
                       <div>
-                        <p className={`font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                          {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={`font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                            {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
+                          </p>
+                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${meta.badgeClass}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${meta.dotClass} ${track.motionState === "moving" ? "animate-pulse" : ""}`} />
+                            {meta.label}
+                          </span>
+                        </div>
                         <p className="text-xs text-gray-500">
                           Device: {track.deviceId?.slice(0, 8)}...
                           {track.isTracking && <span className="text-yellow-500 ml-2">● Live</span>}

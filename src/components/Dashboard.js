@@ -18,6 +18,7 @@ import Button from "./Button";
 import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
+import { computeMotionState, getMotionMeta } from "../utils/vehicleMotion";
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -61,6 +62,14 @@ const VehicleMarker = ({ track, vehicle }) => {
               {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown Vehicle"}
             </strong>
           </div>
+          {track.motionState && (
+            <div className="mb-2">
+              <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${getMotionMeta(track.motionState).badgeClass}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${getMotionMeta(track.motionState).dotClass}`} />
+                {getMotionMeta(track.motionState).label}
+              </span>
+            </div>
+          )}
           <div className="space-y-1 text-sm">
             <p className="text-gray-700 dark:text-gray-300">
               <span className="font-semibold">Plate:</span> {vehicle?.licensePlate || vehicle?.plateNumber || "N/A"}
@@ -92,6 +101,7 @@ const Dashboard = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
+  const motionAnchors = useRef(new Map());
   const [stats, setStats] = useState({
     totalMileage: 0,
     avgFuelEfficiency: 0,
@@ -158,21 +168,32 @@ const Dashboard = () => {
           byVehicleId.set(track.vehicleId, list);
         }
 
+        const now = Date.now();
         const authoritative = [];
         for (const vehicle of vehicles) {
           const tracks = byVehicleId.get(vehicle.id);
           if (!tracks?.length) continue;
           const best = pickAuthoritativeTrack(tracks, vehicle);
           if (best) {
+            const lat = Number(best.lat) || -1.2864;
+            const lng = Number(best.lng) || 36.8172;
+            const timestamp = best.timestamp || new Date().toISOString();
+            const motionState = computeMotionState(
+              motionAnchors.current,
+              best.vehicleId,
+              { lat, lng, timestamp },
+              now
+            );
             authoritative.push({
               id: best.id,
               vehicleId: best.vehicleId,
-              lat: Number(best.lat) || -1.2864,
-              lng: Number(best.lng) || 36.8172,
+              lat,
+              lng,
               locationName: best.locationName || "Unknown Location",
-              timestamp: best.timestamp || new Date().toISOString(),
+              timestamp,
               isTracking: best.isTracking,
               deviceId: best.deviceId,
+              motionState,
             });
           }
         }
@@ -212,6 +233,26 @@ const Dashboard = () => {
   };
 
   const fleetStats = getFleetStats();
+
+  // Full fleet status: every vehicle gets moving / parked / offline.
+  const fleetLiveStatus = useMemo(() => {
+    const trackByVehicle = new Map(trackedVehicles.map((t) => [t.vehicleId, t]));
+    return vehicles.map((vehicle) => {
+      const track = trackByVehicle.get(vehicle.id);
+      if (track) {
+        return { vehicle, track, motionState: track.motionState };
+      }
+      return { vehicle, track: null, motionState: "offline" };
+    });
+  }, [vehicles, trackedVehicles]);
+
+  const motionCounts = useMemo(() => {
+    const counts = { moving: 0, parked: 0, offline: 0 };
+    fleetLiveStatus.forEach(({ motionState }) => {
+      if (counts[motionState] != null) counts[motionState] += 1;
+    });
+    return counts;
+  }, [fleetLiveStatus]);
 
   const MapComponent = useMemo(() => {
     const defaultPosition = [-1.2864, 36.8172];
@@ -378,6 +419,67 @@ const Dashboard = () => {
                 </div>
               </div>
               {MapComponent}
+            </motion.div>
+
+            {/* Live vehicle status */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className={`mt-6 rounded-2xl border ${darkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"} shadow-lg overflow-hidden`}
+            >
+              <div className={`p-4 border-b flex items-center gap-2 ${darkMode ? "border-white/10" : "border-gray-200"}`}>
+                <Navigation className="w-5 h-5 text-yellow-500" />
+                <h2 className={`font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Live Vehicle Status</h2>
+                <div className="ml-auto flex flex-wrap items-center gap-3 text-xs">
+                  {["moving", "parked", "offline"].map((s) => {
+                    const meta = getMotionMeta(s);
+                    return (
+                      <span key={s} className={`flex items-center gap-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                        <span className={`w-2 h-2 rounded-full ${meta.dotClass}`} />
+                        {meta.label}: <strong>{motionCounts[s] ?? 0}</strong>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+              {fleetLiveStatus.length === 0 ? (
+                <p className={`p-5 text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                  No vehicles in your fleet yet. Add vehicles under Manage Fleet, then assign drivers to start live tracking.
+                </p>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {fleetLiveStatus.map(({ vehicle, track, motionState }) => {
+                    const meta = getMotionMeta(motionState);
+                    return (
+                      <div key={vehicle.id} className="flex flex-wrap items-center justify-between gap-2 p-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Car className="w-5 h-5 text-yellow-500 shrink-0" />
+                          <div className="min-w-0">
+                            <p className={`font-medium truncate ${darkMode ? "text-white" : "text-gray-900"}`}>
+                              {vehicle.make} {vehicle.model}
+                              {(vehicle.licensePlate || vehicle.plateNumber) && (
+                                <span className={`ml-2 text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                                  {vehicle.licensePlate || vehicle.plateNumber}
+                                </span>
+                              )}
+                            </p>
+                            <p className={`text-xs truncate ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                              {track
+                                ? `${track.locationName} · ${new Date(track.timestamp).toLocaleTimeString()}`
+                                : "No GPS signal — not tracking"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${meta.badgeClass}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${meta.dotClass} ${motionState === "moving" ? "animate-pulse" : ""}`} />
+                          {meta.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
 
             {/* Quick Actions */}
