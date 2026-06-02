@@ -20,6 +20,7 @@ import UserSettings from "./components/UserSettings";
 import AuthCallback from "./components/AuthCallback";
 import FuelTracking from "./components/FuelTracking";
 import HelpCenter from "./components/HelpCenter";
+import Demo from "./components/Demo";
 import NotFound from "./components/NotFound";
 import AppLayout from "./components/AppLayout";
 
@@ -85,6 +86,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/demo" element={<Demo />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/dashboard" element={user ? <AuthenticatedShell><Dashboard /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="/analytics" element={user ? <AuthenticatedShell><Analytics /></AuthenticatedShell> : <Navigate to="/login" />} />

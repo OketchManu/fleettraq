@@ -210,7 +210,7 @@ const WelcomeScreen = () => {
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
-                onClick={() => navigate("/login")}
+                onClick={() => navigate("/demo")}
                 className={`px-8 py-3 rounded-xl border-2 font-semibold text-lg transition-all ${
                   !darkMode
                     ? "border-yellow-500 text-yellow-600 hover:bg-yellow-500 hover:text-white"
