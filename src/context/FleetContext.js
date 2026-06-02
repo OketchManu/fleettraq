@@ -6,6 +6,7 @@ import { ensureDriverRosterEntry } from "../utils/driverRoster";
 import { ensureFleetInvite, regenerateFleetInvite } from "../utils/fleetInvite";
 import { getDeviceId } from "../utils/deviceId";
 import { isAdminFleetSetupComplete, isDriverFleetSetupComplete } from "../utils/fleetSetupStatus";
+import { useDriverGpsTracker } from "../hooks/useDriverGpsTracker";
 
 const FleetContext = createContext();
 
@@ -76,10 +77,22 @@ export const FleetProvider = ({ children }) => {
 
   const fleetId = fleetIdFromUser(user);
 
+  const driverGpsEnabled =
+    roleIsDriver(user?.role) &&
+    user?.membershipStatus !== "pending" &&
+    user?.membershipStatus !== "suspended";
+
   const vehicles = useMemo(
     () => filterVehiclesForDriver(vehiclesAll, user, drivers),
     [vehiclesAll, user, drivers]
   );
+
+  useDriverGpsTracker({
+    user,
+    vehicles: vehiclesAll,
+    drivers,
+    enabled: driverGpsEnabled,
+  });
 
   const maintenanceAlerts = useMemo(() => buildMaintenanceAlerts(vehicles), [vehicles]);
 

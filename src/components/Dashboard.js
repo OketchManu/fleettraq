@@ -145,7 +145,7 @@ const Dashboard = () => {
   }, [fetchVehicles, user?.uid]);
 
   useEffect(() => {
-    const fid = user?.fleetId;
+    const fid = fleetId;
     if (!fid) return;
 
     const q = query(
@@ -211,7 +211,7 @@ const Dashboard = () => {
     );
 
     return () => unsubscribe();
-  }, [user?.fleetId, vehicles]);
+  }, [fleetId, vehicles]);
 
   useEffect(() => {
     if (vehicles.length) {
@@ -333,7 +333,8 @@ const Dashboard = () => {
                 <FleetOrganizationIdCard
                   inviteCode={inviteCode}
                   darkMode={darkMode}
-                  className="mb-6"
+                  compact
+                  className="mb-4"
                   onRegenerate={regenerateInvite}
                   regenerating={inviteLoading}
                 />

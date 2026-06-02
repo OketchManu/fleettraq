@@ -26,56 +26,67 @@ const FleetOrganizationIdCard = ({
     }
   };
 
-  return (
-    <div
-      className={`rounded-2xl border ${
-        darkMode ? "bg-yellow-500/10 border-yellow-500/30" : "bg-yellow-50 border-yellow-200"
-      } ${compact ? "p-3" : "p-4"} ${className}`}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p
-            className={`font-medium flex items-center gap-2 ${
-              compact ? "text-sm" : "text-sm mb-1"
-            } ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}
-          >
-            <KeyRound className="w-4 h-4 shrink-0 text-yellow-500" />
-            {title}
-          </p>
-          {!compact && (
-            <p className={`text-xs mb-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-              {description}
-            </p>
-          )}
-          <code
-            className={`block font-mono text-2xl sm:text-3xl font-bold tracking-[0.2em] rounded-xl px-4 py-3 text-center border-2 ${
-              darkMode
-                ? "bg-gray-950 text-yellow-400 border-yellow-500/60 shadow-inner"
-                : "bg-white text-gray-900 border-yellow-300 shadow-sm"
-            }`}
-          >
-            {inviteCode}
-          </code>
-        </div>
-        <div className="flex flex-col gap-2 shrink-0">
-          <Button type="button" variant="secondary" size="sm" onClick={handleCopy}>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-            {copied ? "Copied" : "Copy code"}
-          </Button>
-          {onRegenerate && (
-            <Button type="button" variant="outline" size="sm" onClick={onRegenerate} disabled={regenerating}>
-              <RefreshCw size={14} className={regenerating ? "animate-spin" : ""} />
-              {regenerating ? "…" : "New code"}
-            </Button>
-          )}
+  const shellClass = `rounded-xl border ${
+    darkMode ? "bg-yellow-500/10 border-yellow-500/30" : "bg-yellow-50 border-yellow-200"
+  } ${compact ? "p-2" : "p-3"} ${className}`;
+
+  const codeClass = `font-mono font-bold tracking-wider rounded-md border ${
+    darkMode
+      ? "bg-gray-950 text-yellow-400 border-yellow-500/50"
+      : "bg-white text-gray-900 border-yellow-300"
+  } ${compact ? "text-sm px-2 py-0.5" : "text-base px-2.5 py-1"}`;
+
+  const actions = (
+    <div className={`flex items-center shrink-0 ${compact ? "gap-1" : "gap-1.5"}`}>
+      <Button type="button" variant="secondary" size="sm" onClick={handleCopy}>
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+        {copied ? "Copied" : compact ? "Copy" : "Copy code"}
+      </Button>
+      {onRegenerate && (
+        <Button type="button" variant="outline" size="sm" onClick={onRegenerate} disabled={regenerating}>
+          <RefreshCw size={12} className={regenerating ? "animate-spin" : ""} />
+          {regenerating ? "…" : "New code"}
+        </Button>
+      )}
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <div className={shellClass}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <KeyRound className="w-3.5 h-3.5 shrink-0 text-yellow-500" />
+            <span className={`text-xs font-medium ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}>
+              {title}
+            </span>
+          </div>
+          <code className={codeClass}>{inviteCode}</code>
+          <div className="ml-auto">{actions}</div>
         </div>
       </div>
-      {!compact && (
-        <p className={`text-xs mt-2 flex items-center gap-1 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
-          <Share2 size={12} />
-          Drivers enter this on the sign-up page under &quot;Fleet Invite Code&quot;.
-        </p>
+    );
+  }
+
+  return (
+    <div className={shellClass}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <KeyRound className="w-3.5 h-3.5 shrink-0 text-yellow-500" />
+          <span className={`text-sm font-medium ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}>
+            {title}
+          </span>
+        </div>
+        <code className={codeClass}>{inviteCode}</code>
+        <div className="ml-auto">{actions}</div>
+      </div>
+      {description && (
+        <p className={`text-xs mt-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{description}</p>
       )}
+      <p className={`text-xs mt-1.5 flex items-center gap-1 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
+        <Share2 size={11} />
+        Drivers enter this on the sign-up page under &quot;Fleet Invite Code&quot;.
+      </p>
     </div>
   );
 };

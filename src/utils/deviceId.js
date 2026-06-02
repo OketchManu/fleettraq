@@ -42,7 +42,8 @@ export function pickAuthoritativeTrack(tracks, vehicle) {
     (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
   );
   if (vehicle.registeredDeviceId) {
-    return sorted.find((t) => t.deviceId === vehicle.registeredDeviceId) || null;
+    const registered = sorted.find((t) => t.deviceId === vehicle.registeredDeviceId);
+    if (registered) return registered;
   }
-  return sorted[0] || null;
+  return sorted.find((t) => t.isTracking !== false) || sorted[0] || null;
 }

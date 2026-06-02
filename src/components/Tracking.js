@@ -85,37 +85,11 @@ const Tracking = () => {
     [vehicles, deviceId]
   );
 
-  // A driver's own phone automatically becomes the GPS source for any vehicle
-  // assigned to them, so admins never need to know the driver's device id.
-  const claimedVehiclesRef = useRef(new Set());
+  // Auto-select assigned vehicle for drivers (GPS is shared automatically app-wide).
   useEffect(() => {
-    if (!isDriver || !user?.uid || !deviceId) return;
-
-    const myVehicles = vehicles.filter(
-      (v) =>
-        v.assignedDriverUid === user.uid ||
-        (v.assignedDriverEmail &&
-          user.email &&
-          v.assignedDriverEmail.toLowerCase() === user.email.toLowerCase())
-    );
-
-    myVehicles.forEach(async (vehicle) => {
-      if (vehicle.registeredDeviceId === deviceId) return;
-      if (claimedVehiclesRef.current.has(vehicle.id)) return;
-      claimedVehiclesRef.current.add(vehicle.id);
-      try {
-        await updateDoc(doc(db, "vehicles", vehicle.id), {
-          registeredDeviceId: deviceId,
-          registeredDeviceAt: new Date().toISOString(),
-          registeredByUid: user.uid,
-          updatedAt: new Date().toISOString(),
-        });
-      } catch (err) {
-        console.error("Could not claim vehicle for this device:", err);
-        claimedVehiclesRef.current.delete(vehicle.id);
-      }
-    });
-  }, [isDriver, user?.uid, user?.email, deviceId, vehicles]);
+    if (!isDriver || selectedVehicle || !trackableVehicles.length) return;
+    setSelectedVehicle(trackableVehicles[0].id);
+  }, [isDriver, selectedVehicle, trackableVehicles]);
 
   // Fetch tracked vehicles - SEPARATE by registered GPS device
   useEffect(() => {
@@ -353,8 +327,10 @@ const Tracking = () => {
     }
   };
 
-  // Real-time tracking updates (only for this device's active tracking)
+  // Real-time tracking updates (admins on Tracking page; drivers use background GPS in FleetContext)
   useEffect(() => {
+    if (isDriver) return undefined;
+
     let watchId = null;
 
     if (isTracking && !useManualCoordinates && navigator.geolocation && trackingDocId) {
@@ -376,7 +352,7 @@ const Tracking = () => {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [isTracking, useManualCoordinates, saveLocation, locationName, trackingDocId]);
+  }, [isTracking, useManualCoordinates, saveLocation, locationName, trackingDocId, isDriver]);
 
   // Listen for tracking updates for selected vehicle (from this device only)
   useEffect(() => {
@@ -897,6 +873,11 @@ const Tracking = () => {
                 </div>
               )}
 
+              {isDriver ? (
+                <div className={`rounded-xl border p-3 text-sm ${darkMode ? "bg-green-500/10 border-green-500/30 text-green-300" : "bg-green-50 border-green-200 text-green-800"}`}>
+                  Your phone shares GPS automatically while you are logged in. Allow location access in your browser and keep this tab open so your fleet admin sees live status.
+                </div>
+              ) : (
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={handleTrackVehicle}
@@ -916,6 +897,7 @@ const Tracking = () => {
                   </Button>
                 )}
               </div>
+              )}
               {isSelectedVehicleTrackedByMe && (
                 <p className="text-xs text-yellow-500 text-center">
                   ⚡ You are already tracking this vehicle on this device. Stop tracking first to start a new session.
@@ -942,7 +924,13 @@ const Tracking = () => {
                 {isTracking && !useManualCoordinates && (
                   <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    Live tracking active on this device
+                    {isDriver ? "Live GPS sharing active on this device" : "Live tracking active on this device"}
+                  </p>
+                )}
+                {isDriver && !isTracking && myDeviceTrackedVehicles.some((t) => t.vehicleId === selectedVehicle && t.isTracking) && (
+                  <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    Live GPS sharing active on this device
                   </p>
                 )}
               </div>
