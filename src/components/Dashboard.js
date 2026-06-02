@@ -6,7 +6,7 @@ import {
   MapPin, Truck, FileText, 
   Car, Menu, X, Moon, Sun, 
   TrendingUp, Fuel, AlertTriangle,
-  Navigation, Gauge, BookOpen, Copy, Check, Shield
+  Navigation, Gauge, BookOpen, Shield
 } from "lucide-react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -15,6 +15,7 @@ import { db } from "../firebase";
 import { collection, query, onSnapshot, where } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
+import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
@@ -96,7 +97,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetId, inviteCode, inviteLoading, regenerateInvite } = useFleet();
   const [error, setError] = useState(null);
-  const [idCopied, setIdCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
@@ -318,25 +318,6 @@ const Dashboard = () => {
                 <BookOpen size={16} />
                 Setup guide & help
               </Button>
-              {canManageFleet && inviteCode && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={inviteLoading}
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(inviteCode);
-                      setIdCopied(true);
-                      setTimeout(() => setIdCopied(false), 2000);
-                    } catch {
-                      setIdCopied(false);
-                    }
-                  }}
-                >
-                  {idCopied ? <Check size={16} /> : <Copy size={16} />}
-                  {idCopied ? "Invite code copied" : "Copy invite code"}
-                </Button>
-              )}
               {canManageFleet && (
                 <Button variant="secondary" size="sm" onClick={() => navigate("/drivers")}>
                   <Shield size={16} />
@@ -344,6 +325,22 @@ const Dashboard = () => {
                 </Button>
               )}
             </div>
+
+            {canManageFleet && (
+              inviteCode ? (
+                <FleetOrganizationIdCard
+                  inviteCode={inviteCode}
+                  darkMode={darkMode}
+                  className="mb-6"
+                  onRegenerate={regenerateInvite}
+                  regenerating={inviteLoading}
+                />
+              ) : inviteLoading ? (
+                <div className={`mb-6 p-4 rounded-2xl border animate-pulse ${darkMode ? "bg-white/5 border-white/10" : "bg-gray-100 border-gray-200"}`}>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Loading your driver invite code…</p>
+                </div>
+              ) : null
+            )}
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <motion.div
