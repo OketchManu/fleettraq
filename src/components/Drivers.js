@@ -150,14 +150,19 @@ const Drivers = () => {
       setError("Only fleet administrators can remove driver accounts.");
       return;
     }
-    if (!window.confirm(`Remove ${driver.name || driver.email}'s account from your fleet? They will no longer be able to log in.`)) {
+    const label = driver.name || driver.email || "this driver";
+    if (
+      !window.confirm(
+        `Permanently delete ${label}'s account?\n\nThis removes them from your fleet and deletes their login completely. They will need a new invite code to sign up again.`
+      )
+    ) {
       return;
     }
     try {
       await removeDriverAccount({ driver, fleetId });
       await fetchDrivers();
     } catch (err) {
-      setError("Failed to remove driver account: " + err.message);
+      setError(err.message || "Failed to delete driver account.");
     }
   };
 
@@ -617,7 +622,7 @@ const Drivers = () => {
                         onClick={() => handleRemoveDriverAccount(driver)}
                         className="mt-3 text-xs text-red-400 hover:text-red-300 underline"
                       >
-                        Remove driver account (revokes login)
+                        Permanently delete account
                       </button>
                     )}
                   </div>

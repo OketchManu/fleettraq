@@ -39,6 +39,7 @@ service-account*.json
 firebase-adminsdk*.json
 google-services.json
 GoogleService-Info.plist
+functions/node_modules
 .firebase/
 firebase-debug.log*
 firestore-debug.log*

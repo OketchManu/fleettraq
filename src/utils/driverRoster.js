@@ -1,5 +1,6 @@
 import { collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
-import { db } from "../firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import app, { db } from "../firebase";
 
 /** Create or update the fleet driver roster entry for a signed-in driver account. */
 export async function ensureDriverRosterEntry({ uid, email, displayName, fleetId }) {
@@ -98,10 +99,20 @@ export async function clearVehicleDriverAssignment(vehicleId) {
   });
 }
 
-/** Admin removes a driver login + roster (Firestore). Firebase Auth login is revoked by deleting users doc. */
-export async function removeDriverAccount({ driver, fleetId }) {
-  if (!driver?.id || !fleetId) return;
+function parseCallableError(err) {
+  const code = err?.code || "";
+  const message = err?.message || "Failed to delete driver account.";
+  if (code === "functions/not-found") {
+    return "Driver deletion service is not deployed yet. Ask your developer to run: firebase deploy --only functions";
+  }
+  if (code === "functions/unavailable") {
+    return "Driver deletion service is temporarily unavailable. Please try again.";
+  }
+  return message;
+}
 
+/** Remove roster entry only (driver has no linked login). */
+async function removeDriverRosterOnly({ driver, fleetId }) {
   const now = new Date().toISOString();
 
   if (driver.assignedVehicleId) {
@@ -113,17 +124,25 @@ export async function removeDriverAccount({ driver, fleetId }) {
   }
 
   await deleteDoc(doc(db, "drivers", driver.id));
+}
+
+/**
+ * Permanently delete a driver: roster, profile, settings, and Firebase Auth login.
+ * Requires the permanentlyDeleteDriver Cloud Function to be deployed.
+ */
+export async function removeDriverAccount({ driver, fleetId }) {
+  if (!driver?.id || !fleetId) return;
 
   if (driver.authUid) {
     try {
-      await deleteDoc(doc(db, "users", driver.authUid));
+      const functions = getFunctions(app);
+      const permanentlyDeleteDriver = httpsCallable(functions, "permanentlyDeleteDriver");
+      await permanentlyDeleteDriver({ driverUid: driver.authUid });
+      return;
     } catch (err) {
-      console.warn("Could not delete user profile:", err.message);
-    }
-    try {
-      await deleteDoc(doc(db, "userSettings", `${driver.authUid}_user`));
-    } catch (err) {
-      console.warn("Could not delete user settings:", err.message);
+      throw new Error(parseCallableError(err));
     }
   }
+
+  await removeDriverRosterOnly({ driver, fleetId });
 }
