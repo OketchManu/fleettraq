@@ -87,19 +87,20 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
   return (
     <>
       <header
-        className={`sticky top-0 z-30 ${
+        className={`sticky top-0 z-40 overflow-visible ${
           darkMode ? "bg-black/60 backdrop-blur-xl border-b border-white/10" : "bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm"
         }`}
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2">
-          <div className="flex items-center gap-2 min-h-[52px]">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-h-[48px] sm:min-h-[52px]">
             <button
               type="button"
               onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 shrink-0 mr-1"
+              className="flex items-center gap-2 shrink-0 mr-0.5 sm:mr-1 min-w-0"
             >
-              <Truck className="w-7 h-7 sm:w-8 sm:h-8 text-yellow-500" />
-              <span className={`font-bold text-lg sm:text-xl hidden xs:inline ${darkMode ? "text-white" : "text-gray-800"}`}>
+              <Truck className="w-7 h-7 sm:w-8 sm:h-8 text-yellow-500 shrink-0" />
+              <span className={`font-bold text-base sm:text-xl hidden sm:inline truncate ${darkMode ? "text-white" : "text-gray-800"}`}>
                 Fleet<span className="text-yellow-500">Traq</span>
               </span>
             </button>
@@ -141,7 +142,7 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
                       initial={{ opacity: 0, y: -6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
-                      className={`absolute right-0 mt-2 w-72 rounded-2xl shadow-2xl border overflow-hidden ${
+                      className={`absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl shadow-2xl border overflow-hidden z-[70] ${
                         darkMode ? "bg-slate-900 border-slate-600" : "bg-white border-gray-200"
                       }`}
                     >
@@ -184,7 +185,7 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
 
             <div className="flex-1 md:hidden" />
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 overflow-visible">
               <NotificationBell />
               <button
                 type="button"

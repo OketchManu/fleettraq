@@ -598,7 +598,7 @@ const Tracking = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`fixed top-20 right-4 z-30 max-w-sm p-4 rounded-xl border shadow-lg ${darkMode ? "bg-gray-800 border-yellow-500/30" : "bg-white border-yellow-300"}`}
+            className={`fixed top-[calc(3.75rem+env(safe-area-inset-top,0px))] left-3 right-3 sm:left-auto sm:right-4 z-30 max-w-sm p-4 rounded-xl border shadow-lg ${darkMode ? "bg-gray-800 border-yellow-500/30" : "bg-white border-yellow-300"}`}
           >
             <div className="flex items-start gap-2">
               <Shield className="w-5 h-5 text-yellow-500 mt-0.5" />

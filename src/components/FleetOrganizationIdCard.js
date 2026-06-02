@@ -54,15 +54,15 @@ const FleetOrganizationIdCard = ({
   if (compact) {
     return (
       <div className={shellClass}>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="flex items-center gap-1.5 min-w-0">
             <KeyRound className="w-3.5 h-3.5 shrink-0 text-yellow-500" />
-            <span className={`text-xs font-medium ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}>
+            <span className={`text-xs font-medium truncate ${darkMode ? "text-yellow-100" : "text-yellow-900"}`}>
               {title}
             </span>
           </div>
-          <code className={codeClass}>{inviteCode}</code>
-          <div className="ml-auto">{actions}</div>
+          <code className={`${codeClass} w-fit max-w-full overflow-x-auto`}>{inviteCode}</code>
+          <div className="flex flex-wrap items-center gap-1 sm:ml-auto">{actions}</div>
         </div>
       </div>
     );

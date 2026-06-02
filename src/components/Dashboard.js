@@ -301,7 +301,7 @@ const Dashboard = () => {
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-96">
             <div className="text-center">
@@ -428,11 +428,11 @@ const Dashboard = () => {
               transition={{ delay: 0.4 }}
               className={`rounded-2xl overflow-hidden border ${darkMode ? "border-white/10" : "border-gray-200"} shadow-xl`}
             >
-              <div className={`p-4 border-b ${darkMode ? "border-white/10 bg-black/30" : "bg-gray-50"}`}>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-yellow-500" />
-                  <h2 className={`font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Live Fleet Location</h2>
-                  <span className="ml-auto text-xs text-green-400 flex items-center gap-1">
+              <div className={`p-3 sm:p-4 border-b ${darkMode ? "border-white/10 bg-black/30" : "bg-gray-50"}`}>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <MapPin className="w-5 h-5 text-yellow-500 shrink-0" />
+                  <h2 className={`font-semibold text-sm sm:text-base ${darkMode ? "text-white" : "text-gray-800"}`}>Live Fleet Location</h2>
+                  <span className="sm:ml-auto text-xs text-green-400 flex items-center gap-1">
                     <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                     Live Tracking
                   </span>
@@ -448,10 +448,12 @@ const Dashboard = () => {
               transition={{ delay: 0.45 }}
               className={`mt-6 rounded-2xl border ${darkMode ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"} shadow-lg overflow-hidden`}
             >
-              <div className={`p-4 border-b flex items-center gap-2 ${darkMode ? "border-white/10" : "border-gray-200"}`}>
-                <Navigation className="w-5 h-5 text-yellow-500" />
-                <h2 className={`font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Live Vehicle Status</h2>
-                <div className="ml-auto flex flex-wrap items-center gap-3 text-xs">
+              <div className={`p-3 sm:p-4 border-b flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 ${darkMode ? "border-white/10" : "border-gray-200"}`}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Navigation className="w-5 h-5 text-yellow-500 shrink-0" />
+                  <h2 className={`font-semibold text-sm sm:text-base truncate ${darkMode ? "text-white" : "text-gray-800"}`}>Live Vehicle Status</h2>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:ml-auto">
                   {["moving", "parked", "offline"].map((s) => {
                     const meta = getMotionMeta(s);
                     return (
