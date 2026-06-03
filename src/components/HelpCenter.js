@@ -29,30 +29,30 @@ const HelpCenter = () => {
       }`}
     >
       <header
-        className={`sticky top-0 z-20 ${
-          darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"
+        className={`border-b ${
+          darkMode ? "border-white/10 bg-[#0a0a1a]/90" : "border-gray-200 bg-white"
         }`}
       >
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-8 h-8 text-yellow-500" />
-            <div>
-              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+        <div className="app-page-main max-w-5xl py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3 min-w-0">
+            <BookOpen className="w-8 h-8 text-yellow-500 shrink-0" />
+            <div className="min-w-0">
+              <h1 className={`text-lg sm:text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
                 Help &amp; Setup
               </h1>
-              <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+              <p className={`text-xs sm:text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                 Step-by-step guides for administrators and drivers
               </p>
             </div>
           </div>
-          <Button variant="secondary" onClick={() => navigate("/dashboard")}>
+          <Button variant="secondary" className="shrink-0 self-start sm:self-auto" onClick={() => navigate("/dashboard")}>
             <ChevronLeft size={18} />
             Back
           </Button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+      <main className="app-page-main max-w-5xl py-4 sm:py-6 space-y-6">
         {canManageFleet && inviteCode && (
           <FleetOrganizationIdCard
             inviteCode={inviteCode}

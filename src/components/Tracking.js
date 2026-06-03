@@ -529,12 +529,8 @@ const Tracking = () => {
         center={[position.lat, position.lng]}
         zoom={13}
         scrollWheelZoom={false}
-        style={{
-          height: "400px",
-          width: "100%",
-          borderRadius: "1rem",
-        }}
-        className="z-0"
+        className="map-panel z-0"
+        style={{ width: "100%" }}
       >
         <TileLayer
           attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -592,16 +588,16 @@ const Tracking = () => {
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
       {/* Header */}
-      <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <MapPin className="w-8 h-8 text-yellow-500" />
-              <div>
-                <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+      <header className={`border-b ${darkMode ? "border-white/10 bg-[#0a0a1a]/90" : "border-gray-200 bg-white"}`}>
+        <div className="app-page-main py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <MapPin className="w-8 h-8 text-yellow-500 shrink-0" />
+              <div className="min-w-0">
+                <h1 className={`text-lg sm:text-xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
                   Live Tracking
                 </h1>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-2 mt-1">
                   {isOnline ? (
                     <span className="text-xs text-green-400 flex items-center gap-1">
                       <Wifi size={12} /> Live - Device: {deviceId.slice(0, 8)}...
@@ -621,10 +617,12 @@ const Tracking = () => {
                 </div>
               </div>
             </div>
-            <Button variant="secondary" onClick={() => navigate("/dashboard")}>
-              <ChevronLeft size={18} />
-              Back
-            </Button>
+            <div className="shrink-0">
+              <Button variant="secondary" onClick={() => navigate("/dashboard")}>
+                <ChevronLeft size={18} />
+                Back
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -660,7 +658,7 @@ const Tracking = () => {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="app-page-main py-4 sm:py-6">
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -687,7 +685,7 @@ const Tracking = () => {
                 const vehicle = vehicles.find(v => v.id === track.vehicleId);
                 const meta = getMotionMeta(track.motionState);
                 return (
-                  <div key={track.id} className={`flex items-center justify-between p-3 rounded-lg ${darkMode ? "bg-green-500/5" : "bg-green-100/50"}`}>
+                  <div key={track.id} className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg ${darkMode ? "bg-green-500/5" : "bg-green-100/50"}`}>
                     <div className="flex items-center gap-3">
                       <Car className="w-5 h-5 text-yellow-500" />
                       <div>

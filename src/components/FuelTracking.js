@@ -336,13 +336,13 @@ const FuelTracking = () => {
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
-      <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center gap-3">
+      <header className={`border-b ${darkMode ? "border-white/10 bg-[#0a0a1a]/90" : "border-gray-200 bg-white"}`}>
+        <div className="app-page-main py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <Fuel className="w-8 h-8 text-yellow-500 shrink-0" />
               <div className="min-w-0">
-                <h1 className={`text-2xl font-bold truncate ${darkMode ? "text-white" : "text-gray-800"}`}>
+                <h1 className={`text-lg sm:text-xl font-bold truncate ${darkMode ? "text-white" : "text-gray-800"}`}>
                   Fuel Tracking
                 </h1>
                 {isDriver && (
@@ -352,7 +352,7 @@ const FuelTracking = () => {
                 )}
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex flex-wrap gap-2 shrink-0">
               <Button onClick={() => setShowAddForm(true)}>
                 <Plus size={18} />
                 Add Record
@@ -365,7 +365,7 @@ const FuelTracking = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="app-page-main py-4 sm:py-6">
         {error && (
           <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-xl text-red-800 dark:text-red-200 text-sm flex items-start gap-2">
             <AlertCircle size={16} className="shrink-0 mt-0.5" />

@@ -196,21 +196,21 @@ const Settings = () => {
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
       {/* Header */}
-      <header className={`sticky top-0 z-20 ${darkMode ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-white shadow-lg"}`}>
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <SettingsIcon className="w-8 h-8 text-yellow-500" />
-              <h1 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>
+      <header className={`border-b ${darkMode ? "border-white/10 bg-[#0a0a1a]/90" : "border-gray-200 bg-white"}`}>
+        <div className="app-page-main py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <SettingsIcon className="w-8 h-8 text-yellow-500 shrink-0" />
+              <h1 className={`text-lg sm:text-xl font-bold truncate ${darkMode ? "text-white" : "text-gray-800"}`}>
                 Fleet Settings
               </h1>
             </div>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => navigate("/dashboard")}>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Button variant="secondary" size="sm" onClick={() => navigate("/dashboard")}>
                 <ChevronLeft size={18} />
-                Back to Dashboard
+                Back
               </Button>
-              <Button variant="danger" onClick={handleLogout}>
+              <Button variant="danger" size="sm" onClick={handleLogout}>
                 <LogOut size={18} />
                 Logout
               </Button>
@@ -220,7 +220,7 @@ const Settings = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="app-page-main max-w-6xl py-6 sm:py-8">
         <AnimatePresence>
           {error && (
             <motion.div

@@ -213,8 +213,8 @@ const RouteHistory = () => {
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
-      <header className={`sticky top-0 z-20 border-b ${darkMode ? "border-white/10 bg-black/50 backdrop-blur-xl" : "bg-white/95 backdrop-blur border-gray-200"}`}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
+      <header className={`border-b ${darkMode ? "border-white/10 bg-[#0a0a1a]/90" : "border-gray-200 bg-white"}`}>
+        <div className="app-page-main py-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <button
             type="button"
             onClick={() => navigate("/dashboard")}
@@ -258,7 +258,7 @@ const RouteHistory = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-5 space-y-5">
+      <main className="app-page-main py-4 sm:py-5 space-y-5">
         <div className="flex flex-wrap gap-2">
           {TIME_RANGES.map(({ key, label }) => (
             <button
@@ -360,8 +360,9 @@ const RouteHistory = () => {
             <MapContainer
               center={mapBounds[0]}
               zoom={11}
-              style={{ height: "55vh", minHeight: "320px", width: "100%" }}
-              className="z-0"
+              scrollWheelZoom={false}
+              className="map-panel z-0"
+              style={{ width: "100%" }}
             >
               <TileLayer
                 attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

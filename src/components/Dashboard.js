@@ -298,7 +298,7 @@ const Dashboard = () => {
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
       {/* Maintenance Alert Banner */}
       {maintenanceAlerts.length > 0 && showAlertBanner && (
-        <div className="bg-red-500/90 text-white p-3 text-center relative">
+        <div className="bg-red-500/90 text-white p-3 text-center relative pr-12">
           <p className="text-sm font-medium">
             ⚠️ {maintenanceAlerts.length} vehicle(s) require maintenance attention!
           </p>
@@ -312,7 +312,7 @@ const Dashboard = () => {
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+      <main className="app-page-main py-4 sm:py-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-96">
             <div className="text-center">

@@ -246,7 +246,7 @@ const Login = () => {
         </div>
 
         <div
-          className={`backdrop-blur-xl rounded-2xl p-8 border shadow-2xl ${
+          className={`backdrop-blur-xl rounded-2xl p-4 sm:p-8 border shadow-2xl ${
             darkMode ? "bg-black/40 border-white/10" : "bg-white/95 border-gray-200"
           }`}
         >
