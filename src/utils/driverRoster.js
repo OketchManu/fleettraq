@@ -93,6 +93,42 @@ export async function assignDriverToVehicle({ driver, vehicleId, fleetId, allDri
   await Promise.all(stopOps);
 }
 
+/** Remove vehicle ↔ driver links from both collections and stop GPS. */
+export async function unassignVehicleFromDriver({
+  vehicleId,
+  fleetId,
+  driver = null,
+  allDrivers = [],
+}) {
+  if (!fleetId || !vehicleId) return;
+
+  const now = new Date().toISOString();
+  const ops = [];
+  const driverIds = new Set();
+
+  if (driver?.id) driverIds.add(driver.id);
+
+  for (const d of allDrivers) {
+    if (d.assignedVehicleId === vehicleId) driverIds.add(d.id);
+    if (driver?.authUid && d.authUid === driver.authUid) driverIds.add(d.id);
+    if (driver?.id && d.id === driver.id) driverIds.add(d.id);
+  }
+
+  driverIds.forEach((id) => {
+    ops.push(
+      updateDoc(doc(db, "drivers", id), {
+        assignedVehicleId: null,
+        updatedAt: now,
+      })
+    );
+  });
+
+  ops.push(updateDoc(doc(db, "vehicles", vehicleId), vehicleDriverClearedFields(now)));
+
+  await Promise.all(ops);
+  await stopTrackingForVehicle(fleetId, vehicleId);
+}
+
 export async function clearVehicleDriverAssignment(vehicleId) {
   if (!vehicleId) return;
   await updateDoc(doc(db, "vehicles", vehicleId), vehicleDriverClearedFields());

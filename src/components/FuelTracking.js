@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Fuel, Plus, Trash2, Edit, DollarSign, Gauge, TrendingUp, Download, AlertCircle, X, Car } from "lucide-react";
+import { Fuel, Plus, Trash2, Edit, Gauge, TrendingUp, Download, AlertCircle, X, Car, Coins } from "lucide-react";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import { computeFuelStats, lastOdometerForVehicle, friendlyFuelError } from "../utils/fuelStats";
+import { formatCurrency, formatVolume, formatOdometer } from "../utils/fleetLocale";
 import Button from "./Button";
 
 const FuelTracking = () => {
@@ -19,6 +20,8 @@ const FuelTracking = () => {
     isDriver,
     membershipPending,
     membershipSuspended,
+    fleetSettings,
+    fleetLocale,
   } = useFleet();
 
   const [fuelRecords, setFuelRecords] = useState([]);
@@ -92,15 +95,18 @@ const FuelTracking = () => {
     return list;
   }, [fuelRecords, allowedVehicleIds, vehicleFilter]);
 
-  const stats = useMemo(() => computeFuelStats(visibleRecords), [visibleRecords]);
+  const stats = useMemo(() => computeFuelStats(visibleRecords, fleetSettings), [visibleRecords, fleetSettings]);
+  const locale = stats.locale || fleetLocale;
 
   const odometerHint = useMemo(() => {
     if (!newRecord.vehicleId) return null;
     const last = lastOdometerForVehicle(fuelRecords, newRecord.vehicleId);
-    if (last == null) return "First fill-up for this vehicle — enter the current odometer.";
-    if (editingRecord) return `Previous reading for this vehicle: ${last.toLocaleString()} mi`;
-    return `Last reading: ${last.toLocaleString()} mi — odometer should be equal or higher.`;
-  }, [newRecord.vehicleId, fuelRecords, editingRecord]);
+    if (last == null) return `First fill-up for this vehicle — enter the current odometer (${locale.distanceWord}).`;
+    if (editingRecord) {
+      return `Previous reading for this vehicle: ${formatOdometer(last, locale)}`;
+    }
+    return `Last reading: ${formatOdometer(last, locale)} — odometer should be equal or higher.`;
+  }, [newRecord.vehicleId, fuelRecords, editingRecord, locale]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -121,7 +127,7 @@ const FuelTracking = () => {
     }
 
     if (!newRecord.vehicleId || !newRecord.gallons || !newRecord.cost || !newRecord.odometer) {
-      setError("Please fill in vehicle, gallons, cost, and odometer.");
+      setError(`Please fill in vehicle, ${locale.volumeLabel.toLowerCase()}, cost, and odometer.`);
       return;
     }
 
@@ -130,7 +136,7 @@ const FuelTracking = () => {
     const odometer = parseFloat(newRecord.odometer);
 
     if (!Number.isFinite(gallons) || gallons <= 0) {
-      setError("Gallons must be greater than zero.");
+      setError(`${locale.volumeLabel} must be greater than zero.`);
       return;
     }
     if (!Number.isFinite(cost) || cost <= 0) {
@@ -158,7 +164,7 @@ const FuelTracking = () => {
       newRecord.vehicleId
     );
     if (prevOdometer != null && odometer < prevOdometer) {
-      setError(`Odometer cannot be lower than the last recorded value (${prevOdometer.toLocaleString()} mi).`);
+      setError(`Odometer cannot be lower than the last recorded value (${formatOdometer(prevOdometer, locale)}).`);
       return;
     }
 
@@ -247,7 +253,7 @@ const FuelTracking = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ["Date", "Vehicle", "Gallons", "Cost", "Odometer", "Location", "Notes"];
+    const headers = ["Date", "Vehicle", locale.volumeLabel, "Cost", "Odometer", "Location", "Notes"];
     const rows = visibleRecords.map((record) => {
       const vehicle = vehicles.find((v) => v.id === record.vehicleId);
       return [
@@ -375,10 +381,10 @@ const FuelTracking = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           {[
-            { icon: Fuel, value: stats.totalGallons, label: "Total Gallons", color: "text-yellow-500" },
-            { icon: DollarSign, value: `$${stats.totalCost}`, label: "Total Cost", color: "text-green-400" },
-            { icon: TrendingUp, value: stats.avgMPG || "—", label: "Avg MPG", color: "text-cyan-400" },
-            { icon: Gauge, value: `$${stats.avgCostPerGallon}`, label: "Avg $/Gallon", color: "text-purple-400" },
+            { icon: Fuel, value: formatVolume(stats.totalVolume, locale), label: `Total ${locale.volumeLabel}`, color: "text-yellow-500" },
+            { icon: Coins, value: formatCurrency(stats.totalCost, locale), label: "Total Cost", color: "text-green-400" },
+            { icon: TrendingUp, value: stats.avgEfficiency || "—", label: `Avg ${locale.efficiencyLabel}`, color: "text-cyan-400" },
+            { icon: Gauge, value: formatCurrency(stats.avgCostPerVolume, locale), label: `Avg cost${locale.costPerVolumeLabel}`, color: "text-purple-400" },
             { icon: Fuel, value: stats.fillCount, label: "Fill-ups", color: "text-amber-400" },
           ].map((s) => (
             <div
@@ -424,7 +430,7 @@ const FuelTracking = () => {
               No Fuel Records Yet
             </h3>
             <p className={`text-sm mb-4 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-              Log each fill-up with gallons, cost, and odometer to track MPG over time.
+              Log each fill-up with {locale.volumeLabel.toLowerCase()}, cost in {locale.currency}, and odometer ({locale.distanceLabel}) to track efficiency over time.
             </p>
             <Button onClick={() => setShowAddForm(true)}>
               <Plus size={18} />
@@ -439,8 +445,8 @@ const FuelTracking = () => {
                   <tr>
                     <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Date</th>
                     <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Vehicle</th>
-                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Gallons</th>
-                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Cost</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{locale.volumeLabel}</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Cost ({locale.currency})</th>
                     <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Odometer</th>
                     <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Location</th>
                     <th className={`px-4 py-3 text-left text-sm font-semibold ${darkMode ? "text-gray-200" : "text-gray-700"}`}>Actions</th>
@@ -458,13 +464,13 @@ const FuelTracking = () => {
                           {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown"}
                         </td>
                         <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>
-                          {record.gallons} gal
+                          {formatVolume(record.gallons, locale)}
                         </td>
                         <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>
-                          ${Number(record.cost).toFixed(2)}
+                          {formatCurrency(record.cost, locale)}
                         </td>
                         <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>
-                          {Number(record.odometer).toLocaleString()} mi
+                          {formatOdometer(record.odometer, locale)}
                         </td>
                         <td className={`px-4 py-3 text-sm max-w-[140px] truncate ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
                           {record.location || "—"}
@@ -551,14 +557,14 @@ const FuelTracking = () => {
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Gallons *</label>
+                  <label className={`block text-sm mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>{locale.volumeLabel} *</label>
                   <input
                     type="number"
                     step="0.001"
                     min="0"
                     value={newRecord.gallons}
                     onChange={(e) => setNewRecord({ ...newRecord, gallons: e.target.value })}
-                    placeholder="e.g. 12.5"
+                    placeholder={locale.isMetric ? "e.g. 45" : "e.g. 12.5"}
                     className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${inputClass}`}
                     required
                   />
@@ -567,7 +573,9 @@ const FuelTracking = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={`block text-sm mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Total cost ($) *</label>
+                  <label className={`block text-sm mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                    Total cost ({locale.currency}) *
+                  </label>
                   <input
                     type="number"
                     step="0.01"
@@ -580,14 +588,16 @@ const FuelTracking = () => {
                   />
                 </div>
                 <div>
-                  <label className={`block text-sm mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Odometer (mi) *</label>
+                  <label className={`block text-sm mb-1 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                    Odometer ({locale.distanceLabel}) *
+                  </label>
                   <input
                     type="number"
                     step="1"
                     min="0"
                     value={newRecord.odometer}
                     onChange={(e) => setNewRecord({ ...newRecord, odometer: e.target.value })}
-                    placeholder="Current mileage"
+                    placeholder={`Current ${locale.distanceWord}`}
                     className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${inputClass}`}
                     required
                   />
@@ -600,8 +610,8 @@ const FuelTracking = () => {
 
               {newRecord.gallons && newRecord.cost && (
                 <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                  Price per gallon: $
-                  {(parseFloat(newRecord.cost) / parseFloat(newRecord.gallons)).toFixed(2)}
+                  Price per {locale.volumeShort}:{" "}
+                  {formatCurrency(parseFloat(newRecord.cost) / parseFloat(newRecord.gallons), locale)}
                 </p>
               )}
 

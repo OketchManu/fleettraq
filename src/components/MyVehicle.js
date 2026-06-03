@@ -5,6 +5,7 @@ import { useFleet } from "../context/FleetContext";
 import PageHeader from "./PageHeader";
 import Button from "./Button";
 import { formatDeviceId } from "../utils/deviceId";
+import { formatEfficiency } from "../utils/fleetLocale";
 
 const statusColors = {
   Active: "text-green-400",
@@ -16,7 +17,7 @@ const statusColors = {
 
 const MyVehicle = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, user, isDriver, membershipPending, membershipSuspended } = useFleet();
+  const { darkMode, vehicles, user, isDriver, membershipPending, membershipSuspended, fleetLocale } = useFleet();
   const vehicle = vehicles[0] || null;
 
   const blocked = membershipPending || membershipSuspended;
@@ -102,7 +103,7 @@ const MyVehicle = () => {
                     <Gauge size={12} /> Mileage
                   </dt>
                   <dd className={`mt-1 font-medium ${darkMode ? "text-white" : "text-gray-900"}`}>
-                    {(vehicle.mileage ?? 0).toLocaleString()} mi
+                    {(vehicle.mileage ?? 0).toLocaleString()} {fleetLocale.distanceLabel}
                   </dd>
                 </div>
                 <div>
@@ -118,7 +119,9 @@ const MyVehicle = () => {
                     <Calendar size={12} /> Fuel efficiency
                   </dt>
                   <dd className={`mt-1 font-medium ${darkMode ? "text-white" : "text-gray-900"}`}>
-                    {vehicle.fuelEfficiency ?? "—"} mpg
+                    {vehicle.fuelEfficiency != null
+                      ? formatEfficiency(vehicle.fuelEfficiency, fleetLocale)
+                      : "—"}
                   </dd>
                 </div>
                 {vehicle.registeredDeviceId && (

@@ -12,7 +12,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tool
 
 const Analytics = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, drivers, trackingData } = useFleet();
+  const { darkMode, vehicles, drivers, trackingData, fleetLocale } = useFleet();
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState({
     totalMileage: 0,
@@ -224,7 +224,7 @@ const Analytics = () => {
           >
             <Fuel className="w-8 h-8 text-purple-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{analyticsData.avgFuelEfficiency}</p>
-            <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Avg MPG</p>
+            <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Avg {fleetLocale.efficiencyLabel}</p>
           </motion.div>
 
           <motion.div
@@ -235,7 +235,7 @@ const Analytics = () => {
           >
             <Clock className="w-8 h-8 text-orange-400 mb-2" />
             <p className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-800"}`}>{Math.round(analyticsData.totalMileage / 1000)}k</p>
-            <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Total Miles (k)</p>
+            <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Total {fleetLocale.isMetric ? "Km" : "Miles"} (k)</p>
           </motion.div>
         </div>
 

@@ -7,11 +7,11 @@ import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
 import { getDeviceId, formatDeviceId } from "../utils/deviceId";
-import { assignDriverToVehicle } from "../utils/driverRoster";
+import { assignDriverToVehicle, unassignVehicleFromDriver } from "../utils/driverRoster";
 
 const VehicleManagement = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet, drivers } = useFleet();
+  const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet, drivers, fleetLocale, fetchDrivers } = useFleet();
   const deviceId = getDeviceId();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -147,7 +147,29 @@ const VehicleManagement = () => {
   };
 
   const handleAssignDriver = async (vehicle, driverId) => {
-    if (!driverId || !fleetId) return;
+    if (!fleetId) return;
+
+    if (!driverId) {
+      const linkedDriver = drivers.find(
+        (d) =>
+          d.assignedVehicleId === vehicle.id ||
+          (d.authUid && d.authUid === vehicle.assignedDriverUid)
+      );
+      try {
+        await unassignVehicleFromDriver({
+          vehicleId: vehicle.id,
+          fleetId,
+          driver: linkedDriver || null,
+          allDrivers: drivers,
+        });
+        await fetchVehicles();
+        if (fetchDrivers) await fetchDrivers();
+      } catch (err) {
+        setError("Failed to unassign driver: " + err.message);
+      }
+      return;
+    }
+
     const driver = drivers.find((d) => d.id === driverId);
     if (!driver) return;
     try {
@@ -280,7 +302,7 @@ const VehicleManagement = () => {
                       <Gauge size={14} className="text-gray-500" />
                       <span className={darkMode ? "text-gray-400" : "text-gray-600"}>Mileage:</span>
                       <span className={`font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>
-                        {vehicle.mileage?.toLocaleString() || 0} miles
+                        {vehicle.mileage?.toLocaleString() || 0} {fleetLocale.distanceLabel}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -421,7 +443,7 @@ const VehicleManagement = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number"
-                    placeholder="Mileage"
+                    placeholder={`Mileage (${fleetLocale.distanceLabel})`}
                     value={formData.mileage}
                     onChange={(e) => setFormData({ ...formData, mileage: e.target.value })}
                     className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}
@@ -439,7 +461,7 @@ const VehicleManagement = () => {
                   <input
                     type="number"
                     step="0.1"
-                    placeholder="Fuel Efficiency (MPG)"
+                    placeholder={`Fuel efficiency (${fleetLocale.efficiencyLabel})`}
                     value={formData.fuelEfficiency}
                     onChange={(e) => setFormData({ ...formData, fuelEfficiency: e.target.value })}
                     className={`px-4 py-2 rounded-xl ${darkMode ? "bg-white/10 text-white" : "bg-gray-100 text-gray-800"} focus:outline-none focus:ring-2 focus:ring-yellow-500`}

@@ -28,16 +28,15 @@ export function filterVehiclesForDriver(vehicles, user, drivers = []) {
       (d.email && String(d.email).toLowerCase() === em)
   );
 
+  const assignedId = (driverRecord?.assignedVehicleId || "").trim();
+  if (!assignedId) return [];
+
   return vehicles.filter((v) => {
-    const linkedOnVehicle =
+    if (v.id !== assignedId) return false;
+    return (
       v.assignedDriverUid === uid ||
-      (v.assignedDriverEmail && String(v.assignedDriverEmail).toLowerCase() === em);
-
-    if (driverRecord) {
-      return Boolean(driverRecord.assignedVehicleId) && driverRecord.assignedVehicleId === v.id && linkedOnVehicle;
-    }
-
-    return linkedOnVehicle;
+      (v.assignedDriverEmail && String(v.assignedDriverEmail).toLowerCase() === em)
+    );
   });
 }
 

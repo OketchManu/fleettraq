@@ -15,6 +15,7 @@ import { signOut } from "firebase/auth";
 import Button from "./Button";
 import ProfilePicture from "./ProfilePicture";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
+import { FLEET_COUNTRIES, DEFAULT_FLEET_LOCALE_SETTINGS, fleetSettingsDocId } from "../utils/fleetLocale";
 
 const DEFAULT_FLEET_SETTINGS = {
   // Notification Settings
@@ -26,7 +27,9 @@ const DEFAULT_FLEET_SETTINGS = {
   darkMode: true,
   language: "en",
   timeZone: "UTC",
-  units: "metric",
+  country: DEFAULT_FLEET_LOCALE_SETTINGS.country,
+  currency: DEFAULT_FLEET_LOCALE_SETTINGS.currency,
+  units: DEFAULT_FLEET_LOCALE_SETTINGS.units,
   
   // Map & Tracking
   defaultMapView: "roadmap",
@@ -96,7 +99,12 @@ const Settings = () => {
       setIsLoading(false);
       return;
     }
-    const settingsRef = doc(db, "fleetSettings", `${user.uid}_fleet`);
+    const settingsId = fleetSettingsDocId(fleetId || user.uid);
+    if (!settingsId) {
+      setIsLoading(false);
+      return undefined;
+    }
+    const settingsRef = doc(db, "fleetSettings", settingsId);
     const unsubscribe = onSnapshot(
       settingsRef,
       (docSnap) => {
@@ -115,11 +123,24 @@ const Settings = () => {
       }
     );
     return () => unsubscribe();
-  }, [setDarkMode, user?.uid]);
+  }, [setDarkMode, user?.uid, fleetId]);
 
   const handleChange = (e) => {
     const { name, type, checked, value } = e.target;
     const newValue = type === "checkbox" ? checked : type === "number" ? Number(value) : value;
+
+    if (name === "country") {
+      const preset = FLEET_COUNTRIES[value];
+      setSettings((prev) => ({
+        ...prev,
+        country: value,
+        ...(preset
+          ? { units: preset.units, currency: preset.currency }
+          : {}),
+      }));
+      return;
+    }
+
     setSettings((prev) => ({ ...prev, [name]: newValue }));
     if (name === "darkMode") setDarkMode(newValue);
   };
@@ -133,7 +154,8 @@ const Settings = () => {
     setError(null);
     setSuccess(null);
     try {
-      const settingsRef = doc(db, "fleetSettings", `${user.uid}_fleet`);
+      const settingsId = fleetSettingsDocId(fleetId || user.uid);
+      const settingsRef = doc(db, "fleetSettings", settingsId);
       await setDoc(settingsRef, settings, { merge: true });
       setSuccess("Fleet settings saved successfully!");
       sendNotification?.("Fleet settings updated", "success");
@@ -154,7 +176,8 @@ const Settings = () => {
     setError(null);
     setSuccess(null);
     try {
-      const settingsRef = doc(db, "fleetSettings", `${user.uid}_fleet`);
+      const settingsId = fleetSettingsDocId(fleetId || user.uid);
+      const settingsRef = doc(db, "fleetSettings", settingsId);
       await setDoc(settingsRef, DEFAULT_FLEET_SETTINGS, { merge: true });
       setSettings({ ...DEFAULT_FLEET_SETTINGS });
       setDarkMode(true);
@@ -398,6 +421,27 @@ const Settings = () => {
                   <option value="America/Denver">Mountain Time</option>
                   <option value="America/Los_Angeles">Pacific Time</option>
                 </select>
+              </div>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Fleet country</label>
+                <select
+                  name="country"
+                  value={settings.country || DEFAULT_FLEET_LOCALE_SETTINGS.country}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
+                >
+                  {Object.entries(FLEET_COUNTRIES).map(([code, preset]) => (
+                    <option key={code} value={code} className={darkMode ? "bg-slate-900 text-white" : "bg-white text-gray-900"}>
+                      {preset.label} ({preset.currency})
+                    </option>
+                  ))}
+                </select>
+                <p className={`text-xs mt-1 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
+                  Fuel costs and units follow your fleet country ({settings.currency || "—"}).
+                </p>
               </div>
               <div>
                 <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Units</label>

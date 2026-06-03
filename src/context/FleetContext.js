@@ -3,6 +3,7 @@ import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole, normalizeRole } from "../utils/fleetAccess";
 import { ensureFleetInvite, regenerateFleetInvite } from "../utils/fleetInvite";
+import { resolveFleetLocale, fleetSettingsDocId } from "../utils/fleetLocale";
 import { getDeviceId } from "../utils/deviceId";
 import { isAdminFleetSetupComplete, isDriverFleetSetupComplete } from "../utils/fleetSetupStatus";
 import { useDriverGpsTracker } from "../hooks/useDriverGpsTracker";
@@ -73,8 +74,10 @@ export const FleetProvider = ({ children }) => {
   const [inviteCode, setInviteCode] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState(null);
+  const [fleetSettings, setFleetSettings] = useState({});
 
   const fleetId = fleetIdFromUser(user);
+  const fleetLocale = useMemo(() => resolveFleetLocale(fleetSettings), [fleetSettings]);
 
   const driverGpsEnabled =
     roleIsDriver(user?.role) &&
@@ -404,6 +407,25 @@ export const FleetProvider = ({ children }) => {
   }, [user?.uid, user?.fleetId, user?.organizationId]);
 
   useEffect(() => {
+    const settingsId = fleetSettingsDocId(fleetId);
+    if (!settingsId) {
+      setFleetSettings({});
+      return undefined;
+    }
+
+    const ref = doc(db, "fleetSettings", settingsId);
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        setFleetSettings(snap.exists() ? snap.data() : {});
+      },
+      () => setFleetSettings({})
+    );
+
+    return () => unsubscribe();
+  }, [fleetId]);
+
+  useEffect(() => {
     if (!user?.uid) return;
 
     const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
@@ -483,6 +505,8 @@ export const FleetProvider = ({ children }) => {
     user,
     setUser,
     fleetId,
+    fleetSettings,
+    fleetLocale,
     vehicles,
     vehiclesAll,
     setVehiclesAll,

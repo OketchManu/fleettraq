@@ -6,9 +6,8 @@ import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import Button from "./Button";
-import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount } from "../utils/driverRoster";
+import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount, unassignVehicleFromDriver } from "../utils/driverRoster";
 import { processDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
-import { stopTrackingForVehicle, vehicleDriverClearedFields } from "../utils/vehicleTracking";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
 import DriverAvatar from "./DriverAvatar";
@@ -141,21 +140,15 @@ const Drivers = () => {
       return;
     }
     try {
-      const now = new Date().toISOString();
       const fid = fleetId || user?.uid;
-      const ops = [
-        updateDoc(doc(db, "drivers", driver.id), {
-          assignedVehicleId: null,
-          updatedAt: now,
-        }),
-      ];
       if (driver.assignedVehicleId) {
-        ops.push(
-          updateDoc(doc(db, "vehicles", driver.assignedVehicleId), vehicleDriverClearedFields(now))
-        );
-        ops.push(stopTrackingForVehicle(fid, driver.assignedVehicleId));
+        await unassignVehicleFromDriver({
+          vehicleId: driver.assignedVehicleId,
+          fleetId: fid,
+          driver,
+          allDrivers: drivers,
+        });
       }
-      await Promise.all(ops);
       await fetchDrivers();
     } catch (err) {
       setError("Failed to unassign vehicle: " + err.message);
@@ -193,30 +186,42 @@ const Drivers = () => {
   };
 
   const syncVehicleAssignment = async (previousDriver, nextForm) => {
-    const batch = writeBatch(db);
     const fid = fleetId || user?.uid;
+    if (!fid) return;
+
     const oldVid = (previousDriver?.assignedVehicleId || "").trim();
     const newVid = (nextForm.assignedVehicleId || "").trim();
     const uid = (nextForm.authUid || "").trim() || null;
     const em = (nextForm.email || "").trim() || null;
-    let hasWrites = false;
-    const stopPromises = [];
 
     if (oldVid && (!newVid || newVid !== oldVid)) {
-      batch.update(doc(db, "vehicles", oldVid), vehicleDriverClearedFields());
-      hasWrites = true;
-      if (fid) stopPromises.push(stopTrackingForVehicle(fid, oldVid));
+      await unassignVehicleFromDriver({
+        vehicleId: oldVid,
+        fleetId: fid,
+        driver: previousDriver || null,
+        allDrivers: drivers,
+      });
     }
-    if (newVid) {
+
+    if (newVid && newVid !== oldVid) {
+      if (previousDriver?.id) {
+        await assignDriverToVehicle({
+          driver: { ...previousDriver, authUid: uid, email: em },
+          vehicleId: newVid,
+          fleetId: fid,
+          allDrivers: drivers,
+        });
+        return;
+      }
+
+      const batch = writeBatch(db);
       batch.update(doc(db, "vehicles", newVid), {
         assignedDriverUid: uid,
         assignedDriverEmail: em,
         updatedAt: new Date().toISOString(),
       });
-      hasWrites = true;
+      await batch.commit();
     }
-    if (hasWrites) await batch.commit();
-    if (stopPromises.length) await Promise.all(stopPromises);
   };
 
   const handleSubmit = async (e) => {

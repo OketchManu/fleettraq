@@ -1,6 +1,9 @@
 /**
- * Fuel record helpers — MPG, totals, and validation.
+ * Fuel record helpers — efficiency, totals, and validation.
+ * Volume is stored in the fleet unit (liters or gallons); odometer in km or miles.
  */
+
+import { resolveFleetLocale } from "./fleetLocale";
 
 export function sortFuelRecords(records) {
   return [...records].sort((a, b) => {
@@ -12,13 +15,13 @@ export function sortFuelRecords(records) {
 }
 
 /** Compute fleet-wide and per-vehicle fuel statistics. */
-export function computeFuelStats(records) {
+export function computeFuelStats(records, fleetSettings = {}) {
+  const locale = resolveFleetLocale(fleetSettings);
   const sorted = sortFuelRecords(records);
-  const totalGallons = sorted.reduce((s, r) => s + (parseFloat(r.gallons) || 0), 0);
+  const totalVolume = sorted.reduce((s, r) => s + (parseFloat(r.gallons) || 0), 0);
   const totalCost = sorted.reduce((s, r) => s + (parseFloat(r.cost) || 0), 0);
-  const avgCostPerGallon = totalGallons > 0 ? totalCost / totalGallons : 0;
+  const avgCostPerVolume = totalVolume > 0 ? totalCost / totalVolume : 0;
 
-  // MPG: group by vehicle, sort ascending by odometer, compare consecutive fill-ups.
   const byVehicle = {};
   sorted.forEach((r) => {
     if (!r.vehicleId) return;
@@ -26,8 +29,8 @@ export function computeFuelStats(records) {
     byVehicle[r.vehicleId].push(r);
   });
 
-  let mpgSum = 0;
-  let mpgCount = 0;
+  let efficiencySum = 0;
+  let efficiencyCount = 0;
   Object.values(byVehicle).forEach((list) => {
     const asc = [...list].sort(
       (a, b) => (Number(a.odometer) || 0) - (Number(b.odometer) || 0)
@@ -35,24 +38,28 @@ export function computeFuelStats(records) {
     for (let i = 1; i < asc.length; i += 1) {
       const prev = asc[i - 1];
       const curr = asc[i];
-      const miles = (Number(curr.odometer) || 0) - (Number(prev.odometer) || 0);
-      const gallons = parseFloat(curr.gallons) || 0;
-      if (miles > 0 && gallons > 0) {
-        const mpg = miles / gallons;
-        if (mpg > 0 && mpg < 200) {
-          mpgSum += mpg;
-          mpgCount += 1;
+      const distance = (Number(curr.odometer) || 0) - (Number(prev.odometer) || 0);
+      const volume = parseFloat(curr.gallons) || 0;
+      if (distance > 0 && volume > 0) {
+        const efficiency = locale.isMetric
+          ? (volume / distance) * 100
+          : distance / volume;
+        const maxEff = locale.isMetric ? 50 : 200;
+        if (efficiency > 0 && efficiency < maxEff) {
+          efficiencySum += efficiency;
+          efficiencyCount += 1;
         }
       }
     }
   });
 
   return {
-    totalGallons: Math.round(totalGallons * 10) / 10,
+    totalVolume: Math.round(totalVolume * 10) / 10,
     totalCost: Math.round(totalCost * 100) / 100,
-    avgMPG: mpgCount > 0 ? Math.round((mpgSum / mpgCount) * 10) / 10 : 0,
-    avgCostPerGallon: Math.round(avgCostPerGallon * 100) / 100,
+    avgEfficiency: efficiencyCount > 0 ? Math.round((efficiencySum / efficiencyCount) * 10) / 10 : 0,
+    avgCostPerVolume: Math.round(avgCostPerVolume * 100) / 100,
     fillCount: sorted.length,
+    locale,
   };
 }
 
