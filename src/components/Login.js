@@ -43,6 +43,12 @@ const Login = () => {
       return;
     }
 
+    if (!role || (role !== "admin" && role !== "driver")) {
+      setError("Please select Administrator or Driver");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -58,7 +64,8 @@ const Login = () => {
       }
 
       const registeredRole = normalizeRole(userDoc.data().role);
-      if (role && registeredRole !== role) {
+      if (registeredRole !== role) {
+        await auth.signOut();
         const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
         setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
         setIsLoading(false);
@@ -81,6 +88,13 @@ const Login = () => {
   };
 
   const completeGoogleLogin = async (user, roleArg) => {
+    if (!roleArg || (roleArg !== "admin" && roleArg !== "driver")) {
+      await auth.signOut();
+      setError("Please select Administrator or Driver before signing in with Google.");
+      setIsLoading(false);
+      return;
+    }
+
     const userDoc = await getDoc(doc(db, "users", user.uid));
     if (!userDoc.exists()) {
       await auth.signOut();
@@ -92,7 +106,7 @@ const Login = () => {
     }
 
     const registeredRole = normalizeRole(userDoc.data().role);
-    if (roleArg && registeredRole !== roleArg) {
+    if (registeredRole !== roleArg) {
       const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
       await auth.signOut();
       setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
@@ -116,7 +130,9 @@ const Login = () => {
         sessionStorage.removeItem("pendingGoogleRole");
         setIsLoading(true);
         if (!pendingRole) {
-          await completeGoogleLogin(result.user, null);
+          await auth.signOut();
+          setError("Please select Administrator or Driver before signing in with Google.");
+          setIsLoading(false);
           return;
         }
         await completeGoogleLogin(result.user, pendingRole);
@@ -132,11 +148,17 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     setError("");
+
+    if (!role || (role !== "admin" && role !== "driver")) {
+      setError("Please select Administrator or Driver");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      await completeGoogleLogin(result.user, role || null);
+      await completeGoogleLogin(result.user, role);
     } catch (err) {
       console.error("Google login error:", err.code, err.message);
       if (
@@ -252,7 +274,7 @@ const Login = () => {
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
               <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                Select Role <span className="text-xs font-normal opacity-70">(optional — we detect it from your account)</span>
+                Select Role <span className="text-red-500">*</span>
               </label>
               <select
                 value={role}
@@ -263,6 +285,7 @@ const Login = () => {
                     : "bg-white border-gray-300 text-gray-900"
                 }`}
                 disabled={isLoading}
+                required
               >
                 <option value="" disabled className="text-gray-800">
                   Select your role
@@ -275,7 +298,7 @@ const Login = () => {
                 </option>
               </select>
               <p className={`text-xs mt-1.5 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
-                Optional. Leave blank and we&apos;ll detect Administrator or Driver from your account.
+                Required. Choose Administrator if you manage the fleet, or Driver if you were invited by your admin.
               </p>
             </div>
 

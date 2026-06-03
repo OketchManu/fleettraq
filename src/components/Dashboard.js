@@ -277,53 +277,22 @@ const Dashboard = () => {
     canManageFleet && showRouteTrails
   );
 
-  const MapComponent = useMemo(() => {
-    const defaultPosition = [-1.2864, 36.8172];
-    const bounds =
-      trackedVehicles.length > 0
-        ? trackedVehicles.map((track) => [track.lat, track.lng])
-        : [defaultPosition];
-    const mapFitKey =
+  const mapFitKey = useMemo(
+    () =>
       trackedVehicles.length > 0
         ? trackedVehicles.map((track) => track.vehicleId).sort().join(",")
-        : "default";
+        : "default",
+    [trackedVehicles]
+  );
 
-    return (
-      <MapContainer
-        center={defaultPosition}
-        zoom={10}
-        style={{ height: isMobile ? "60vh" : "70vh", width: "100%", borderRadius: "1rem" }}
-        className="z-0"
-      >
-        <TileLayer
-          attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {trackedVehicles.map((track) => {
-          const vehicle = vehicles.find((v) => v.id === track.vehicleId);
-          return <VehicleMarker key={track.id} track={track} vehicle={vehicle} />;
-        })}
-        {canManageFleet && showRouteTrails && (
-          <FleetRouteOverlay
-            routesByVehicle={todayRoutes}
-            stopsByVehicle={todayStops}
-            vehicles={vehicles}
-            showRoutes
-            showStops
-          />
-        )}
-        <MapViewController bounds={bounds} fitKey={mapFitKey} />
-      </MapContainer>
-    );
-  }, [
-    trackedVehicles,
-    vehicles,
-    isMobile,
-    canManageFleet,
-    showRouteTrails,
-    showRouteTrails ? todayRoutes : null,
-    showRouteTrails ? todayStops : null,
-  ]);
+  const mapBounds = useMemo(() => {
+    const defaultPosition = [-1.2864, 36.8172];
+    return trackedVehicles.length > 0
+      ? trackedVehicles.map((track) => [track.lat, track.lng])
+      : [defaultPosition];
+  }, [trackedVehicles]);
+
+  const defaultMapCenter = [-1.2864, 36.8172];
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
@@ -509,7 +478,33 @@ const Dashboard = () => {
                   </span>
                 </div>
               </div>
-              {MapComponent}
+              <MapContainer
+                key="fleet-dashboard-map"
+                center={defaultMapCenter}
+                zoom={10}
+                scrollWheelZoom={false}
+                style={{ height: isMobile ? "60vh" : "70vh", width: "100%", borderRadius: "1rem" }}
+                className="z-0"
+              >
+                <TileLayer
+                  attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {trackedVehicles.map((track) => {
+                  const vehicle = vehicles.find((v) => v.id === track.vehicleId);
+                  return <VehicleMarker key={track.id} track={track} vehicle={vehicle} />;
+                })}
+                {canManageFleet && showRouteTrails && (
+                  <FleetRouteOverlay
+                    routesByVehicle={todayRoutes}
+                    stopsByVehicle={todayStops}
+                    vehicles={vehicles}
+                    showRoutes
+                    showStops
+                  />
+                )}
+                <MapViewController bounds={mapBounds} fitKey={mapFitKey} />
+              </MapContainer>
             </motion.div>
 
             {/* Live vehicle status */}

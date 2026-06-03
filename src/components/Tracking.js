@@ -528,6 +528,7 @@ const Tracking = () => {
       <MapContainer
         center={[position.lat, position.lng]}
         zoom={13}
+        scrollWheelZoom={false}
         style={{
           height: "400px",
           width: "100%",
