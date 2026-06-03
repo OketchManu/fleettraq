@@ -1,38 +1,15 @@
 import { useEffect, useRef, useCallback, useMemo } from "react";
-import { collection, doc, addDoc, updateDoc, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, updateDoc, doc, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { getDeviceId, canDeviceTrackVehicle, canRegisterDeviceOnVehicle } from "../utils/deviceId";
-import { fleetIdFromUser } from "../utils/fleetAccess";
+import { fleetIdFromUser, filterVehiclesForDriver } from "../utils/fleetAccess";
 import { haversineMeters } from "../utils/vehicleMotion";
 import { appendRoutePoint } from "../utils/routePoints";
 import { msToKmh } from "../utils/trackingAlerts";
 import { useDriverTrackingAlerts } from "./useDriverTrackingAlerts";
 
-const WRITE_INTERVAL_MS = 45 * 1000;
+const WRITE_INTERVAL_MS = 30 * 1000;
 const MIN_MOVE_M = 15;
-
-function getAssignedVehicles(vehicles, user, drivers = []) {
-  if (!user?.uid || !vehicles?.length) return [];
-  const email = (user.email || "").toLowerCase();
-  let list = vehicles.filter(
-    (v) =>
-      v.assignedDriverUid === user.uid ||
-      (v.assignedDriverEmail && email && String(v.assignedDriverEmail).toLowerCase() === email)
-  );
-
-  if (list.length === 0 && drivers.length) {
-    const dr = drivers.find(
-      (d) =>
-        (d.authUid && d.authUid === user.uid) ||
-        (d.email && String(d.email).toLowerCase() === email)
-    );
-    if (dr?.assignedVehicleId) {
-      list = vehicles.filter((v) => v.id === dr.assignedVehicleId);
-    }
-  }
-
-  return list;
-}
 
 export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {
   const deviceId = useRef(getDeviceId()).current;
@@ -44,7 +21,7 @@ export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {
 
   const accountId = fleetIdFromUser(user);
   const assigned = useMemo(
-    () => getAssignedVehicles(vehicles, user, drivers),
+    () => filterVehiclesForDriver(vehicles, user, drivers),
     [vehicles, user, drivers]
   );
   const vehicle = assigned[0] || null;

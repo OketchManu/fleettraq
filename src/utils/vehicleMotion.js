@@ -4,8 +4,19 @@
  * comparing the latest position against the last anchored position over time.
  */
 
+/** Parse Firestore Timestamp, ISO string, or epoch to milliseconds. */
+export function normalizeTimestamp(value) {
+  if (value == null) return NaN;
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (typeof value?.seconds === "number") return value.seconds * 1000;
+  const t = new Date(value).getTime();
+  return Number.isFinite(t) ? t : NaN;
+}
+
 // A vehicle is considered offline if its last GPS update is older than this.
-export const OFFLINE_MS = 2 * 60 * 1000; // 2 minutes
+export const OFFLINE_MS = 3 * 60 * 1000; // 3 minutes
+// While isTracking is true, allow a longer gap (mobile tab throttling / write retries).
+export const LIVE_TRACKING_OFFLINE_MS = 6 * 60 * 1000; // 6 minutes
 // Minimum distance (metres) from the anchor before we count it as movement.
 export const MOVE_THRESHOLD_M = 30;
 // How long after the last real movement we keep showing "moving".
@@ -35,11 +46,13 @@ export function haversineMeters(lat1, lng1, lat2, lng2) {
  * @returns {"moving"|"parked"|"offline"}
  */
 export function computeMotionState(anchors, vehicleId, current, now = Date.now()) {
-  const ts = current?.timestamp ? new Date(current.timestamp).getTime() : NaN;
+  const ts = normalizeTimestamp(current?.timestamp);
   const lat = Number(current?.lat);
   const lng = Number(current?.lng);
+  const offlineMs =
+    current?.isTracking === true ? LIVE_TRACKING_OFFLINE_MS : OFFLINE_MS;
 
-  if (!Number.isFinite(ts) || now - ts > OFFLINE_MS) {
+  if (!Number.isFinite(ts) || now - ts > offlineMs) {
     return "offline";
   }
 

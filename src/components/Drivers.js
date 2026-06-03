@@ -8,7 +8,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "fireb
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount } from "../utils/driverRoster";
 import { processDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
-import { stopTrackingForVehicle } from "../utils/vehicleTracking";
+import { stopTrackingForVehicle, vehicleDriverClearedFields } from "../utils/vehicleTracking";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
 import DriverAvatar from "./DriverAvatar";
@@ -151,11 +151,7 @@ const Drivers = () => {
       ];
       if (driver.assignedVehicleId) {
         ops.push(
-          updateDoc(doc(db, "vehicles", driver.assignedVehicleId), {
-            assignedDriverUid: null,
-            assignedDriverEmail: null,
-            updatedAt: now,
-          })
+          updateDoc(doc(db, "vehicles", driver.assignedVehicleId), vehicleDriverClearedFields(now))
         );
         ops.push(stopTrackingForVehicle(fid, driver.assignedVehicleId));
       }
@@ -207,11 +203,7 @@ const Drivers = () => {
     const stopPromises = [];
 
     if (oldVid && (!newVid || newVid !== oldVid)) {
-      batch.update(doc(db, "vehicles", oldVid), {
-        assignedDriverUid: null,
-        assignedDriverEmail: null,
-        updatedAt: new Date().toISOString(),
-      });
+      batch.update(doc(db, "vehicles", oldVid), vehicleDriverClearedFields());
       hasWrites = true;
       if (fid) stopPromises.push(stopTrackingForVehicle(fid, oldVid));
     }

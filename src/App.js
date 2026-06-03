@@ -21,6 +21,7 @@ import FuelTracking from "./components/FuelTracking";
 import HelpCenter from "./components/HelpCenter";
 import RouteHistory from "./components/RouteHistory";
 import Geofences from "./components/Geofences";
+import MyVehicle from "./components/MyVehicle";
 import Demo from "./components/Demo";
 import NotFound from "./components/NotFound";
 import AppLayout from "./components/AppLayout";
@@ -118,6 +119,7 @@ function AppRoutes() {
       <Route path="/settings" element={adminShell(<Settings />)} />
       <Route path="/tracking" element={activeMemberShell(<Tracking />)} />
       <Route path="/vehicle-management" element={adminShell(<VehicleManagement />)} />
+      <Route path="/my-vehicle" element={activeMemberShell(<MyVehicle />)} />
       <Route path="/user-settings" element={authedShell(<UserSettings />)} />
       <Route path="/fuel-tracking" element={activeMemberShell(<FuelTracking />)} />
       <Route path="/route-history" element={adminShell(<RouteHistory />)} />

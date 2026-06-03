@@ -124,7 +124,12 @@ const Tracking = () => {
           motionState: computeMotionState(
             motionAnchors.current,
             item.vehicleId,
-            { lat: Number(item.lat), lng: Number(item.lng), timestamp: item.timestamp },
+            {
+              lat: Number(item.lat),
+              lng: Number(item.lng),
+              timestamp: item.timestamp,
+              isTracking: item.isTracking !== false,
+            },
             now
           ),
         });

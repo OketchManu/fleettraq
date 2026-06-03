@@ -48,6 +48,9 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
 
   const isActive = (path) => location.pathname === path;
 
+  const vehiclesPath = isDriver ? "/my-vehicle" : "/vehicle-management";
+  const vehiclesLabel = isDriver ? "My vehicle" : "Vehicles";
+
   const moreSections = [
     {
       title: "Insights",
@@ -61,7 +64,7 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
     {
       title: "Fleet",
       items: [
-        { label: "Vehicles", path: "/vehicle-management", icon: Car },
+        { label: vehiclesLabel, path: vehiclesPath, icon: Car },
         ...(canManageFleet ? [{ label: "Drivers", path: "/drivers", icon: Users }] : []),
       ],
     },

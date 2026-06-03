@@ -1,7 +1,7 @@
 import { collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import app, { db } from "../firebase";
-import { stopTrackingForVehicle } from "./vehicleTracking";
+import { stopTrackingForVehicle, vehicleDriverClearedFields } from "./vehicleTracking";
 
 /** Create or update the fleet driver roster entry for a signed-in driver account. */
 export async function ensureDriverRosterEntry({ uid, email, displayName, fleetId }) {
@@ -63,11 +63,7 @@ export async function assignDriverToVehicle({ driver, vehicleId, fleetId, allDri
 
   if (driver.assignedVehicleId && driver.assignedVehicleId !== vehicleId) {
     ops.push(
-      updateDoc(doc(db, "vehicles", driver.assignedVehicleId), {
-        assignedDriverUid: null,
-        assignedDriverEmail: null,
-        updatedAt: now,
-      })
+      updateDoc(doc(db, "vehicles", driver.assignedVehicleId), vehicleDriverClearedFields(now))
     );
   }
 
@@ -99,11 +95,7 @@ export async function assignDriverToVehicle({ driver, vehicleId, fleetId, allDri
 
 export async function clearVehicleDriverAssignment(vehicleId) {
   if (!vehicleId) return;
-  await updateDoc(doc(db, "vehicles", vehicleId), {
-    assignedDriverUid: null,
-    assignedDriverEmail: null,
-    updatedAt: new Date().toISOString(),
-  });
+  await updateDoc(doc(db, "vehicles", vehicleId), vehicleDriverClearedFields());
 }
 
 function parseCallableError(err) {
@@ -123,11 +115,7 @@ async function removeDriverRosterOnly({ driver, fleetId }) {
   const now = new Date().toISOString();
 
   if (driver.assignedVehicleId) {
-    await updateDoc(doc(db, "vehicles", driver.assignedVehicleId), {
-      assignedDriverUid: null,
-      assignedDriverEmail: null,
-      updatedAt: now,
-    });
+    await updateDoc(doc(db, "vehicles", driver.assignedVehicleId), vehicleDriverClearedFields(now));
     await stopTrackingForVehicle(fleetId, driver.assignedVehicleId);
   }
 

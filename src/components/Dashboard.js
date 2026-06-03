@@ -19,7 +19,7 @@ import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
-import { computeMotionState, getMotionMeta } from "../utils/vehicleMotion";
+import { computeMotionState, getMotionMeta, normalizeTimestamp } from "../utils/vehicleMotion";
 import { useRouteHistory } from "../hooks/useRouteHistory";
 import FleetRouteOverlay from "./FleetRouteOverlay";
 // Fix Leaflet default icon issue
@@ -193,7 +193,7 @@ const Dashboard = () => {
             const motionState = computeMotionState(
               motionAnchors.current,
               best.vehicleId,
-              { lat, lng, timestamp },
+              { lat, lng, timestamp, isTracking: best.isTracking !== false },
               now
             );
             authoritative.push({
@@ -211,7 +211,7 @@ const Dashboard = () => {
         }
 
         authoritative.sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          (a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp)
         );
         setTrackedVehicles(authoritative);
       },

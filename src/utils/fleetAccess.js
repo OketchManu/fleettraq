@@ -22,24 +22,23 @@ export function filterVehiclesForDriver(vehicles, user, drivers = []) {
   const uid = user.uid;
   const em = (user.email || "").toLowerCase();
 
-  let list = vehicles.filter(
-    (v) =>
-      v.assignedDriverUid === uid ||
-      (v.assignedDriverEmail && String(v.assignedDriverEmail).toLowerCase() === em)
+  const driverRecord = drivers.find(
+    (d) =>
+      (d.authUid && d.authUid === uid) ||
+      (d.email && String(d.email).toLowerCase() === em)
   );
 
-  if (list.length === 0 && drivers.length) {
-    const dr = drivers.find(
-      (d) =>
-        (d.authUid && d.authUid === uid) ||
-        (d.email && String(d.email).toLowerCase() === em)
-    );
-    if (dr?.assignedVehicleId) {
-      list = vehicles.filter((v) => v.id === dr.assignedVehicleId);
-    }
-  }
+  return vehicles.filter((v) => {
+    const linkedOnVehicle =
+      v.assignedDriverUid === uid ||
+      (v.assignedDriverEmail && String(v.assignedDriverEmail).toLowerCase() === em);
 
-  return list;
+    if (driverRecord) {
+      return Boolean(driverRecord.assignedVehicleId) && driverRecord.assignedVehicleId === v.id && linkedOnVehicle;
+    }
+
+    return linkedOnVehicle;
+  });
 }
 
 export const isAdminRole = (role) => normalizeRole(role) === "admin";

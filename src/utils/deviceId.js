@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
+import { normalizeTimestamp } from "./vehicleMotion";
 
 const STORAGE_KEY = "fleettraq_device_id";
 
@@ -44,11 +45,11 @@ export function canRegisterDeviceOnVehicle(vehicle) {
 export function pickAuthoritativeTrack(tracks, vehicle) {
   if (!tracks?.length || !vehicle) return null;
   const sorted = [...tracks].sort(
-    (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+    (a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp)
   );
   if (vehicle.registeredDeviceId) {
-    const registered = sorted.find((t) => t.deviceId === vehicle.registeredDeviceId);
-    if (registered) return registered;
+    const registered = sorted.filter((t) => t.deviceId === vehicle.registeredDeviceId);
+    if (registered.length) return registered[0];
   }
   return sorted.find((t) => t.isTracking !== false) || sorted[0] || null;
 }
