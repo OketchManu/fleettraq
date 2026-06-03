@@ -1,4 +1,5 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
@@ -125,6 +126,9 @@ exports.permanentlyDeleteDriver = onCall(async (request) => {
         await t.ref.delete();
       }
     }
+    for (const vehicleId of assignedVehicleIds) {
+      await deleteCollectionWhere("routePoints", "vehicleId", vehicleId);
+    }
   }
 
   await deleteCollectionWhere("fuelRecords", "recordedByUid", driverUid);
@@ -151,3 +155,45 @@ exports.permanentlyDeleteDriver = onCall(async (request) => {
 
   return { success: true, driverUid };
 });
+
+const DEFAULT_ROUTE_RETENTION_DAYS = 30;
+
+/**
+ * Nightly cleanup of routePoints older than fleet retention (default 30 days).
+ * Requires Blaze plan and Cloud Scheduler.
+ */
+exports.cleanupOldRoutePoints = onSchedule(
+  {
+    schedule: "every day 03:00",
+    timeZone: "UTC",
+  },
+  async () => {
+    const db = getFirestore();
+    const cutoffDefault = new Date(
+      Date.now() - DEFAULT_ROUTE_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    let totalDeleted = 0;
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const snap = await db
+        .collection("routePoints")
+        .where("timestamp", "<", cutoffDefault)
+        .limit(400)
+        .get();
+
+      if (snap.empty) break;
+
+      const batch = db.batch();
+      snap.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+      await batch.commit();
+      totalDeleted += snap.size;
+
+      if (snap.size < 400) break;
+    }
+
+    console.log(`cleanupOldRoutePoints: deleted ${totalDeleted} route points older than default retention`);
+    return { deleted: totalDeleted };
+  }
+);

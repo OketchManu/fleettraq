@@ -20,6 +20,8 @@ import UserSettings from "./components/UserSettings";
 import AuthCallback from "./components/AuthCallback";
 import FuelTracking from "./components/FuelTracking";
 import HelpCenter from "./components/HelpCenter";
+import RouteHistory from "./components/RouteHistory";
+import Geofences from "./components/Geofences";
 import Demo from "./components/Demo";
 import NotFound from "./components/NotFound";
 import AppLayout from "./components/AppLayout";
@@ -123,6 +125,34 @@ function AppRoutes() {
       <Route path="/vehicle-management" element={user ? <AuthenticatedShell><VehicleManagement /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="/user-settings" element={user ? <AuthenticatedShell><UserSettings /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="/fuel-tracking" element={user ? <AuthenticatedShell><FuelTracking /></AuthenticatedShell> : <Navigate to="/login" />} />
+      <Route
+        path="/route-history"
+        element={
+          user ? (
+            <AuthenticatedShell>
+              <RequireFleetAdmin>
+                <RouteHistory />
+              </RequireFleetAdmin>
+            </AuthenticatedShell>
+          ) : (
+            <Navigate to="/login" />
+          )
+        }
+      />
+      <Route
+        path="/geofences"
+        element={
+          user ? (
+            <AuthenticatedShell>
+              <RequireFleetAdmin>
+                <Geofences />
+              </RequireFleetAdmin>
+            </AuthenticatedShell>
+          ) : (
+            <Navigate to="/login" />
+          )
+        }
+      />
       <Route path="/help" element={user ? <AuthenticatedShell><HelpCenter /></AuthenticatedShell> : <Navigate to="/login" />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

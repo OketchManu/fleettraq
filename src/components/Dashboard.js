@@ -20,6 +20,8 @@ import { CarIcon } from "./assets/car-icon";
 import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
 import { computeMotionState, getMotionMeta } from "../utils/vehicleMotion";
+import { useRouteHistory } from "../hooks/useRouteHistory";
+import FleetRouteOverlay from "./FleetRouteOverlay";
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -103,6 +105,7 @@ const Dashboard = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
+  const [showRouteTrails, setShowRouteTrails] = useState(false);
   const motionAnchors = useRef(new Map());
   const [stats, setStats] = useState({
     totalMileage: 0,
@@ -256,6 +259,17 @@ const Dashboard = () => {
     return counts;
   }, [fleetLiveStatus]);
 
+  const {
+    routesByVehicle: todayRoutes,
+    stopsByVehicle: todayStops,
+    loading: routesLoading,
+  } = useRouteHistory(
+    fleetId,
+    "today",
+    vehicles.map((v) => v.id),
+    canManageFleet && showRouteTrails
+  );
+
   const MapComponent = useMemo(() => {
     const defaultPosition = [-1.2864, 36.8172];
     const bounds =
@@ -278,10 +292,19 @@ const Dashboard = () => {
           const vehicle = vehicles.find((v) => v.id === track.vehicleId);
           return <VehicleMarker key={track.id} track={track} vehicle={vehicle} />;
         })}
+        {canManageFleet && showRouteTrails && (
+          <FleetRouteOverlay
+            routesByVehicle={todayRoutes}
+            stopsByVehicle={todayStops}
+            vehicles={vehicles}
+            showRoutes
+            showStops
+          />
+        )}
         <MapViewController bounds={bounds} />
       </MapContainer>
     );
-  }, [trackedVehicles, vehicles, isMobile]);
+  }, [trackedVehicles, vehicles, isMobile, canManageFleet, showRouteTrails, todayRoutes, todayStops]);
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>
@@ -429,12 +452,41 @@ const Dashboard = () => {
               className={`rounded-2xl overflow-hidden border ${darkMode ? "border-white/10" : "border-gray-200"} shadow-xl`}
             >
               <div className={`p-3 sm:p-4 border-b ${darkMode ? "border-white/10 bg-black/30" : "bg-gray-50"}`}>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
                   <MapPin className="w-5 h-5 text-yellow-500 shrink-0" />
                   <h2 className={`font-semibold text-sm sm:text-base ${darkMode ? "text-white" : "text-gray-800"}`}>Live Fleet Location</h2>
+                  {canManageFleet && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowRouteTrails((v) => !v)}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
+                          showRouteTrails
+                            ? "bg-yellow-500/20 border-yellow-500/40 text-yellow-300"
+                            : darkMode
+                              ? "border-white/10 text-gray-400 hover:text-white"
+                              : "border-gray-200 text-gray-600 hover:text-gray-900"
+                        }`}
+                      >
+                        {showRouteTrails ? "Hide routes" : "Show routes"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/route-history")}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${
+                          darkMode
+                            ? "border-white/10 text-cyan-300 hover:bg-white/5"
+                            : "border-gray-200 text-cyan-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        Route history
+                      </button>
+                    </>
+                  )}
                   <span className={`sm:ml-auto text-xs flex items-center gap-1 ${trackedVehicles.length > 0 ? "text-green-400" : darkMode ? "text-gray-500" : "text-gray-400"}`}>
                     <span className={`w-2 h-2 rounded-full ${trackedVehicles.length > 0 ? "bg-green-500 animate-pulse" : "bg-gray-500"}`}></span>
                     {trackedVehicles.length > 0 ? "Live Tracking" : "No live GPS"}
+                    {showRouteTrails && routesLoading ? " · loading routes…" : ""}
                   </span>
                 </div>
               </div>

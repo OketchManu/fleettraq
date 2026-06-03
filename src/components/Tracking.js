@@ -12,6 +12,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Button from "./Button";
 import { getDeviceId, formatDeviceId, canDeviceTrackVehicle } from "../utils/deviceId";
+import { appendRoutePoint } from "../utils/routePoints";
 import { computeMotionState, getMotionMeta } from "../utils/vehicleMotion";
 import { CarIcon } from "./assets/car-icon";
 import SetupHelpBanner from "./SetupHelpBanner";
@@ -227,6 +228,16 @@ const Tracking = () => {
             isTracking: true,
           });
         }
+
+        const accountId = fleetId || auth.currentUser.uid;
+        appendRoutePoint({
+          accountId,
+          vehicleId: selectedVehicle,
+          deviceId,
+          lat,
+          lng,
+          method,
+        }).catch((err) => console.warn("Route point save failed:", err.message));
       } catch (err) {
         setError("Failed to save location: " + err.message);
         throw err;

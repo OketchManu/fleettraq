@@ -19,6 +19,8 @@ import {
   LayoutGrid,
   BookOpen,
   LogOut,
+  Route,
+  Hexagon,
 } from "lucide-react";
 import NotificationBell from "./NotificationBell";
 
@@ -50,6 +52,8 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
       items: [
         { label: "Analytics", path: "/analytics", icon: Activity },
         { label: "Reports", path: "/reports", icon: FileText },
+        ...(canManageFleet ? [{ label: "Route history", path: "/route-history", icon: Route }] : []),
+        ...(canManageFleet ? [{ label: "Geofences", path: "/geofences", icon: Hexagon }] : []),
       ],
     },
     {

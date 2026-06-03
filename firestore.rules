@@ -177,6 +177,40 @@ service cloud.firestore {
       allow delete: if activeFleet() && isAdmin();
     }
 
+    match /routePoints/{docId} {
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet() &&
+        request.resource.data.accountId == myOrg() &&
+        request.resource.data.vehicleId is string &&
+        request.resource.data.deviceId is string &&
+        request.resource.data.lat is number &&
+        request.resource.data.lng is number &&
+        request.resource.data.timestamp is string && (
+          isAdmin() ||
+          (isDriverRole() &&
+            vehicleAssignedToMe(request.resource.data.vehicleId) &&
+            driverDeviceMatchesVehicle(request.resource.data.vehicleId, request.resource.data.deviceId))
+        );
+      allow update: if false;
+      allow delete: if activeFleet() && isAdmin();
+    }
+
+    match /geofences/{docId} {
+      allow read: if activeFleet();
+      allow create: if writeActiveFleet() && isAdmin();
+      allow update: if activeFleet() && isAdmin() && writeActiveFleet();
+      allow delete: if activeFleet() && isAdmin();
+    }
+
+    match /fleetSettings/{docId} {
+      allow read: if signedIn() && (
+        docId == request.auth.uid + '_fleet' ||
+        (hasProfile() && docId == myOrg() + '_fleet')
+      );
+      allow create, update: if signedIn() && docId == request.auth.uid + '_fleet' && isAdmin();
+      allow delete: if signedIn() && docId == request.auth.uid + '_fleet' && isAdmin();
+    }
+
     match /reports/{docId} {
       allow read: if activeFleet();
       allow create, update, delete: if writeActiveFleet() && isAdmin();
@@ -216,7 +250,10 @@ service cloud.firestore {
 
     match /notifications/{docId} {
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.read == false && (
+        request.resource.data.userId == request.auth.uid ||
+        (hasProfile() && isDriverRole() && request.resource.data.userId == myOrg())
+      );
       allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 

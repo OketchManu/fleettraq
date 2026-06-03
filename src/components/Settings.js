@@ -32,6 +32,7 @@ const DEFAULT_FLEET_SETTINGS = {
   defaultMapView: "roadmap",
   fuelTracking: true,
   trackingRefreshRate: 30,
+  routeRetentionDays: 30,
   
   // Reports
   reportFrequency: "weekly",
@@ -597,6 +598,33 @@ const Settings = () => {
                     darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
                   }`}
                 />
+              </div>
+              <div>
+                <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>Route history retention (days)</label>
+                <input
+                  type="number"
+                  name="routeRetentionDays"
+                  value={settings.routeRetentionDays ?? 30}
+                  onChange={handleChange}
+                  disabled={isSaving}
+                  min="7"
+                  max="365"
+                  className={`w-full px-4 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                    darkMode ? "bg-white/10 text-white border-white/20" : "bg-gray-100 text-gray-800 border-gray-300"
+                  }`}
+                />
+                <p className="text-xs text-gray-500 mt-1">Older GPS route points are deleted nightly (Cloud Function).</p>
+              </div>
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/geofences")}
+                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-semibold ${
+                    darkMode ? "border-cyan-500/30 text-cyan-200 hover:bg-cyan-500/10" : "border-cyan-200 text-cyan-800 hover:bg-cyan-50"
+                  }`}
+                >
+                  Manage geofence zones →
+                </button>
               </div>
             </div>
           </motion.div>
