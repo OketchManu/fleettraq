@@ -455,6 +455,11 @@ const Tracking = () => {
   };
 
   const stopTracking = async () => {
+    if (isDriver) {
+      setError("Only your fleet administrator can stop GPS sharing. Ask them to unassign or change your vehicle.");
+      return;
+    }
+
     if (!trackingDocId) {
       setError("No active tracking session found.");
       return;
@@ -479,6 +484,11 @@ const Tracking = () => {
   };
 
   const removeVehicleFromTracking = async (trackingId, vehicleId) => {
+    if (isDriver) {
+      setError("Only your fleet administrator can remove a vehicle from tracking.");
+      return;
+    }
+
     if (!trackingId) {
       setError("No tracking entry selected for removal.");
       return;
@@ -696,7 +706,7 @@ const Tracking = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {track.isTracking && (
+                      {canManageFleet && track.isTracking && (
                         <button
                           onClick={stopTracking}
                           className="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 transition-colors"
@@ -704,12 +714,17 @@ const Tracking = () => {
                           Stop
                         </button>
                       )}
-                      <button
-                        onClick={() => removeVehicleFromTracking(track.id, track.vehicleId)}
-                        className="p-1 rounded-lg hover:bg-white/10 transition-colors"
-                      >
-                        <Trash2 size={16} className="text-gray-400 hover:text-red-400" />
-                      </button>
+                      {canManageFleet ? (
+                        <button
+                          onClick={() => removeVehicleFromTracking(track.id, track.vehicleId)}
+                          className="p-1 rounded-lg hover:bg-white/10 transition-colors"
+                          title="Remove from tracking"
+                        >
+                          <Trash2 size={16} className="text-gray-400 hover:text-red-400" />
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400 px-2 py-1">Admin manages assignment</span>
+                      )}
                     </div>
                   </div>
                 );
@@ -931,9 +946,14 @@ const Tracking = () => {
                 )}
               </div>
               )}
-              {isSelectedVehicleTrackedByMe && (
+              {isSelectedVehicleTrackedByMe && !isDriver && (
                 <p className="text-xs text-yellow-500 text-center">
                   ⚡ You are already tracking this vehicle on this device. Stop tracking first to start a new session.
+                </p>
+              )}
+              {isSelectedVehicleTrackedByMe && isDriver && (
+                <p className="text-xs text-green-400 text-center">
+                  GPS sharing is active for your assigned vehicle. Contact your administrator to change or remove it.
                 </p>
               )}
             </div>

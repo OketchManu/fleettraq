@@ -1,6 +1,7 @@
 import { collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import app, { db } from "../firebase";
+import { stopTrackingForVehicle } from "./vehicleTracking";
 
 /** Create or update the fleet driver roster entry for a signed-in driver account. */
 export async function ensureDriverRosterEntry({ uid, email, displayName, fleetId }) {
@@ -88,6 +89,12 @@ export async function assignDriverToVehicle({ driver, vehicleId, fleetId, allDri
   );
 
   await Promise.all(ops);
+
+  const stopOps = [stopTrackingForVehicle(fleetId, vehicleId)];
+  if (driver.assignedVehicleId && driver.assignedVehicleId !== vehicleId) {
+    stopOps.push(stopTrackingForVehicle(fleetId, driver.assignedVehicleId));
+  }
+  await Promise.all(stopOps);
 }
 
 export async function clearVehicleDriverAssignment(vehicleId) {
@@ -121,6 +128,7 @@ async function removeDriverRosterOnly({ driver, fleetId }) {
       assignedDriverEmail: null,
       updatedAt: now,
     });
+    await stopTrackingForVehicle(fleetId, driver.assignedVehicleId);
   }
 
   await deleteDoc(doc(db, "drivers", driver.id));

@@ -16,11 +16,20 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 const appCheckSiteKey = process.env.REACT_APP_RECAPTCHA_SITE_KEY;
-if (appCheckSiteKey) {
+const appCheckEnabled = process.env.REACT_APP_ENABLE_APP_CHECK === "true";
+
+function startAppCheck() {
+  if (!appCheckSiteKey || !appCheckEnabled) return;
   initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(appCheckSiteKey),
     isTokenAutoRefreshEnabled: true,
   });
+}
+
+if (appCheckSiteKey && appCheckEnabled && typeof window !== "undefined") {
+  // Defer App Check so login and first paint are not blocked on reCAPTCHA.
+  const scheduleAppCheck = window.requestIdleCallback || ((cb) => setTimeout(cb, 1500));
+  scheduleAppCheck(startAppCheck);
 } else if (process.env.NODE_ENV === "development" && process.env.REACT_APP_APPCHECK_DEBUG_TOKEN) {
   // App Check debug token for local development only.
   window.FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.REACT_APP_APPCHECK_DEBUG_TOKEN;

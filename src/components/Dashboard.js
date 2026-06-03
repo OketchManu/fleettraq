@@ -30,15 +30,40 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-const MapViewController = ({ bounds }) => {
+const MapViewController = ({ bounds, fitKey }) => {
   const map = useMap();
+  const lastFitKeyRef = useRef("");
 
   useEffect(() => {
-    if (bounds && bounds.length > 0) {
-      const leafletBounds = L.latLngBounds(bounds.map(([lat, lng]) => [lat, lng]));
-      map.fitBounds(leafletBounds, { padding: [50, 50], animate: true });
+    if (!bounds?.length || fitKey === lastFitKeyRef.current) return;
+
+    const fit = () => {
+      try {
+        const container = map.getContainer?.();
+        if (!container || container.offsetHeight === 0) return;
+
+        map.invalidateSize();
+        const points = bounds.filter(
+          ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
+        );
+        if (!points.length) return;
+
+        const leafletBounds = L.latLngBounds(points);
+        if (!leafletBounds.isValid()) return;
+
+        map.fitBounds(leafletBounds, { padding: [50, 50], animate: false, maxZoom: 15 });
+        lastFitKeyRef.current = fitKey;
+      } catch {
+        // Map may still be initializing or unmounting.
+      }
+    };
+
+    if (map.whenReady) {
+      map.whenReady(fit);
+    } else {
+      fit();
     }
-  }, [bounds, map]);
+  }, [bounds, fitKey, map]);
 
   return null;
 };
@@ -99,9 +124,9 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, membershipPending, fleetId, inviteCode, inviteLoading, inviteError, loadInviteCode, regenerateInvite } = useFleet();
+  const { vehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, membershipPending, fleetId, inviteCode, inviteLoading, inviteError, loadInviteCode, regenerateInvite, loading: fleetLoading } = useFleet();
   const [error, setError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = fleetLoading && vehicles.length === 0;
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [trackedVehicles, setTrackedVehicles] = useState([]);
   const [showAlertBanner, setShowAlertBanner] = useState(true);
@@ -128,24 +153,6 @@ const Dashboard = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  useEffect(() => {
-    const loadVehicles = async () => {
-      if (!user?.uid) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        setIsLoading(true);
-        await fetchVehicles();
-      } catch (err) {
-        setError("Failed to load fleet data: " + err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadVehicles();
-  }, [fetchVehicles, user?.uid]);
 
   useEffect(() => {
     const fid = fleetId;
@@ -276,6 +283,10 @@ const Dashboard = () => {
       trackedVehicles.length > 0
         ? trackedVehicles.map((track) => [track.lat, track.lng])
         : [defaultPosition];
+    const mapFitKey =
+      trackedVehicles.length > 0
+        ? trackedVehicles.map((track) => track.vehicleId).sort().join(",")
+        : "default";
 
     return (
       <MapContainer
@@ -301,10 +312,18 @@ const Dashboard = () => {
             showStops
           />
         )}
-        <MapViewController bounds={bounds} />
+        <MapViewController bounds={bounds} fitKey={mapFitKey} />
       </MapContainer>
     );
-  }, [trackedVehicles, vehicles, isMobile, canManageFleet, showRouteTrails, todayRoutes, todayStops]);
+  }, [
+    trackedVehicles,
+    vehicles,
+    isMobile,
+    canManageFleet,
+    showRouteTrails,
+    showRouteTrails ? todayRoutes : null,
+    showRouteTrails ? todayStops : null,
+  ]);
 
   return (
     <div className={`min-h-screen ${darkMode ? "bg-gradient-to-br from-[#0a0a1a] via-[#0f0f2a] to-[#0a0a1a]" : "bg-gray-50"}`}>

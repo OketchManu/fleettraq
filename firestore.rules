@@ -109,6 +109,16 @@ service cloud.firestore {
         request.resource.data.accountId == resource.data.accountId;
     }
 
+    function driverTrackingUpdateOk() {
+      return isDriverRole() &&
+        vehicleAssignedToMe(resource.data.vehicleId) &&
+        request.resource.data.vehicleId == resource.data.vehicleId &&
+        request.resource.data.accountId == resource.data.accountId &&
+        request.resource.data.deviceId == resource.data.deviceId &&
+        driverDeviceMatchesVehicle(resource.data.vehicleId, resource.data.deviceId) &&
+        request.resource.data.isTracking == true;
+    }
+
     function validFleetAlertNotification() {
       return request.resource.data.keys().hasAll(['userId', 'message', 'type', 'read', 'createdAt', 'alertType', 'vehicleId']) &&
         request.resource.data.read == false &&
@@ -213,12 +223,7 @@ service cloud.firestore {
       );
       allow update: if activeFleet() && resource.data.accountId == myOrg() && (
         isAdmin() ||
-        (isDriverRole() &&
-          vehicleAssignedToMe(resource.data.vehicleId) &&
-          request.resource.data.vehicleId == resource.data.vehicleId &&
-          request.resource.data.accountId == resource.data.accountId &&
-          request.resource.data.deviceId == resource.data.deviceId &&
-          driverDeviceMatchesVehicle(resource.data.vehicleId, resource.data.deviceId))
+        driverTrackingUpdateOk()
       );
       allow delete: if activeFleet() && isAdmin();
     }

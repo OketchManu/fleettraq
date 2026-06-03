@@ -8,6 +8,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "fireb
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount } from "../utils/driverRoster";
 import { processDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
+import { stopTrackingForVehicle } from "../utils/vehicleTracking";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
 import DriverAvatar from "./DriverAvatar";
@@ -141,6 +142,7 @@ const Drivers = () => {
     }
     try {
       const now = new Date().toISOString();
+      const fid = fleetId || user?.uid;
       const ops = [
         updateDoc(doc(db, "drivers", driver.id), {
           assignedVehicleId: null,
@@ -155,6 +157,7 @@ const Drivers = () => {
             updatedAt: now,
           })
         );
+        ops.push(stopTrackingForVehicle(fid, driver.assignedVehicleId));
       }
       await Promise.all(ops);
       await fetchDrivers();
@@ -195,11 +198,13 @@ const Drivers = () => {
 
   const syncVehicleAssignment = async (previousDriver, nextForm) => {
     const batch = writeBatch(db);
+    const fid = fleetId || user?.uid;
     const oldVid = (previousDriver?.assignedVehicleId || "").trim();
     const newVid = (nextForm.assignedVehicleId || "").trim();
     const uid = (nextForm.authUid || "").trim() || null;
     const em = (nextForm.email || "").trim() || null;
     let hasWrites = false;
+    const stopPromises = [];
 
     if (oldVid && (!newVid || newVid !== oldVid)) {
       batch.update(doc(db, "vehicles", oldVid), {
@@ -208,6 +213,7 @@ const Drivers = () => {
         updatedAt: new Date().toISOString(),
       });
       hasWrites = true;
+      if (fid) stopPromises.push(stopTrackingForVehicle(fid, oldVid));
     }
     if (newVid) {
       batch.update(doc(db, "vehicles", newVid), {
@@ -218,6 +224,7 @@ const Drivers = () => {
       hasWrites = true;
     }
     if (hasWrites) await batch.commit();
+    if (stopPromises.length) await Promise.all(stopPromises);
   };
 
   const handleSubmit = async (e) => {

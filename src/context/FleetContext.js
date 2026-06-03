@@ -143,10 +143,13 @@ export const FleetProvider = ({ children }) => {
         localStorage.setItem("role", role);
 
         const settingsRef = doc(db, "userSettings", `${firebaseUser.uid}_user`);
-        const settingsDoc = await getDoc(settingsRef);
-        if (settingsDoc.exists()) {
-          setDarkMode(settingsDoc.data().darkMode ?? true);
-        }
+        getDoc(settingsRef)
+          .then((settingsDoc) => {
+            if (settingsDoc.exists()) {
+              setDarkMode(settingsDoc.data().darkMode ?? true);
+            }
+          })
+          .catch(() => {});
       } else {
         setUser(null);
         setVehiclesAll([]);

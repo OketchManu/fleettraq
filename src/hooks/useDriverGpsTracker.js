@@ -193,13 +193,9 @@ export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {
       cancelled = true;
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
       if (idleTimerRef.current) clearInterval(idleTimerRef.current);
-      const docId = trackingDocIdRef.current;
       trackingDocIdRef.current = null;
       vehicleIdRef.current = null;
       lastWriteRef.current = { at: 0, lat: null, lng: null };
-      if (docId) {
-        updateDoc(doc(db, "tracking", docId), { isTracking: false }).catch(() => {});
-      }
     };
   }, [enabled, user, vehicle, accountId, deviceId, savePosition, processPosition]);
 
