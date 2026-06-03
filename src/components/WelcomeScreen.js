@@ -23,19 +23,19 @@ const WelcomeScreen = () => {
   }, []);
 
   const features = [
-    { icon: <Map className="w-6 h-6" />, title: "Real-Time GPS Tracking", description: "Monitor vehicle locations with pinpoint accuracy and live updates.", color: "#22D3EE", gradient: "from-cyan-500 to-blue-500" },
-    { icon: <BarChart className="w-6 h-6" />, title: "Advanced Analytics", description: "Get deep insights into fleet performance and operational efficiency.", color: "#E879F9", gradient: "from-pink-500 to-purple-500" },
-    { icon: <Clock className="w-6 h-6" />, title: "Predictive Maintenance", description: "Prevent breakdowns with AI-powered maintenance alerts.", color: "#34D399", gradient: "from-green-500 to-emerald-500" },
-    { icon: <Users className="w-6 h-6" />, title: "Driver Management", description: "Track driver performance, behavior, and compliance.", color: "#FBBF24", gradient: "from-yellow-500 to-amber-500" },
-    { icon: <Fuel className="w-6 h-6" />, title: "Fuel Efficiency", description: "Optimize fuel consumption and reduce operational costs.", color: "#10B981", gradient: "from-teal-500 to-green-500" },
-    { icon: <Shield className="w-6 h-6" />, title: "Security & Compliance", description: "Enterprise-grade security with full compliance tracking.", color: "#818CF8", gradient: "from-indigo-500 to-blue-500" },
+    { icon: <Map className="w-6 h-6" />, title: "Real-Time GPS Tracking", description: "Live map, route history, stops, and playback for your fleet.", color: "#22D3EE", gradient: "from-cyan-500 to-blue-500" },
+    { icon: <BarChart className="w-6 h-6" />, title: "Fleet Analytics", description: "Dashboard stats, fuel tracking, and operational reports.", color: "#E879F9", gradient: "from-pink-500 to-purple-500" },
+    { icon: <Clock className="w-6 h-6" />, title: "Maintenance Alerts", description: "Vehicle status tracking and maintenance reminders on the dashboard.", color: "#34D399", gradient: "from-green-500 to-emerald-500" },
+    { icon: <Users className="w-6 h-6" />, title: "Driver Management", description: "Invite codes, approval workflow, and vehicle assignment.", color: "#FBBF24", gradient: "from-yellow-500 to-amber-500" },
+    { icon: <Fuel className="w-6 h-6" />, title: "Fuel Tracking", description: "Log fill-ups and monitor usage per vehicle.", color: "#10B981", gradient: "from-teal-500 to-green-500" },
+    { icon: <Shield className="w-6 h-6" />, title: "Geofences & Alerts", description: "Speed, idle, and zone enter/leave notifications for admins.", color: "#818CF8", gradient: "from-indigo-500 to-blue-500" },
   ];
 
   const stats = [
-    { value: "500+", label: "Fleets Tracked", color: "#22D3EE" },
-    { value: "1M+", label: "Miles Optimized", color: "#E879F9" },
-    { value: "99.9%", label: "Uptime", color: "#34D399" },
-    { value: "24/7", label: "Support", color: "#FBBF24" },
+    { value: "Live", label: "GPS Map", color: "#22D3EE" },
+    { value: "Secure", label: "Invite onboarding", color: "#E879F9" },
+    { value: "Routes", label: "History & export", color: "#34D399" },
+    { value: "Alerts", label: "Speed & geofence", color: "#FBBF24" },
   ];
 
   return (

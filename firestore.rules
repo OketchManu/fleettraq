@@ -57,12 +57,29 @@ service cloud.firestore {
         get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.assignedDriverUid == request.auth.uid;
     }
 
+    function inviteDoc(code) {
+      return get(/databases/$(database)/documents/invites/$(code)).data;
+    }
+
+    function inviteNotExpired(code) {
+      return !('expiresAt' in inviteDoc(code)) ||
+        inviteDoc(code).expiresAt > request.time;
+    }
+
+    function inviteHasUses(code) {
+      return !('maxUses' in inviteDoc(code)) ||
+        !('useCount' in inviteDoc(code)) ||
+        inviteDoc(code).useCount < inviteDoc(code).maxUses;
+    }
+
     function validInviteForOrg(code, orgId) {
       return code is string &&
-        code.size() >= 6 &&
+        code.size() >= 8 &&
         exists(/databases/$(database)/documents/invites/$(code)) &&
-        get(/databases/$(database)/documents/invites/$(code)).data.active == true &&
-        get(/databases/$(database)/documents/invites/$(code)).data.organizationId == orgId;
+        inviteDoc(code).active == true &&
+        inviteDoc(code).organizationId == orgId &&
+        inviteNotExpired(code) &&
+        inviteHasUses(code);
     }
 
     function photoWithinLimit() {
@@ -75,30 +92,62 @@ service cloud.firestore {
       return vehicleId is string &&
         deviceId is string &&
         exists(/databases/$(database)/documents/vehicles/$(vehicleId)) &&
-        (
-          !('registeredDeviceId' in get(/databases/$(database)/documents/vehicles/$(vehicleId)).data) ||
-          get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.registeredDeviceId == null ||
-          get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.registeredDeviceId == deviceId
-        );
+        get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.registeredDeviceId == deviceId;
     }
 
-    function driverCanRegisterDevice(vehicleId) {
+    function driverCanRegisterDeviceOnce(vehicleId) {
       return isDriverRole() &&
         vehicleAssignedToMe(vehicleId) &&
+        exists(/databases/$(database)/documents/vehicles/$(vehicleId)) &&
+        get(/databases/$(database)/documents/vehicles/$(vehicleId)).data.awaitingDeviceRegistration == true &&
+        request.resource.data.registeredDeviceId is string &&
+        request.resource.data.registeredDeviceId.size() >= 8 &&
+        request.resource.data.registeredByUid == request.auth.uid &&
+        request.resource.data.awaitingDeviceRegistration == false &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['registeredDeviceId', 'registeredDeviceAt', 'registeredByUid', 'updatedAt']) &&
-        request.resource.data.accountId == resource.data.accountId &&
-        request.resource.data.registeredByUid == request.auth.uid;
+          .hasOnly(['registeredDeviceId', 'registeredDeviceAt', 'registeredByUid', 'awaitingDeviceRegistration', 'updatedAt']) &&
+        request.resource.data.accountId == resource.data.accountId;
+    }
+
+    function validFleetAlertNotification() {
+      return request.resource.data.keys().hasAll(['userId', 'message', 'type', 'read', 'createdAt', 'alertType', 'vehicleId']) &&
+        request.resource.data.read == false &&
+        request.resource.data.userId == myOrg() &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() > 0 &&
+        request.resource.data.message.size() <= 280 &&
+        request.resource.data.type in ['warning', 'info'] &&
+        request.resource.data.alertType in ['speed', 'idle', 'geofence'] &&
+        request.resource.data.vehicleId is string &&
+        vehicleAssignedToMe(request.resource.data.vehicleId);
+    }
+
+    function selfProfileUpdateOk() {
+      return request.resource.data.role == resource.data.role &&
+        request.resource.data.organizationId == resource.data.organizationId &&
+        request.resource.data.membershipStatus == resource.data.membershipStatus &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'email', 'photoUrl', 'updatedAt']);
     }
 
     // ---- Fleet invite codes (document id = the code) ----
     match /invites/{code} {
-      allow get: if signedIn() && resource.data.active == true;
+      allow get: if signedIn() && resource.data.active == true && (
+        (isAdmin() && resource.data.organizationId == myOrg()) ||
+        !hasProfile()
+      );
       allow list: if isAdmin() && resource.data.organizationId == myOrg();
       allow create: if signedIn() &&
         request.auth.uid == request.resource.data.organizationId &&
         request.resource.data.active == true;
-      allow update, delete: if isAdmin() && resource.data.organizationId == myOrg();
+      allow update: if (isAdmin() && resource.data.organizationId == myOrg()) ||
+        (signedIn() &&
+          resource.data.active == true &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['useCount']) &&
+          request.resource.data.useCount == resource.data.useCount + 1 &&
+          hasProfile() &&
+          myProfile().inviteCodeUsed == code);
+      allow delete: if isAdmin() && resource.data.organizationId == myOrg();
     }
 
     // ---- User profiles ----
@@ -118,10 +167,7 @@ service cloud.firestore {
           validInviteForOrg(request.resource.data.inviteCodeUsed, request.resource.data.organizationId))
       );
 
-      allow update: if signedIn() && request.auth.uid == userId &&
-        request.resource.data.role == resource.data.role &&
-        request.resource.data.organizationId == resource.data.organizationId &&
-        request.resource.data.membershipStatus == resource.data.membershipStatus;
+      allow update: if signedIn() && request.auth.uid == userId && selfProfileUpdateOk();
 
       allow update: if isAdmin() &&
         resource.data.organizationId == myOrg() &&
@@ -145,7 +191,7 @@ service cloud.firestore {
       allow create: if writeActiveFleet() && isAdmin();
       allow update: if activeFleet() && (
         (isAdmin() && writeActiveFleet()) ||
-        driverCanRegisterDevice(docId)
+        driverCanRegisterDeviceOnce(docId)
       );
       allow delete: if activeFleet() && isAdmin();
     }
@@ -250,9 +296,12 @@ service cloud.firestore {
 
     match /notifications/{docId} {
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
-      allow create: if signedIn() && request.resource.data.read == false && (
-        request.resource.data.userId == request.auth.uid ||
-        (hasProfile() && isDriverRole() && request.resource.data.userId == myOrg())
+      allow create: if signedIn() && (
+        (request.resource.data.userId == request.auth.uid &&
+          request.resource.data.read == false &&
+          request.resource.data.message is string &&
+          request.resource.data.message.size() <= 500) ||
+        (isDriverRole() && validFleetAlertNotification())
       );
       allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
     }

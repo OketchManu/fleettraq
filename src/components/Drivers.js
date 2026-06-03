@@ -108,6 +108,24 @@ const Drivers = () => {
     }
   };
 
+  const allowDriverGpsRegistration = async (driver) => {
+    if (!canManageFleet || !driver?.assignedVehicleId) return;
+    const vehicle = vehiclesAll.find((v) => v.id === driver.assignedVehicleId);
+    if (!vehicle) return;
+    try {
+      await updateDoc(doc(db, "vehicles", driver.assignedVehicleId), {
+        registeredDeviceId: null,
+        registeredDeviceAt: null,
+        registeredByUid: null,
+        awaitingDeviceRegistration: true,
+        updatedAt: new Date().toISOString(),
+      });
+      setError(null);
+    } catch (err) {
+      setError("Could not enable driver GPS registration: " + err.message);
+    }
+  };
+
   const handleUnassignVehicle = async (driver) => {
     if (!canManageFleet) {
       setError("Only fleet administrators can change vehicle assignments.");
@@ -586,7 +604,8 @@ const Drivers = () => {
                       <p className="text-xs text-amber-400">No login linked — add auth UID or sync account</p>
                     )}
                     {driver.assignedVehicleId ? (
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
                         <div className={`text-xs ${darkMode ? "text-cyan-300/90" : "text-cyan-700"}`}>
                           Vehicle:{" "}
                           {(() => {
@@ -600,6 +619,14 @@ const Drivers = () => {
                           className="text-xs text-red-400 hover:text-red-300 underline shrink-0"
                         >
                           Unassign
+                        </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => allowDriverGpsRegistration(driver)}
+                          className={`text-xs text-left underline ${darkMode ? "text-yellow-300" : "text-amber-700"}`}
+                        >
+                          Allow driver phone GPS registration
                         </button>
                       </div>
                     ) : (

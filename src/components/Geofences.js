@@ -9,6 +9,7 @@ import { collection, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestor
 import { db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
 import { useGeofences } from "../hooks/useGeofences";
+import { useFleetAlertSettings } from "../hooks/useFleetAlertSettings";
 import Button from "./Button";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -31,6 +32,7 @@ const Geofences = () => {
   const navigate = useNavigate();
   const { darkMode, fleetId, canManageFleet, sendNotification } = useFleet();
   const { geofences, loading, error } = useGeofences(fleetId, canManageFleet);
+  const { settings: fleetAlertSettings } = useFleetAlertSettings(fleetId, canManageFleet);
   const [form, setForm] = useState({
     name: "",
     lat: "",
@@ -139,6 +141,11 @@ const Geofences = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-5 grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {!fleetAlertSettings.enableGeofencing && (
+          <div className={`lg:col-span-2 p-3 rounded-xl text-sm border ${darkMode ? "bg-amber-500/10 border-amber-500/30 text-amber-200" : "bg-amber-50 border-amber-200 text-amber-900"}`}>
+            Geofence alerts are off. Enable <strong>Geofencing</strong> under Fleet Settings to receive enter/leave notifications.
+          </div>
+        )}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`overflow-hidden ${cardClass}`}>
           <div className={`p-3 border-b flex items-center justify-between ${darkMode ? "border-white/10" : "border-gray-200"}`}>
             <span className={`text-sm font-semibold ${darkMode ? "text-white" : "text-gray-800"}`}>Map — click to set center</span>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon, Trash2, Key, Shield, X } from "lucide-react";
-import { doc, onSnapshot, setDoc, deleteDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from "firebase/auth";
@@ -95,8 +95,8 @@ const UserSettings = () => {
       setPasswordError("New password and confirmation do not match.");
       return;
     }
-    if (newPassword.length < 6) {
-      setPasswordError("New password must be at least 6 characters long.");
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters long.");
       return;
     }
 
@@ -145,33 +145,23 @@ const UserSettings = () => {
         await reauthenticateWithCredential(currentUser, credential);
       }
 
-      // Delete all user data from Firestore
-      const collections = ["vehicles", "drivers", "reports", "tracking", "sessions", "deletionRequests", "fuelRecords"];
-      
-      for (const coll of collections) {
-        try {
-          const q = query(collection(db, coll), where("accountId", "==", user.uid));
-          const snapshot = await getDocs(q);
-          const deletePromises = snapshot.docs.map((docSnapshot) => deleteDoc(doc(db, coll, docSnapshot.id)));
-          await Promise.all(deletePromises);
-        } catch (err) {
-          // Collection might not exist or have different structure
-          console.log(`Skipping ${coll}:`, err.message);
-        }
-      }
-
-      // Delete user document
+      // Remove personal account data only — fleet records stay until manually cleaned up.
       try {
         await deleteDoc(doc(db, "users", user.uid));
       } catch (err) {
         console.log("User document might not exist:", err.message);
       }
 
-      // Delete user settings
       try {
         await deleteDoc(doc(db, "userSettings", `${user.uid}_user`));
       } catch (err) {
         console.log("User settings might not exist:", err.message);
+      }
+
+      try {
+        await deleteDoc(doc(db, "fleetSettings", `${user.uid}_fleet`));
+      } catch (err) {
+        console.log("Fleet settings might not exist:", err.message);
       }
 
       // Send notification before deleting (if possible)
@@ -455,7 +445,7 @@ const UserSettings = () => {
               </h2>
             </div>
             <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"} mb-4`}>
-              Delete your administrator account and fleet data. To remove a driver, use{" "}
+              This removes your login and profile. Fleet vehicles, drivers, and tracking history remain in Firestore until you delete them separately. To remove a driver, use{" "}
               <strong>More → Drivers → Remove account</strong> on their roster card.
             </p>
             <Button 

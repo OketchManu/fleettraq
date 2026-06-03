@@ -37,8 +37,8 @@ const Login = () => {
     setError("");
     setIsLoading(true);
 
-    if (!email || !password || !role) {
-      setError("Please fill in all fields");
+    if (!email || !password) {
+      setError("Please enter your email and password");
       setIsLoading(false);
       return;
     }
@@ -46,8 +46,7 @@ const Login = () => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
-      // Check if user exists in Firestore
+
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (!userDoc.exists()) {
         await auth.signOut();
@@ -57,18 +56,21 @@ const Login = () => {
         setIsLoading(false);
         return;
       }
-      
+
       const registeredRole = normalizeRole(userDoc.data().role);
-      if (registeredRole !== role) {
+      if (role && registeredRole !== role) {
         const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
         setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
         setIsLoading(false);
         return;
       }
-      
-      localStorage.setItem("role", role);
-      localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}`);
-      
+
+      localStorage.setItem("role", registeredRole);
+      localStorage.setItem(
+        "profilePicture",
+        user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}`
+      );
+
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err.code, err.message);
@@ -90,7 +92,7 @@ const Login = () => {
     }
 
     const registeredRole = normalizeRole(userDoc.data().role);
-    if (registeredRole !== roleArg) {
+    if (roleArg && registeredRole !== roleArg) {
       const roleLabel = registeredRole === "admin" ? "Administrator" : "Driver";
       await auth.signOut();
       setError(`This account is registered as ${roleLabel}. Please select ${roleLabel} above and try again.`);
@@ -98,7 +100,7 @@ const Login = () => {
       return;
     }
 
-    localStorage.setItem("role", roleArg);
+    localStorage.setItem("role", registeredRole);
     localStorage.setItem("profilePicture", user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || "User")}`);
 
     navigate("/dashboard", { replace: true });
@@ -112,8 +114,11 @@ const Login = () => {
         if (!result?.user) return;
         const pendingRole = sessionStorage.getItem("pendingGoogleRole");
         sessionStorage.removeItem("pendingGoogleRole");
-        if (!pendingRole) return;
         setIsLoading(true);
+        if (!pendingRole) {
+          await completeGoogleLogin(result.user, null);
+          return;
+        }
         await completeGoogleLogin(result.user, pendingRole);
       } catch (err) {
         console.error("Google redirect login error:", err.code, err.message);
@@ -127,17 +132,11 @@ const Login = () => {
 
   const handleGoogleLogin = async () => {
     setError("");
-
-    if (!role) {
-      setError("Please select a role");
-      return;
-    }
-
     setIsLoading(true);
 
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      await completeGoogleLogin(result.user, role);
+      await completeGoogleLogin(result.user, role || null);
     } catch (err) {
       console.error("Google login error:", err.code, err.message);
       if (
@@ -253,7 +252,7 @@ const Login = () => {
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div>
               <label className={`block text-sm mb-2 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                Select Role
+                Select Role <span className="text-xs font-normal opacity-70">(optional — we detect it from your account)</span>
               </label>
               <select
                 value={role}
@@ -276,7 +275,7 @@ const Login = () => {
                 </option>
               </select>
               <p className={`text-xs mt-1.5 ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
-                Required for email sign-in and Google sign-in.
+                Optional. Leave blank and we&apos;ll detect Administrator or Driver from your account.
               </p>
             </div>
 

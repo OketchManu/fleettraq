@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin,
@@ -26,6 +26,7 @@ import NotificationBell from "./NotificationBell";
 
 const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, isDriver }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null);
@@ -43,8 +44,9 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
   const quickLinks = [
     { label: "Tracking", path: "/tracking", icon: MapPin },
     { label: "Fuel", path: "/fuel-tracking", icon: Fuel },
-    { label: "Help", path: "/help", icon: BookOpen },
   ];
+
+  const isActive = (path) => location.pathname === path;
 
   const moreSections = [
     {
@@ -114,14 +116,14 @@ const FleetNavBar = ({ darkMode, onToggleDark, onLogout, user, canManageFleet, i
               <button
                 type="button"
                 onClick={() => navigate("/dashboard")}
-                className={pillClass(false)}
+                className={pillClass(isActive("/dashboard"))}
                 title="Dashboard"
               >
                 <LayoutGrid size={17} />
                 <span className="hidden lg:inline">Home</span>
               </button>
               {quickLinks.map((item) => (
-                <button key={item.path} type="button" onClick={() => go(item.path)} className={pillClass(false)}>
+                <button key={item.path} type="button" onClick={() => go(item.path)} className={pillClass(isActive(item.path))}>
                   <item.icon size={17} />
                   <span className="hidden lg:inline">{item.label}</span>
                 </button>

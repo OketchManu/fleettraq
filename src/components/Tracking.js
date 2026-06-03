@@ -428,8 +428,8 @@ const Tracking = () => {
   const assignTrackingToThisDevice = async (vehicleId) => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
     if (!vehicle) return;
-    if (!canManageFleet && !isDriver) {
-      setError("You cannot reassign the GPS device for this vehicle.");
+    if (!canManageFleet) {
+      setError("Only fleet administrators can assign the GPS device for a vehicle.");
       return;
     }
     if (
@@ -444,6 +444,7 @@ const Tracking = () => {
         registeredDeviceId: deviceId,
         registeredDeviceAt: new Date().toISOString(),
         registeredByUid: auth.currentUser?.uid || null,
+        awaitingDeviceRegistration: false,
         updatedAt: new Date().toISOString(),
       });
       sendNotification?.(`This device is now the GPS source for ${vehicle.make} ${vehicle.model}`, "success");
@@ -736,7 +737,7 @@ const Tracking = () => {
                       GPS device: {formatDeviceId(vehicle.registeredDeviceId)}
                     </p>
                   </div>
-                  {(canManageFleet || isDriver) && (
+                  {canManageFleet && (
                     <button
                       type="button"
                       onClick={() => assignTrackingToThisDevice(vehicle.id)}
@@ -900,8 +901,14 @@ const Tracking = () => {
               )}
 
               {isDriver ? (
-                <div className={`rounded-xl border p-3 text-sm ${darkMode ? "bg-green-500/10 border-green-500/30 text-green-300" : "bg-green-50 border-green-200 text-green-800"}`}>
-                  Your phone shares GPS automatically while you are logged in. Allow location access in your browser and keep this tab open so your fleet admin sees live status.
+                <div className={`rounded-xl border p-3 text-sm space-y-2 ${darkMode ? "bg-green-500/10 border-green-500/30 text-green-300" : "bg-green-50 border-green-200 text-green-800"}`}>
+                  <p>
+                    Your admin must tap <strong>Allow driver phone GPS registration</strong> on your driver card, then keep this tab open and allow location access.
+                  </p>
+                  <p className="text-xs opacity-90">Device ID for admin: <code>{formatDeviceId(deviceId)}</code></p>
+                  {!canDeviceTrackVehicle(selectedVehicleData, deviceId) && selectedVehicleData?.awaitingDeviceRegistration && (
+                    <p className="text-xs">Waiting for one-time device registration — reload after your admin enables it.</p>
+                  )}
                 </div>
               ) : (
               <div className="flex gap-3 pt-2">

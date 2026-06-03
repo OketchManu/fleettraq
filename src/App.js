@@ -4,7 +4,6 @@ import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useFleet } from "./context/FleetContext";
 
-// Components
 import WelcomeScreen from "./components/WelcomeScreen";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
@@ -25,6 +24,7 @@ import Geofences from "./components/Geofences";
 import Demo from "./components/Demo";
 import NotFound from "./components/NotFound";
 import AppLayout from "./components/AppLayout";
+import RequireActiveMembership from "./components/RequireActiveMembership";
 
 function AuthenticatedShell({ children }) {
   return <AppLayout>{children}</AppLayout>;
@@ -41,31 +41,31 @@ function RequireFleetAdmin({ children }) {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!canManageFleet) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canManageFleet) return <Navigate to="/dashboard" replace />;
 
   return children;
 }
 
+function HomeRoute({ user }) {
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <WelcomeScreen />;
+}
+
 function AppRoutes() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const { darkMode } = useFleet();
+  const [authReady, setAuthReady] = useState(false);
+  const { darkMode, loading: fleetLoading } = useFleet();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      setAuthReady(true);
     });
     return () => unsubscribe();
   }, []);
 
-  if (loading) {
+  if (!authReady || (user && fleetLoading)) {
     return (
       <div
         className={`min-h-screen flex items-center justify-center ${
@@ -82,78 +82,47 @@ function AppRoutes() {
     );
   }
 
+  const adminShell = (page) =>
+    user ? (
+      <AuthenticatedShell>
+        <RequireFleetAdmin>{page}</RequireFleetAdmin>
+      </AuthenticatedShell>
+    ) : (
+      <Navigate to="/login" />
+    );
+
+  const authedShell = (page) =>
+    user ? <AuthenticatedShell>{page}</AuthenticatedShell> : <Navigate to="/login" />;
+
+  const activeMemberShell = (page) =>
+    user ? (
+      <AuthenticatedShell>
+        <RequireActiveMembership>{page}</RequireActiveMembership>
+      </AuthenticatedShell>
+    ) : (
+      <Navigate to="/login" />
+    );
+
   return (
     <Routes>
-      <Route path="/" element={<WelcomeScreen />} />
+      <Route path="/" element={<HomeRoute user={user} />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/forgot-password" element={user ? <Navigate to="/dashboard" /> : <ForgotPassword />} />
       <Route path="/demo" element={<Demo />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route path="/dashboard" element={user ? <AuthenticatedShell><Dashboard /></AuthenticatedShell> : <Navigate to="/login" />} />
-      <Route path="/analytics" element={user ? <AuthenticatedShell><Analytics /></AuthenticatedShell> : <Navigate to="/login" />} />
-      <Route
-        path="/drivers"
-        element={
-          user ? (
-            <AuthenticatedShell>
-              <RequireFleetAdmin>
-                <Drivers />
-              </RequireFleetAdmin>
-            </AuthenticatedShell>
-          ) : (
-            <Navigate to="/login" />
-          )
-        }
-      />
-      <Route path="/reports" element={user ? <AuthenticatedShell><Reports /></AuthenticatedShell> : <Navigate to="/login" />} />
-      <Route
-        path="/settings"
-        element={
-          user ? (
-            <AuthenticatedShell>
-              <RequireFleetAdmin>
-                <Settings />
-              </RequireFleetAdmin>
-            </AuthenticatedShell>
-          ) : (
-            <Navigate to="/login" />
-          )
-        }
-      />
-      <Route path="/tracking" element={user ? <AuthenticatedShell><Tracking /></AuthenticatedShell> : <Navigate to="/login" />} />
-      <Route path="/vehicle-management" element={user ? <AuthenticatedShell><VehicleManagement /></AuthenticatedShell> : <Navigate to="/login" />} />
-      <Route path="/user-settings" element={user ? <AuthenticatedShell><UserSettings /></AuthenticatedShell> : <Navigate to="/login" />} />
-      <Route path="/fuel-tracking" element={user ? <AuthenticatedShell><FuelTracking /></AuthenticatedShell> : <Navigate to="/login" />} />
-      <Route
-        path="/route-history"
-        element={
-          user ? (
-            <AuthenticatedShell>
-              <RequireFleetAdmin>
-                <RouteHistory />
-              </RequireFleetAdmin>
-            </AuthenticatedShell>
-          ) : (
-            <Navigate to="/login" />
-          )
-        }
-      />
-      <Route
-        path="/geofences"
-        element={
-          user ? (
-            <AuthenticatedShell>
-              <RequireFleetAdmin>
-                <Geofences />
-              </RequireFleetAdmin>
-            </AuthenticatedShell>
-          ) : (
-            <Navigate to="/login" />
-          )
-        }
-      />
-      <Route path="/help" element={user ? <AuthenticatedShell><HelpCenter /></AuthenticatedShell> : <Navigate to="/login" />} />
+      <Route path="/dashboard" element={authedShell(<Dashboard />)} />
+      <Route path="/analytics" element={adminShell(<Analytics />)} />
+      <Route path="/drivers" element={adminShell(<Drivers />)} />
+      <Route path="/reports" element={adminShell(<Reports />)} />
+      <Route path="/settings" element={adminShell(<Settings />)} />
+      <Route path="/tracking" element={activeMemberShell(<Tracking />)} />
+      <Route path="/vehicle-management" element={adminShell(<VehicleManagement />)} />
+      <Route path="/user-settings" element={authedShell(<UserSettings />)} />
+      <Route path="/fuel-tracking" element={activeMemberShell(<FuelTracking />)} />
+      <Route path="/route-history" element={adminShell(<RouteHistory />)} />
+      <Route path="/geofences" element={adminShell(<Geofences />)} />
+      <Route path="/help" element={authedShell(<HelpCenter />)} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -6,7 +6,7 @@
   "dependencies": {
     "@react-google-maps/api": "^2.19.2",
     "chart.js": "^4.4.0",
-    "firebase": "^10.7.0",
+    "firebase": "^10.14.1",
     "framer-motion": "^10.16.16",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.303.0",
@@ -28,11 +28,21 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": ["react-app"]
+    "extends": [
+      "react-app"
+    ]
   },
   "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   },
   "overrides": {
     "typescript": "4.9.5"

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import { collection, doc, addDoc, updateDoc, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import { getDeviceId } from "../utils/deviceId";
+import { getDeviceId, canDeviceTrackVehicle, canRegisterDeviceOnVehicle } from "../utils/deviceId";
 import { fleetIdFromUser } from "../utils/fleetAccess";
 import { haversineMeters } from "../utils/vehicleMotion";
 import { appendRoutePoint } from "../utils/routePoints";
@@ -34,15 +34,11 @@ function getAssignedVehicles(vehicles, user, drivers = []) {
   return list;
 }
 
-/**
- * Keeps the assigned driver's phone broadcasting GPS to Firestore so admins
- * see live Moving / Parked / Offline status without opening the Tracking page.
- */
 export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {
   const deviceId = useRef(getDeviceId()).current;
   const trackingDocIdRef = useRef(null);
   const vehicleIdRef = useRef(null);
-  const claimedRef = useRef(new Set());
+  const registrationAttemptedRef = useRef(new Set());
   const lastWriteRef = useRef({ at: 0, lat: null, lng: null });
   const idleTimerRef = useRef(null);
 
@@ -56,34 +52,36 @@ export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {
   const { processPosition } = useDriverTrackingAlerts({
     vehicle,
     accountId,
-    enabled: enabled && !!vehicle,
+    enabled: enabled && !!vehicle && canDeviceTrackVehicle(vehicle, deviceId),
   });
 
   useEffect(() => {
-    if (!enabled || !user?.uid) return undefined;
+    if (!enabled || !user?.uid || !vehicle) return undefined;
 
-    assigned.forEach(async (v) => {
-      if (v.registeredDeviceId === deviceId) return;
-      if (claimedRef.current.has(v.id)) return;
-      claimedRef.current.add(v.id);
-      try {
-        await updateDoc(doc(db, "vehicles", v.id), {
-          registeredDeviceId: deviceId,
-          registeredDeviceAt: new Date().toISOString(),
-          registeredByUid: user.uid,
-          updatedAt: new Date().toISOString(),
-        });
-      } catch (err) {
-        console.error("Could not register driver device for vehicle:", err);
-        claimedRef.current.delete(v.id);
-      }
+    if (canDeviceTrackVehicle(vehicle, deviceId)) return undefined;
+    if (!canRegisterDeviceOnVehicle(vehicle)) return undefined;
+    if (registrationAttemptedRef.current.has(vehicle.id)) return undefined;
+
+    registrationAttemptedRef.current.add(vehicle.id);
+    updateDoc(doc(db, "vehicles", vehicle.id), {
+      registeredDeviceId: deviceId,
+      registeredDeviceAt: new Date().toISOString(),
+      registeredByUid: user.uid,
+      awaitingDeviceRegistration: false,
+      updatedAt: new Date().toISOString(),
+    }).catch((err) => {
+      console.error("Could not register driver device for vehicle:", err);
+      registrationAttemptedRef.current.delete(vehicle.id);
     });
 
     return undefined;
-  }, [enabled, user?.uid, user?.email, assigned, deviceId]);
+  }, [enabled, user?.uid, vehicle, deviceId]);
 
   const savePosition = useCallback(
     async (vehicleId, lat, lng, acctId, speedMs) => {
+      const v = assigned.find((item) => item.id === vehicleId);
+      if (!v || !canDeviceTrackVehicle(v, deviceId)) return;
+
       const now = Date.now();
       const last = lastWriteRef.current;
       const moved =
@@ -153,14 +151,13 @@ export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {
 
       processPosition(lat, lng, speedMs).catch(() => {});
     },
-    [deviceId, processPosition]
+    [deviceId, processPosition, assigned]
   );
 
   useEffect(() => {
     if (!enabled || !user?.uid || typeof navigator === "undefined" || !navigator.geolocation) {
       return undefined;
     }
-
     if (!accountId || !vehicle) return undefined;
 
     let watchId = null;
@@ -187,7 +184,7 @@ export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {
 
     idleTimerRef.current = setInterval(() => {
       const last = lastWriteRef.current;
-      if (last.lat != null) {
+      if (last.lat != null && canDeviceTrackVehicle(vehicle, deviceId)) {
         processPosition(last.lat, last.lng, null).catch(() => {});
       }
     }, 60 * 1000);

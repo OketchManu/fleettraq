@@ -31,8 +31,13 @@ export function formatDeviceId(id) {
 /** True when this device is allowed to send GPS updates for the vehicle. */
 export function canDeviceTrackVehicle(vehicle, deviceId) {
   if (!vehicle || !deviceId) return false;
-  if (!vehicle.registeredDeviceId) return true;
+  if (!vehicle.registeredDeviceId) return false;
   return vehicle.registeredDeviceId === deviceId;
+}
+
+/** Driver may complete one-time device registration when admin enabled it. */
+export function canRegisterDeviceOnVehicle(vehicle) {
+  return Boolean(vehicle?.awaitingDeviceRegistration);
 }
 
 /** Pick the tracking row that belongs to the vehicle's registered GPS device. */

@@ -7,7 +7,7 @@ import { auth, db, googleProvider } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFleet } from "../context/FleetContext";
 import { friendlyAuthError } from "../utils/authErrors";
-import { resolveInviteCode, ensureFleetInvite } from "../utils/fleetInvite";
+import { resolveInviteCode, ensureFleetInvite, incrementInviteUse } from "../utils/fleetInvite";
 import GoogleSignInButton from "./GoogleSignInButton";
 
 const Signup = () => {
@@ -92,6 +92,10 @@ const Signup = () => {
 
       await setDoc(doc(db, "users", user.uid), profile);
 
+      if (inviteCodeUsed) {
+        await incrementInviteUse(inviteCodeUsed);
+      }
+
       if (!isDriverRole) {
         await ensureFleetInvite(user.uid);
       }
@@ -127,6 +131,10 @@ const Signup = () => {
     }
 
     await setDoc(doc(db, "users", user.uid), profile, { merge: true });
+
+    if (inviteCodeUsedArg) {
+      await incrementInviteUse(inviteCodeUsedArg);
+    }
 
     if (!isDriverRole) {
       await ensureFleetInvite(user.uid);

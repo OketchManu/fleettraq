@@ -99,7 +99,7 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, fleetId, inviteCode, inviteLoading, inviteError, loadInviteCode, regenerateInvite } = useFleet();
+  const { vehicles, fetchVehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, membershipPending, fleetId, inviteCode, inviteLoading, inviteError, loadInviteCode, regenerateInvite } = useFleet();
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -557,20 +557,25 @@ const Dashboard = () => {
             </motion.div>
 
             {/* Quick Actions */}
+            {!membershipPending && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
               className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3"
             >
+              {(canManageFleet || isDriver) && (
               <button
                 onClick={() => navigate("/tracking")}
                 className={`p-4 rounded-xl ${darkMode ? "bg-white/5 hover:bg-white/10" : "bg-white hover:bg-gray-50"} border ${darkMode ? "border-white/10" : "border-gray-200"} transition-all group`}
               >
                 <Navigation className="w-6 h-6 text-yellow-500 mx-auto mb-2 group-hover:scale-110 transition-transform" />
-                <p className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>Start Tracking</p>
+                <p className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>{isDriver ? "My tracking" : "Start Tracking"}</p>
               </button>
+              )}
               
+              {canManageFleet && (
+              <>
               <button
                 onClick={() => navigate("/vehicle-management")}
                 className={`p-4 rounded-xl ${darkMode ? "bg-white/5 hover:bg-white/10" : "bg-white hover:bg-gray-50"} border ${darkMode ? "border-white/10" : "border-gray-200"} transition-all group`}
@@ -594,7 +599,25 @@ const Dashboard = () => {
                 <TrendingUp className="w-6 h-6 text-purple-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
                 <p className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>Analytics</p>
               </button>
+              </>
+              )}
+
+              {isDriver && !canManageFleet && (
+              <button
+                onClick={() => navigate("/fuel-tracking")}
+                className={`p-4 rounded-xl ${darkMode ? "bg-white/5 hover:bg-white/10" : "bg-white hover:bg-gray-50"} border ${darkMode ? "border-white/10" : "border-gray-200"} transition-all group`}
+              >
+                <Fuel className="w-6 h-6 text-teal-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                <p className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>Fuel log</p>
+              </button>
+              )}
             </motion.div>
+            )}
+            {membershipPending && (
+              <p className={`mt-6 text-sm text-center ${darkMode ? "text-amber-300" : "text-amber-700"}`}>
+                Quick actions unlock after your administrator approves your account.
+              </p>
+            )}
           </>
         )}
       </main>
