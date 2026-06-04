@@ -12,24 +12,35 @@ export const fleetIdFromUser = (user) => {
 };
 
 /**
- * Drivers only see vehicles explicitly assigned (or linked via drivers doc).
- * @param {object[]} vehicles - all vehicles for the fleet (accountId match)
- * @param {object} user - { uid, email, role }
- * @param {object[]} drivers - fleet driver roster
+ * All roster rows that belong to this signed-in driver (authUid preferred, then email).
+ */
+export function findDriverRecordsForUser(drivers, user) {
+  if (!user || !drivers?.length) return [];
+  const uid = user.uid;
+  const em = (user.email || "").toLowerCase();
+  const byUid = drivers.filter((d) => d.authUid && d.authUid === uid);
+  if (byUid.length) return byUid;
+  if (!em) return [];
+  return drivers.filter((d) => d.email && String(d.email).toLowerCase() === em);
+}
+
+/**
+ * Drivers only see a vehicle when roster and vehicle assignment both agree.
  */
 export function filterVehiclesForDriver(vehicles, user, drivers = []) {
   if (!user || user.role !== "driver") return vehicles;
   const uid = user.uid;
   const em = (user.email || "").toLowerCase();
 
-  const driverRecord = drivers.find(
-    (d) =>
-      (d.authUid && d.authUid === uid) ||
-      (d.email && String(d.email).toLowerCase() === em)
-  );
+  const matches = findDriverRecordsForUser(drivers, user);
+  if (!matches.length) return [];
 
-  const assignedId = (driverRecord?.assignedVehicleId || "").trim();
-  if (!assignedId) return [];
+  const assignedIds = [
+    ...new Set(matches.map((m) => (m.assignedVehicleId || "").trim()).filter(Boolean)),
+  ];
+  if (assignedIds.length !== 1) return [];
+
+  const assignedId = assignedIds[0];
 
   return vehicles.filter((v) => {
     if (v.id !== assignedId) return false;

@@ -161,6 +161,7 @@ const VehicleManagement = () => {
           fleetId,
           driver: linkedDriver || null,
           allDrivers: drivers,
+          vehicle,
         });
         await fetchVehicles();
         if (fetchDrivers) await fetchDrivers();

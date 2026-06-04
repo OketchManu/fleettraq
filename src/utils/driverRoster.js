@@ -1,7 +1,7 @@
 import { collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import app, { db } from "../firebase";
-import { stopTrackingForVehicle, vehicleDriverClearedFields } from "./vehicleTracking";
+import { stopTrackingForVehicle, vehicleDriverClearedFields, driverVehicleClearedFields } from "./vehicleTracking";
 
 /** Create or update the fleet driver roster entry for a signed-in driver account. */
 export async function ensureDriverRosterEntry({ uid, email, displayName, fleetId }) {
@@ -53,10 +53,7 @@ export async function assignDriverToVehicle({ driver, vehicleId, fleetId, allDri
   for (const other of allDrivers) {
     if (other.id !== driver.id && other.assignedVehicleId === vehicleId) {
       ops.push(
-        updateDoc(doc(db, "drivers", other.id), {
-          assignedVehicleId: null,
-          updatedAt: now,
-        })
+        updateDoc(doc(db, "drivers", other.id), driverVehicleClearedFields(now))
       );
     }
   }
@@ -99,6 +96,7 @@ export async function unassignVehicleFromDriver({
   fleetId,
   driver = null,
   allDrivers = [],
+  vehicle = null,
 }) {
   if (!fleetId || !vehicleId) return;
 
@@ -108,25 +106,29 @@ export async function unassignVehicleFromDriver({
 
   if (driver?.id) driverIds.add(driver.id);
 
+  const linkUid = vehicle?.assignedDriverUid || driver?.authUid || null;
+  const linkEmail = (vehicle?.assignedDriverEmail || driver?.email || "").trim().toLowerCase();
+
   for (const d of allDrivers) {
     if (d.assignedVehicleId === vehicleId) driverIds.add(d.id);
-    if (driver?.authUid && d.authUid === driver.authUid) driverIds.add(d.id);
+    if (linkUid && d.authUid === linkUid) driverIds.add(d.id);
+    if (linkEmail && d.email && String(d.email).toLowerCase() === linkEmail) driverIds.add(d.id);
     if (driver?.id && d.id === driver.id) driverIds.add(d.id);
   }
 
   driverIds.forEach((id) => {
-    ops.push(
-      updateDoc(doc(db, "drivers", id), {
-        assignedVehicleId: null,
-        updatedAt: now,
-      })
-    );
+    ops.push(updateDoc(doc(db, "drivers", id), driverVehicleClearedFields(now)));
   });
 
   ops.push(updateDoc(doc(db, "vehicles", vehicleId), vehicleDriverClearedFields(now)));
 
   await Promise.all(ops);
-  await stopTrackingForVehicle(fleetId, vehicleId);
+
+  try {
+    await stopTrackingForVehicle(fleetId, vehicleId);
+  } catch (err) {
+    console.warn("Stop tracking after unassign:", err?.message || err);
+  }
 }
 
 export async function clearVehicleDriverAssignment(vehicleId) {

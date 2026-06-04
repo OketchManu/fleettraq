@@ -8,13 +8,14 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "fireb
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount, unassignVehicleFromDriver } from "../utils/driverRoster";
 import { processDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
+import { friendlyFirestoreError } from "../utils/firestoreErrors";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
 import DriverAvatar from "./DriverAvatar";
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet, inviteCode, inviteLoading, regenerateInvite } = useFleet();
+  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet, inviteCode, inviteLoading, regenerateInvite, sendNotification } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -141,17 +142,22 @@ const Drivers = () => {
     }
     try {
       const fid = fleetId || user?.uid;
-      if (driver.assignedVehicleId) {
+      const vid = driver.assignedVehicleId;
+      if (vid) {
+        const vehicle = vehiclesAll.find((x) => x.id === vid);
         await unassignVehicleFromDriver({
-          vehicleId: driver.assignedVehicleId,
+          vehicleId: vid,
           fleetId: fid,
           driver,
           allDrivers: drivers,
+          vehicle: vehicle || null,
         });
       }
       await fetchDrivers();
+      setError(null);
+      sendNotification?.("Vehicle unassigned from driver", "success");
     } catch (err) {
-      setError("Failed to unassign vehicle: " + err.message);
+      setError(friendlyFirestoreError(err));
     }
   };
 

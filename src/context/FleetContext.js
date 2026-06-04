@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole, normalizeRole } from "../utils/fleetAccess";
+import { friendlyFirestoreError } from "../utils/firestoreErrors";
 import { ensureFleetInvite, regenerateFleetInvite } from "../utils/fleetInvite";
 import { resolveFleetLocale, fleetSettingsDocId } from "../utils/fleetLocale";
 import { getDeviceId } from "../utils/deviceId";
@@ -219,7 +220,7 @@ export const FleetProvider = ({ children }) => {
         setVehiclesAll(vehiclesList);
       },
       (err) => {
-        setError("Failed to subscribe to vehicles: " + err.message);
+        setError(friendlyFirestoreError(err));
       }
     );
 
@@ -260,7 +261,7 @@ export const FleetProvider = ({ children }) => {
         setDrivers(driversList);
       },
       (err) => {
-        setError("Failed to subscribe to drivers: " + err.message);
+        setError(friendlyFirestoreError(err));
       }
     );
 
@@ -382,6 +383,12 @@ export const FleetProvider = ({ children }) => {
     if (!fid) {
       setActiveTracking([]);
       return;
+    }
+
+    // Drivers do not need a fleet-wide active-tracking listener (saves Firestore reads).
+    if (roleIsDriver(user?.role)) {
+      setActiveTracking([]);
+      return undefined;
     }
 
     const q = query(

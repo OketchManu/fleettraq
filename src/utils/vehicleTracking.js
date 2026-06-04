@@ -1,15 +1,23 @@
-import { collection, query, where, getDocs, updateDoc } from "firebase/firestore";
+import { deleteField, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
 /** Fields to clear on a vehicle when its driver is unassigned. */
 export function vehicleDriverClearedFields(now = new Date().toISOString()) {
   return {
-    assignedDriverUid: null,
-    assignedDriverEmail: null,
-    registeredDeviceId: null,
-    registeredDeviceAt: null,
-    registeredByUid: null,
+    assignedDriverUid: deleteField(),
+    assignedDriverEmail: deleteField(),
+    registeredDeviceId: deleteField(),
+    registeredDeviceAt: deleteField(),
+    registeredByUid: deleteField(),
     awaitingDeviceRegistration: false,
+    updatedAt: now,
+  };
+}
+
+/** Clear assignment on a driver roster document. */
+export function driverVehicleClearedFields(now = new Date().toISOString()) {
+  return {
+    assignedVehicleId: deleteField(),
     updatedAt: now,
   };
 }

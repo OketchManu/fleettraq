@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
@@ -40,13 +40,8 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === "failed-precondition") {
-    console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-  } else if (err.code === "unimplemented") {
-    console.warn("The current browser does not support offline persistence.");
-  }
-});
+// Offline persistence disabled: stale cached assignments reappeared for drivers after
+// admin unassign when Firestore hit quota limits. Server data is the source of truth.
 
 googleProvider.setCustomParameters({
   prompt: "select_account",
