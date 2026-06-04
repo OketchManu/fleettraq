@@ -12,7 +12,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { db } from "../firebase";
-import { collection, query, onSnapshot, where } from "firebase/firestore";
+import { collection, query, getDocs, where } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import Button from "./Button";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
@@ -21,6 +21,7 @@ import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
 import { computeMotionState, getMotionMeta, normalizeTimestamp } from "../utils/vehicleMotion";
 import { useRouteHistory } from "../hooks/useRouteHistory";
+import { FLEET_POLL_MS } from "../utils/firestorePoll";
 import FleetRouteOverlay from "./FleetRouteOverlay";
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -156,7 +157,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fid = fleetId;
-    if (!fid) return;
+    if (!fid || !vehicles.length) {
+      setTrackedVehicles([]);
+      return undefined;
+    }
 
     const q = query(
       collection(db, "tracking"),
@@ -164,9 +168,13 @@ const Dashboard = () => {
       where("isTracking", "==", true)
     );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        if (cancelled) return;
+
         const allTracks = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
@@ -214,13 +222,17 @@ const Dashboard = () => {
           (a, b) => normalizeTimestamp(b.timestamp) - normalizeTimestamp(a.timestamp)
         );
         setTrackedVehicles(authoritative);
-      },
-      (err) => {
-        setError("Failed to fetch tracking updates: " + err.message);
+      } catch (err) {
+        if (!cancelled) setError("Failed to fetch tracking updates: " + err.message);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    load();
+    const timer = setInterval(load, FLEET_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [fleetId, vehicles]);
 
   useEffect(() => {

@@ -8,7 +8,7 @@ import FleetNavBar from "./FleetNavBar";
 
 const AppLayout = ({ children }) => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, canManageFleet, isDriver, membershipPending, membershipSuspended } = useFleet();
+  const { darkMode, setDarkMode, user, canManageFleet, isDriver, membershipPending, membershipSuspended, error: fleetError } = useFleet();
 
   const toggleDarkMode = async () => {
     const newMode = !darkMode;
@@ -54,6 +54,11 @@ const AppLayout = ({ children }) => {
           {membershipSuspended
             ? "Your access has been suspended by your fleet administrator. Please contact them to restore access."
             : "Your account is awaiting approval from your fleet administrator. You'll see your assigned vehicles once you're approved."}
+        </div>
+      )}
+      {fleetError && /quota exceeded/i.test(fleetError) && (
+        <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-center leading-relaxed bg-red-600/20 text-red-200 border-b border-red-500/40">
+          {fleetError} Unassign and other saves will fail until the limit resets or you upgrade Firebase (Blaze plan).
         </div>
       )}
       <div className="overflow-x-hidden">{children}</div>

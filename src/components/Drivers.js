@@ -4,18 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Users, Plus, Edit, Trash2, X, Check, AlertCircle, Phone, Mail, Calendar, Link2, RefreshCw, Car, Camera } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
-import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch, getDoc } from "firebase/firestore";
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount, unassignVehicleFromDriver } from "../utils/driverRoster";
 import { processDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
-import { friendlyFirestoreError } from "../utils/firestoreErrors";
+import { friendlyFirestoreError, isQuotaError } from "../utils/firestoreErrors";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
 import DriverAvatar from "./DriverAvatar";
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet, inviteCode, inviteLoading, regenerateInvite, sendNotification } = useFleet();
+  const { darkMode, drivers, fetchDrivers, fetchVehicles, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet, inviteCode, inviteLoading, regenerateInvite, sendNotification } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -143,21 +143,41 @@ const Drivers = () => {
     try {
       const fid = fleetId || user?.uid;
       const vid = driver.assignedVehicleId;
-      if (vid) {
-        const vehicle = vehiclesAll.find((x) => x.id === vid);
-        await unassignVehicleFromDriver({
-          vehicleId: vid,
-          fleetId: fid,
-          driver,
-          allDrivers: drivers,
-          vehicle: vehicle || null,
-        });
+      if (!vid) return;
+
+      const vehicle = vehiclesAll.find((x) => x.id === vid);
+      await unassignVehicleFromDriver({
+        vehicleId: vid,
+        fleetId: fid,
+        driver,
+        allDrivers: drivers,
+        vehicle: vehicle || null,
+      });
+
+      const driverRef = doc(db, "drivers", driver.id);
+      const vehicleRef = doc(db, "vehicles", vid);
+      const [driverSnap, vehicleSnap] = await Promise.all([getDoc(driverRef), getDoc(vehicleRef)]);
+
+      const stillOnDriver = driverSnap.exists() && driverSnap.data()?.assignedVehicleId;
+      const stillOnVehicle =
+        vehicleSnap.exists() &&
+        (vehicleSnap.data()?.assignedDriverUid || vehicleSnap.data()?.assignedDriverEmail);
+
+      if (stillOnDriver || stillOnVehicle) {
+        throw new Error(
+          "Unassign did not save to the server. Firebase daily quota is exceeded — upgrade Firebase or try again after midnight Pacific time."
+        );
       }
-      await fetchDrivers();
+
+      await Promise.all([fetchDrivers(), fetchVehicles()]);
       setError(null);
       sendNotification?.("Vehicle unassigned from driver", "success");
     } catch (err) {
-      setError(friendlyFirestoreError(err));
+      const msg = friendlyFirestoreError(err);
+      setError(msg);
+      if (isQuotaError(err)) {
+        sendNotification?.("Could not save unassign — Firebase quota exceeded", "error");
+      }
     }
   };
 

@@ -8,7 +8,7 @@ import { appendRoutePoint } from "../utils/routePoints";
 import { msToKmh } from "../utils/trackingAlerts";
 import { useDriverTrackingAlerts } from "./useDriverTrackingAlerts";
 
-const WRITE_INTERVAL_MS = 30 * 1000;
+const WRITE_INTERVAL_MS = 60 * 1000;
 const MIN_MOVE_M = 15;
 
 export function useDriverGpsTracker({ user, vehicles, drivers, enabled }) {

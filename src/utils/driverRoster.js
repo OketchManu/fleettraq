@@ -1,4 +1,4 @@
-import { collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, query, where, getDocs, updateDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import app, { db } from "../firebase";
 import { stopTrackingForVehicle, vehicleDriverClearedFields, driverVehicleClearedFields } from "./vehicleTracking";
@@ -90,7 +90,7 @@ export async function assignDriverToVehicle({ driver, vehicleId, fleetId, allDri
   await Promise.all(stopOps);
 }
 
-/** Remove vehicle ↔ driver links from both collections and stop GPS. */
+/** Remove vehicle ↔ driver links from both collections (single batch write). */
 export async function unassignVehicleFromDriver({
   vehicleId,
   fleetId,
@@ -101,7 +101,6 @@ export async function unassignVehicleFromDriver({
   if (!fleetId || !vehicleId) return;
 
   const now = new Date().toISOString();
-  const ops = [];
   const driverIds = new Set();
 
   if (driver?.id) driverIds.add(driver.id);
@@ -116,19 +115,18 @@ export async function unassignVehicleFromDriver({
     if (driver?.id && d.id === driver.id) driverIds.add(d.id);
   }
 
+  const batch = writeBatch(db);
+
   driverIds.forEach((id) => {
-    ops.push(updateDoc(doc(db, "drivers", id), driverVehicleClearedFields(now)));
+    batch.update(doc(db, "drivers", id), driverVehicleClearedFields(now));
   });
 
-  ops.push(updateDoc(doc(db, "vehicles", vehicleId), vehicleDriverClearedFields(now)));
+  batch.update(doc(db, "vehicles", vehicleId), vehicleDriverClearedFields(now));
 
-  await Promise.all(ops);
+  await batch.commit();
 
-  try {
-    await stopTrackingForVehicle(fleetId, vehicleId);
-  } catch (err) {
-    console.warn("Stop tracking after unassign:", err?.message || err);
-  }
+  // Skip stopTrackingForVehicle here — it runs extra reads/writes and fails when quota is exceeded.
+  // Tracking will age out; admin can stop GPS separately when quota allows.
 }
 
 export async function clearVehicleDriverAssignment(vehicleId) {

@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { auth, db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole, normalizeRole } from "../utils/fleetAccess";
-import { friendlyFirestoreError } from "../utils/firestoreErrors";
+import { friendlyFirestoreError, isQuotaError } from "../utils/firestoreErrors";
+import { FLEET_POLL_MS } from "../utils/firestorePoll";
 import { ensureFleetInvite, regenerateFleetInvite } from "../utils/fleetInvite";
 import { resolveFleetLocale, fleetSettingsDocId } from "../utils/fleetLocale";
 import { getDeviceId } from "../utils/deviceId";
@@ -206,25 +207,32 @@ export const FleetProvider = ({ children }) => {
 
   useEffect(() => {
     const fid = fleetIdFromUser(user);
-    if (!fid || !user?.uid) return;
+    if (!fid || !user?.uid) return undefined;
 
     const q = query(collection(db, "vehicles"), where("accountId", "==", fid));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const vehiclesList = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
-        setVehiclesAll(vehiclesList);
-      },
-      (err) => {
-        setError(friendlyFirestoreError(err));
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        if (cancelled) return;
+        setVehiclesAll(
+          snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }))
+        );
+      } catch (err) {
+        if (!cancelled) setError(friendlyFirestoreError(err));
       }
-    );
+    };
 
-    return () => unsubscribe();
+    load();
+    const timer = setInterval(load, FLEET_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [user?.uid, user?.fleetId, user?.organizationId]);
 
   const fetchDrivers = useCallback(async () => {
@@ -247,25 +255,32 @@ export const FleetProvider = ({ children }) => {
 
   useEffect(() => {
     const fid = fleetIdFromUser(user);
-    if (!fid || !user?.uid) return;
+    if (!fid || !user?.uid) return undefined;
 
     const q = query(collection(db, "drivers"), where("accountId", "==", fid));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const driversList = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
-        setDrivers(driversList);
-      },
-      (err) => {
-        setError(friendlyFirestoreError(err));
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        if (cancelled) return;
+        setDrivers(
+          snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }))
+        );
+      } catch (err) {
+        if (!cancelled) setError(friendlyFirestoreError(err));
       }
-    );
+    };
 
-    return () => unsubscribe();
+    load();
+    const timer = setInterval(load, FLEET_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [user?.uid, user?.fleetId, user?.organizationId]);
 
   const fetchReports = useCallback(async () => {
@@ -288,25 +303,32 @@ export const FleetProvider = ({ children }) => {
 
   useEffect(() => {
     const fid = fleetIdFromUser(user);
-    if (!fid || !user?.uid) return;
+    if (!fid || !user?.uid) return undefined;
 
     const q = query(collection(db, "reports"), where("accountId", "==", fid));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const reportsList = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
-        setReports(reportsList);
-      },
-      (err) => {
-        setError("Failed to subscribe to reports: " + err.message);
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        if (cancelled) return;
+        setReports(
+          snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }))
+        );
+      } catch (err) {
+        if (!cancelled) setError(friendlyFirestoreError(err));
       }
-    );
+    };
 
-    return () => unsubscribe();
+    load();
+    const timer = setInterval(load, FLEET_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [user?.uid, user?.fleetId, user?.organizationId]);
 
   // Fleet driver login accounts (for admin roster linking)
@@ -318,21 +340,27 @@ export const FleetProvider = ({ children }) => {
     }
 
     const q = query(collection(db, "users"), where("organizationId", "==", fid));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        if (cancelled) return;
         const accounts = snapshot.docs
           .map((d) => ({ uid: d.id, ...d.data() }))
           .filter((row) => row.role === "driver");
         setFleetDriverAccounts(accounts);
-      },
-      (err) => {
-        setError("Failed to load registered driver accounts: " + err.message);
+      } catch (err) {
+        if (!cancelled) setError(friendlyFirestoreError(err));
       }
-    );
+    };
 
-    return () => unsubscribe();
+    load();
+    const timer = setInterval(load, FLEET_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
 
   // Ensure fleet admin has an invite code for driver onboarding.
@@ -397,21 +425,29 @@ export const FleetProvider = ({ children }) => {
       where("isTracking", "==", true)
     );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        if (cancelled) return;
         setActiveTracking(
           snapshot.docs.map((d) => ({
             id: d.id,
             ...d.data(),
           }))
         );
-      },
-      () => setActiveTracking([])
-    );
+      } catch {
+        if (!cancelled) setActiveTracking([]);
+      }
+    };
 
-    return () => unsubscribe();
-  }, [user?.uid, user?.fleetId, user?.organizationId]);
+    load();
+    const timer = setInterval(load, FLEET_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [user?.uid, user?.fleetId, user?.organizationId, user?.role]);
 
   useEffect(() => {
     const settingsId = fleetSettingsDocId(fleetId);
@@ -421,15 +457,24 @@ export const FleetProvider = ({ children }) => {
     }
 
     const ref = doc(db, "fleetSettings", settingsId);
-    const unsubscribe = onSnapshot(
-      ref,
-      (snap) => {
-        setFleetSettings(snap.exists() ? snap.data() : {});
-      },
-      () => setFleetSettings({})
-    );
+    let cancelled = false;
 
-    return () => unsubscribe();
+    const load = async () => {
+      try {
+        const snap = await getDoc(ref);
+        if (cancelled) return;
+        setFleetSettings(snap.exists() ? snap.data() : {});
+      } catch {
+        if (!cancelled) setFleetSettings({});
+      }
+    };
+
+    load();
+    const timer = setInterval(load, FLEET_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [fleetId]);
 
   useEffect(() => {
