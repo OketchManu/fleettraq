@@ -8,6 +8,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, writeBatch, getDoc } fro
 import Button from "./Button";
 import { ensureDriverRosterEntry, assignDriverToVehicle, removeDriverAccount, unassignVehicleFromDriver } from "../utils/driverRoster";
 import { processDriverPhoto, validateDriverPhotoFile } from "../utils/driverPhoto";
+import { markQuotaExceeded, isQuotaPaused } from "../utils/firestoreQuota";
 import { friendlyFirestoreError, isQuotaError } from "../utils/firestoreErrors";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
@@ -15,7 +16,7 @@ import DriverAvatar from "./DriverAvatar";
 
 const Drivers = () => {
   const navigate = useNavigate();
-  const { darkMode, drivers, fetchDrivers, fetchVehicles, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet, inviteCode, inviteLoading, regenerateInvite, sendNotification } = useFleet();
+  const { darkMode, drivers, fetchDrivers, fetchVehicles, user, fleetId, vehiclesAll, fleetDriverAccounts, canManageFleet, inviteCode, inviteLoading, regenerateInvite, sendNotification, formatDate } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -140,6 +141,12 @@ const Drivers = () => {
     if (!window.confirm(`Unassign ${vehicleName} from ${driver.name || driver.email || "this driver"}? Their phone will stop sharing GPS for it.`)) {
       return;
     }
+    if (isQuotaPaused()) {
+      setError(
+        "Firebase daily quota is exceeded — unassign cannot save until the limit resets (midnight Pacific) or you upgrade to Blaze. Edit the driver/vehicle in Firebase Console to unassign manually."
+      );
+      return;
+    }
     try {
       const fid = fleetId || user?.uid;
       const vid = driver.assignedVehicleId;
@@ -173,6 +180,7 @@ const Drivers = () => {
       setError(null);
       sendNotification?.("Vehicle unassigned from driver", "success");
     } catch (err) {
+      if (isQuotaError(err)) markQuotaExceeded();
       const msg = friendlyFirestoreError(err);
       setError(msg);
       if (isQuotaError(err)) {
@@ -624,7 +632,7 @@ const Drivers = () => {
                         <Calendar size={14} className="text-gray-500" />
                         <span className={darkMode ? "text-gray-400" : "text-gray-600"}>Hired:</span>
                         <span className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                          {new Date(driver.hireDate).toLocaleDateString()}
+                          {formatDate(driver.hireDate)}
                         </span>
                       </div>
                     )}

@@ -21,7 +21,8 @@ import ProfilePicture from './ProfilePicture';
 import { pickAuthoritativeTrack } from "../utils/deviceId";
 import { computeMotionState, getMotionMeta, normalizeTimestamp } from "../utils/vehicleMotion";
 import { useRouteHistory } from "../hooks/useRouteHistory";
-import { FLEET_POLL_MS } from "../utils/firestorePoll";
+import { fleetPollIntervalMs, isQuotaPaused } from "../utils/firestoreQuota";
+import { formatDisplayDateTime, formatDisplayTime } from "../utils/dateFormat";
 import FleetRouteOverlay from "./FleetRouteOverlay";
 // Fix Leaflet default icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -111,7 +112,7 @@ const VehicleMarker = ({ track, vehicle }) => {
               </p>
             )}
             <p className="map-popup-muted text-xs">
-              <span className="font-semibold">Last Update:</span> {new Date(track.timestamp).toLocaleString()}
+              <span className="font-semibold">Last Update:</span> {formatDisplayDateTime(track.timestamp)}
             </p>
             {track.deviceId && (
               <p className="map-popup-accent text-xs mt-1">GPS device: {String(track.deviceId).slice(0, 8)}…</p>
@@ -125,7 +126,7 @@ const VehicleMarker = ({ track, vehicle }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { vehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, membershipPending, fleetId, inviteCode, inviteLoading, inviteError, loadInviteCode, regenerateInvite, loading: fleetLoading } = useFleet();
+  const { vehicles, darkMode, user, sendNotification, maintenanceAlerts, canManageFleet, isDriver, membershipPending, fleetId, inviteCode, inviteLoading, inviteError, loadInviteCode, regenerateInvite, loading: fleetLoading, formatDateTime, formatTime } = useFleet();
   const [error, setError] = useState(null);
   const isLoading = fleetLoading && vehicles.length === 0;
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -157,7 +158,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fid = fleetId;
-    if (!fid || !vehicles.length) {
+    if (!fid || !vehicles.length || isQuotaPaused()) {
       setTrackedVehicles([]);
       return undefined;
     }
@@ -228,7 +229,7 @@ const Dashboard = () => {
     };
 
     load();
-    const timer = setInterval(load, FLEET_POLL_MS);
+    const timer = setInterval(load, fleetPollIntervalMs());
     return () => {
       cancelled = true;
       clearInterval(timer);
@@ -566,7 +567,7 @@ const Dashboard = () => {
                             </p>
                             <p className={`text-xs truncate ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
                               {track
-                                ? `${track.locationName} · ${new Date(track.timestamp).toLocaleTimeString()}`
+                                ? `${track.locationName} · ${formatTime(track.timestamp)}`
                                 : "No GPS signal — not tracking"}
                             </p>
                           </div>

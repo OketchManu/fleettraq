@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { auth, db } from "../firebase";
-import { collection, query, where, getDocs, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { fleetIdFromUser, filterVehiclesForDriver, canManageFleet as roleCanManageFleet, isDriver as roleIsDriver, isAdminRole, normalizeRole } from "../utils/fleetAccess";
 import { friendlyFirestoreError, isQuotaError } from "../utils/firestoreErrors";
-import { FLEET_POLL_MS } from "../utils/firestorePoll";
+import { markQuotaExceeded, fleetPollIntervalMs, QUOTA_EVENT, isQuotaPaused } from "../utils/firestoreQuota";
 import { ensureFleetInvite, regenerateFleetInvite } from "../utils/fleetInvite";
 import { resolveFleetLocale, fleetSettingsDocId } from "../utils/fleetLocale";
+import { formatDisplayDate, formatDisplayDateTime, formatDisplayTime } from "../utils/dateFormat";
 import { getDeviceId } from "../utils/deviceId";
 import { isAdminFleetSetupComplete, isDriverFleetSetupComplete } from "../utils/fleetSetupStatus";
 import { useDriverGpsTracker } from "../hooks/useDriverGpsTracker";
@@ -77,11 +78,26 @@ export const FleetProvider = ({ children }) => {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState(null);
   const [fleetSettings, setFleetSettings] = useState({});
+  const [quotaPaused, setQuotaPaused] = useState(() => isQuotaPaused());
+
+  const pollMs = fleetPollIntervalMs();
+
+  useEffect(() => {
+    const sync = () => setQuotaPaused(isQuotaPaused());
+    window.addEventListener(QUOTA_EVENT, sync);
+    return () => window.removeEventListener(QUOTA_EVENT, sync);
+  }, []);
+
+  const reportFirestoreError = useCallback((err) => {
+    setError(friendlyFirestoreError(err));
+    if (isQuotaError(err)) markQuotaExceeded();
+  }, []);
 
   const fleetId = fleetIdFromUser(user);
   const fleetLocale = useMemo(() => resolveFleetLocale(fleetSettings), [fleetSettings]);
 
   const driverGpsEnabled =
+    !quotaPaused &&
     roleIsDriver(user?.role) &&
     user?.membershipStatus !== "pending" &&
     user?.membershipStatus !== "suspended";
@@ -223,17 +239,18 @@ export const FleetProvider = ({ children }) => {
           }))
         );
       } catch (err) {
-        if (!cancelled) setError(friendlyFirestoreError(err));
+        if (!cancelled) reportFirestoreError(err);
       }
     };
 
     load();
-    const timer = setInterval(load, FLEET_POLL_MS);
+    if (quotaPaused) return () => { cancelled = true; };
+    const timer = setInterval(load, pollMs);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [user?.uid, user?.fleetId, user?.organizationId]);
+  }, [user?.uid, user?.fleetId, user?.organizationId, quotaPaused, pollMs, reportFirestoreError]);
 
   const fetchDrivers = useCallback(async () => {
     const fid = fleetIdFromUser(user) || auth.currentUser?.uid;
@@ -271,17 +288,18 @@ export const FleetProvider = ({ children }) => {
           }))
         );
       } catch (err) {
-        if (!cancelled) setError(friendlyFirestoreError(err));
+        if (!cancelled) reportFirestoreError(err);
       }
     };
 
     load();
-    const timer = setInterval(load, FLEET_POLL_MS);
+    if (quotaPaused) return () => { cancelled = true; };
+    const timer = setInterval(load, pollMs);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [user?.uid, user?.fleetId, user?.organizationId]);
+  }, [user?.uid, user?.fleetId, user?.organizationId, quotaPaused, pollMs, reportFirestoreError]);
 
   const fetchReports = useCallback(async () => {
     const fid = fleetIdFromUser(user) || auth.currentUser?.uid;
@@ -319,17 +337,18 @@ export const FleetProvider = ({ children }) => {
           }))
         );
       } catch (err) {
-        if (!cancelled) setError(friendlyFirestoreError(err));
+        if (!cancelled) reportFirestoreError(err);
       }
     };
 
     load();
-    const timer = setInterval(load, FLEET_POLL_MS);
+    if (quotaPaused) return () => { cancelled = true; };
+    const timer = setInterval(load, pollMs);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [user?.uid, user?.fleetId, user?.organizationId]);
+  }, [user?.uid, user?.fleetId, user?.organizationId, quotaPaused, pollMs, reportFirestoreError]);
 
   // Fleet driver login accounts (for admin roster linking)
   useEffect(() => {
@@ -351,17 +370,18 @@ export const FleetProvider = ({ children }) => {
           .filter((row) => row.role === "driver");
         setFleetDriverAccounts(accounts);
       } catch (err) {
-        if (!cancelled) setError(friendlyFirestoreError(err));
+        if (!cancelled) reportFirestoreError(err);
       }
     };
 
     load();
-    const timer = setInterval(load, FLEET_POLL_MS);
+    if (quotaPaused) return () => { cancelled = true; };
+    const timer = setInterval(load, pollMs);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [user?.uid, user?.role, user?.organizationId, user?.fleetId]);
+  }, [user?.uid, user?.role, user?.organizationId, user?.fleetId, quotaPaused, pollMs, reportFirestoreError]);
 
   // Ensure fleet admin has an invite code for driver onboarding.
   const loadInviteCode = useCallback(async () => {
@@ -414,7 +434,7 @@ export const FleetProvider = ({ children }) => {
     }
 
     // Drivers do not need a fleet-wide active-tracking listener (saves Firestore reads).
-    if (roleIsDriver(user?.role)) {
+    if (roleIsDriver(user?.role) || quotaPaused) {
       setActiveTracking([]);
       return undefined;
     }
@@ -442,12 +462,12 @@ export const FleetProvider = ({ children }) => {
     };
 
     load();
-    const timer = setInterval(load, FLEET_POLL_MS);
+    const timer = setInterval(load, pollMs);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [user?.uid, user?.fleetId, user?.organizationId, user?.role]);
+  }, [user?.uid, user?.fleetId, user?.organizationId, user?.role, quotaPaused, pollMs, reportFirestoreError]);
 
   useEffect(() => {
     const settingsId = fleetSettingsDocId(fleetId);
@@ -464,27 +484,30 @@ export const FleetProvider = ({ children }) => {
         const snap = await getDoc(ref);
         if (cancelled) return;
         setFleetSettings(snap.exists() ? snap.data() : {});
-      } catch {
-        if (!cancelled) setFleetSettings({});
+      } catch (err) {
+        if (!cancelled) reportFirestoreError(err);
       }
     };
 
     load();
-    const timer = setInterval(load, FLEET_POLL_MS);
+    if (quotaPaused) return () => { cancelled = true; };
+    const timer = setInterval(load, pollMs);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [fleetId]);
+  }, [fleetId, quotaPaused, pollMs, reportFirestoreError]);
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || quotaPaused) return undefined;
 
     const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    const load = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        if (cancelled) return;
         const notifs = snapshot.docs.map((d) => ({
           id: d.id,
           ...d.data(),
@@ -492,17 +515,21 @@ export const FleetProvider = ({ children }) => {
         notifs.sort((a, b) => notificationTime(b.createdAt) - notificationTime(a.createdAt));
         setNotifications(notifs);
         setUnreadCount(notifs.filter((n) => !n.read).length);
-      },
-      (err) => {
-        setError("Failed to subscribe to notifications: " + err.message);
+      } catch (err) {
+        if (!cancelled) reportFirestoreError(err);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [user?.uid]);
+    load();
+    const timer = setInterval(load, pollMs);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [user?.uid, quotaPaused, pollMs, reportFirestoreError]);
 
   const sendNotification = async (message, type = "info") => {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser || quotaPaused) return;
 
     try {
       await addDoc(collection(db, "notifications"), {
@@ -513,6 +540,7 @@ export const FleetProvider = ({ children }) => {
         createdAt: new Date().toISOString(),
       });
     } catch (error) {
+      if (isQuotaError(error)) markQuotaExceeded();
       console.error("Error sending notification:", error);
     }
   };
@@ -559,6 +587,9 @@ export const FleetProvider = ({ children }) => {
     fleetId,
     fleetSettings,
     fleetLocale,
+    formatDate: formatDisplayDate,
+    formatDateTime: formatDisplayDateTime,
+    formatTime: formatDisplayTime,
     vehicles,
     vehiclesAll,
     setVehiclesAll,
@@ -575,6 +606,7 @@ export const FleetProvider = ({ children }) => {
     setDarkMode,
     loading,
     error,
+    quotaPaused,
     notifications,
     unreadCount,
     maintenanceAlerts,

@@ -40,7 +40,7 @@ const MapViewController = ({ center, zoom }) => {
 
 const Tracking = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver, membershipPending, membershipSuspended } = useFleet();
+  const { darkMode, vehicles, trackingData, setTrackingData, user, fleetId, sendNotification, canManageFleet, isDriver, membershipPending, membershipSuspended, formatDateTime, formatTime } = useFleet();
   const [selectedVehicle, setSelectedVehicle] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [error, setError] = useState(null);
@@ -704,7 +704,7 @@ const Tracking = () => {
                           </span>
                         </div>
                         <p className="text-xs text-gray-400">
-                          Last update: {new Date(track.timestamp).toLocaleString()}
+                          Last update: {formatDateTime(track.timestamp)}
                           {track.isTracking && <span className="text-green-500 ml-2">● Live</span>}
                         </p>
                       </div>
@@ -1022,7 +1022,7 @@ const Tracking = () => {
                       {history.locationName || `${history.lat.toFixed(4)}, ${history.lng.toFixed(4)}`}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-500">{new Date(history.timestamp).toLocaleTimeString()}</span>
+                  <span className="text-xs text-gray-500">{formatTime(history.timestamp)}</span>
                 </div>
               ))}
             </div>

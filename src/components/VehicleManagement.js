@@ -8,10 +8,12 @@ import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestor
 import Button from "./Button";
 import { getDeviceId, formatDeviceId } from "../utils/deviceId";
 import { assignDriverToVehicle, unassignVehicleFromDriver } from "../utils/driverRoster";
+import { markQuotaExceeded, isQuotaPaused } from "../utils/firestoreQuota";
+import { friendlyFirestoreError, isQuotaError } from "../utils/firestoreErrors";
 
 const VehicleManagement = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet, drivers, fleetLocale, fetchDrivers } = useFleet();
+  const { darkMode, vehicles, fetchVehicles, user, fleetId, canManageFleet, drivers, fleetLocale, fetchDrivers, formatDate } = useFleet();
   const deviceId = getDeviceId();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
@@ -150,6 +152,12 @@ const VehicleManagement = () => {
     if (!fleetId) return;
 
     if (!driverId) {
+      if (isQuotaPaused()) {
+        setError(
+          "Firebase daily quota is exceeded — unassign cannot save until the limit resets or you upgrade to Blaze."
+        );
+        return;
+      }
       const linkedDriver = drivers.find(
         (d) =>
           d.assignedVehicleId === vehicle.id ||
@@ -166,7 +174,8 @@ const VehicleManagement = () => {
         await fetchVehicles();
         if (fetchDrivers) await fetchDrivers();
       } catch (err) {
-        setError("Failed to unassign driver: " + err.message);
+        if (isQuotaError(err)) markQuotaExceeded();
+        setError(friendlyFirestoreError(err));
       }
       return;
     }
@@ -310,7 +319,7 @@ const VehicleManagement = () => {
                       <Calendar size={14} className="text-gray-500" />
                       <span className={darkMode ? "text-gray-400" : "text-gray-600"}>Added:</span>
                       <span className={`${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                        {vehicle.createdAt ? new Date(vehicle.createdAt).toLocaleDateString() : "N/A"}
+                        {vehicle.createdAt ? formatDate(vehicle.createdAt) : "N/A"}
                       </span>
                     </div>
                     {vehicle.vin && (

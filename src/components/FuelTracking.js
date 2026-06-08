@@ -22,6 +22,9 @@ const FuelTracking = () => {
     membershipSuspended,
     fleetSettings,
     fleetLocale,
+    formatDate,
+    formatDateTime,
+    formatTime,
   } = useFleet();
 
   const [fuelRecords, setFuelRecords] = useState([]);
@@ -458,7 +461,7 @@ const FuelTracking = () => {
                     return (
                       <tr key={record.id} className={`border-t ${darkMode ? "border-white/10" : "border-gray-200"}`}>
                         <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>
-                          {record.date ? new Date(record.date).toLocaleDateString() : "—"}
+                          {record.date ? formatDate(record.date) : "—"}
                         </td>
                         <td className={`px-4 py-3 text-sm ${darkMode ? "text-gray-200" : "text-gray-800"}`}>
                           {vehicle ? `${vehicle.make} ${vehicle.model}` : "Unknown"}

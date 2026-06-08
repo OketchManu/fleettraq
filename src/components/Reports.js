@@ -7,12 +7,13 @@ import { useFleet } from "../context/FleetContext";
 import { db, auth } from "../firebase";
 import { collection, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import Button from "./Button";
+import { toInputDateValue } from "../utils/dateFormat";
 
 // Removed jsPDF and html2canvas imports - using CSV/TXT export instead
 
 const Reports = () => {
   const navigate = useNavigate();
-  const { darkMode, reports, fetchReports, sendNotification, user, fleetId, canManageFleet } = useFleet();
+  const { darkMode, reports, fetchReports, sendNotification, user, fleetId, canManageFleet, formatDate, formatDateTime } = useFleet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -121,7 +122,7 @@ const Reports = () => {
     setEditingReport(report);
     setFormData({
       title: report.title || "",
-      date: report.date ? new Date(report.date).toISOString().split("T")[0] : "",
+      date: report.date ? toInputDateValue(report.date) : "",
       description: report.description || "",
       type: report.type || "Maintenance",
       status: report.status || "Pending",
@@ -139,13 +140,13 @@ const Reports = () => {
 ================================
 Title: ${report.title}
 Type: ${report.type}
-Date: ${new Date(report.date).toLocaleDateString()}
+Date: ${formatDate(report.date)}
 Status: ${report.status}
 
 Description:
 ${report.description || "No description provided."}
 
-Generated: ${new Date().toLocaleString()}
+Generated: ${formatDateTime(new Date())}
 --------------------------------
 FleetTraq - Fleet Management System`;
 
@@ -163,7 +164,7 @@ FleetTraq - Fleet Management System`;
     const rows = reports.map(report => [
       `"${report.title.replace(/"/g, '""')}"`,
       report.type,
-      new Date(report.date).toLocaleDateString(),
+      formatDate(report.date),
       report.status,
       `"${(report.description || "").replace(/"/g, '""')}"`
     ]);
@@ -305,7 +306,7 @@ FleetTraq - Fleet Management System`;
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-gray-500" />
                       <span className={darkMode ? "text-gray-400" : "text-gray-600"}>
-                        {report.date ? new Date(report.date).toLocaleDateString() : "No date"}
+                        {report.date ? formatDate(report.date) : "No date"}
                       </span>
                     </div>
                     {report.description && (
@@ -375,7 +376,7 @@ FleetTraq - Fleet Management System`;
                   <div className="flex items-center gap-2">
                     <Calendar size={14} className="text-gray-500" />
                     <span className={darkMode ? "text-gray-300" : "text-gray-600"}>
-                      Date: {new Date(selectedReport.date).toLocaleDateString()}
+                      Date: {formatDate(selectedReport.date)}
                     </span>
                   </div>
                 </div>
@@ -391,7 +392,7 @@ FleetTraq - Fleet Management System`;
                 
                 <div className={`p-4 rounded-xl ${darkMode ? "bg-yellow-500/10 border border-yellow-500/20" : "bg-yellow-50 border border-yellow-200"}`}>
                   <p className={`text-sm ${darkMode ? "text-yellow-400" : "text-yellow-700"}`}>
-                    📄 Report generated on {new Date(selectedReport.createdAt || selectedReport.date).toLocaleString()}
+                    📄 Report generated on {formatDateTime(selectedReport.createdAt || selectedReport.date)}
                   </p>
                 </div>
                 

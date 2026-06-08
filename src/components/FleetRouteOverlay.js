@@ -2,6 +2,7 @@ import React from "react";
 import { Polyline, CircleMarker, Popup } from "react-leaflet";
 import { getVehicleRouteColor } from "../utils/routeColors";
 import { formatDuration } from "../utils/routeAnalysis";
+import { formatDisplayDateTime, formatDisplayTime } from "../utils/dateFormat";
 
 function vehicleLabel(vehicle) {
   if (!vehicle) return "Vehicle";
@@ -76,7 +77,7 @@ const FleetRouteOverlay = ({
                     <span className="font-semibold">Duration:</span> {formatDuration(stop.durationMs)}
                   </p>
                   <p className="map-popup-muted text-xs mt-1">
-                    {new Date(stop.startTime).toLocaleString()} → {new Date(stop.endTime).toLocaleTimeString()}
+                    {formatDisplayDateTime(stop.startTime)} → {formatDisplayTime(stop.endTime)}
                   </p>
                 </div>
               </Popup>

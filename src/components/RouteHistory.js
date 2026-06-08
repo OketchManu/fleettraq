@@ -46,7 +46,7 @@ const TIME_RANGES = [
 
 const RouteHistory = () => {
   const navigate = useNavigate();
-  const { darkMode, vehicles, fleetId, canManageFleet } = useFleet();
+  const { darkMode, vehicles, fleetId, canManageFleet, formatTime, formatDateTime } = useFleet();
   const [rangeKey, setRangeKey] = useState("today");
   const [selectedVehicleIds, setSelectedVehicleIds] = useState([]);
   const [showRoutes, setShowRoutes] = useState(true);
@@ -411,7 +411,7 @@ const RouteHistory = () => {
                             {meta.label}
                           </span>
                           <p className="map-popup-muted text-xs mt-2">
-                            Updated {new Date(track.timestamp).toLocaleTimeString()}
+                            Updated {formatTime(track.timestamp)}
                           </p>
                         </div>
                       </Popup>
@@ -512,7 +512,7 @@ const RouteHistory = () => {
                           </span>
                         </div>
                         <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                          {new Date(stop.startTime).toLocaleString()} — {new Date(stop.endTime).toLocaleTimeString()}
+                          {formatDateTime(stop.startTime)} — {formatTime(stop.endTime)}
                         </p>
                       </div>
                     );

@@ -8,7 +8,7 @@ import FleetNavBar from "./FleetNavBar";
 
 const AppLayout = ({ children }) => {
   const navigate = useNavigate();
-  const { darkMode, setDarkMode, user, canManageFleet, isDriver, membershipPending, membershipSuspended, error: fleetError } = useFleet();
+  const { darkMode, setDarkMode, user, canManageFleet, isDriver, membershipPending, membershipSuspended, error: fleetError, quotaPaused } = useFleet();
 
   const toggleDarkMode = async () => {
     const newMode = !darkMode;
@@ -56,9 +56,14 @@ const AppLayout = ({ children }) => {
             : "Your account is awaiting approval from your fleet administrator. You'll see your assigned vehicles once you're approved."}
         </div>
       )}
-      {fleetError && /quota exceeded/i.test(fleetError) && (
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-center leading-relaxed bg-red-600/20 text-red-200 border-b border-red-500/40">
-          {fleetError} Unassign and other saves will fail until the limit resets or you upgrade Firebase (Blaze plan).
+      {(quotaPaused || (fleetError && /quota exceeded/i.test(fleetError))) && (
+        <div className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-left leading-relaxed bg-red-600/20 text-red-100 border-b border-red-500/40">
+          <p className="font-semibold mb-1">Firebase daily limit reached — saves (including unassign) are blocked.</p>
+          <p className="mb-1">
+            GPS and background sync are paused for 6 hours to save quota. Close other FleetTraq tabs. Upgrade to Blaze,
+            wait until tomorrow (Pacific midnight), or edit Firestore manually: remove <code className="text-red-200">assignedVehicleId</code> on
+            the driver and <code className="text-red-200">assignedDriverUid</code> on the vehicle in Firebase Console.
+          </p>
         </div>
       )}
       <div className="overflow-x-hidden">{children}</div>

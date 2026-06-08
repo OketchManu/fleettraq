@@ -11,6 +11,7 @@ const NotificationBell = () => {
     deleteNotification,
     clearAllNotifications,
     darkMode,
+    formatDateTime,
   } = useFleet();
   const [showDropdown, setShowDropdown] = useState(false);
   const rootRef = useRef(null);
@@ -198,7 +199,7 @@ const NotificationBell = () => {
                           </p>
                           {notif.createdAt && (
                             <p className={`text-xs mt-1 ${darkMode ? "text-slate-400" : "text-gray-500"}`}>
-                              {new Date(notif.createdAt).toLocaleString()}
+                              {formatDateTime(notif.createdAt)}
                             </p>
                           )}
                         </div>

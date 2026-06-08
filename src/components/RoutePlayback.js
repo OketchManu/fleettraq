@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Marker, useMap } from "react-leaflet";
 import { CarIcon } from "./assets/car-icon";
+import { formatDisplayDateTime } from "../utils/dateFormat";
 
 const RoutePlaybackMarker = ({ points, index }) => {
   const map = useMap();
@@ -98,7 +99,7 @@ export function RoutePlaybackControls({
       </div>
       {points[progressIndex] && (
         <p className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-          {new Date(points[progressIndex].timestamp).toLocaleString()} · point {progressIndex + 1} of{" "}
+          {formatDisplayDateTime(points[progressIndex].timestamp)} · point {progressIndex + 1} of{" "}
           {points.length}
         </p>
       )}
