@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, query, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { isInsideGeofence, geofenceAppliesToVehicle } from "../utils/geofence";
 import { notifyFleetAdmin } from "../utils/fleetNotifications";
+import { subscribeDocPoll, subscribeQueryPoll } from "../utils/firestorePoll";
 import {
   msToKmh,
   speedFromPoints,
@@ -39,20 +40,24 @@ export function useDriverTrackingAlerts({ vehicle, accountId, enabled }) {
     if (!accountId || !enabled) return undefined;
 
     const settingsDoc = doc(db, "fleetSettings", `${accountId}_fleet`);
-    const unsubSettings = onSnapshot(settingsDoc, (snap) => {
-      if (snap.exists()) {
-        settingsRef.current = { ...settingsRef.current, ...snap.data() };
-      }
+    const stopSettings = subscribeDocPoll(settingsDoc, {
+      onData: (snap) => {
+        if (snap.exists()) {
+          settingsRef.current = { ...settingsRef.current, ...snap.data() };
+        }
+      },
     });
 
     const q = query(collection(db, "geofences"), where("accountId", "==", accountId));
-    const unsubGeofences = onSnapshot(q, (snapshot) => {
-      geofencesRef.current = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const stopGeofences = subscribeQueryPoll(q, {
+      onData: (snapshot) => {
+        geofencesRef.current = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      },
     });
 
     return () => {
-      unsubSettings();
-      unsubGeofences();
+      stopSettings();
+      stopGeofences();
     };
   }, [accountId, enabled]);
 

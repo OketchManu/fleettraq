@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, query, where, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase";
 import {
   detectStops,
@@ -7,6 +7,7 @@ import {
   groupPointsByVehicle,
   totalRouteDistanceMeters,
 } from "../utils/routeAnalysis";
+import { subscribeQueryPoll } from "../utils/firestorePoll";
 
 const MAX_POINTS = 3000;
 
@@ -34,9 +35,9 @@ export function useRouteHistory(fleetId, rangeKey, selectedVehicleIds, enabled =
       limit(MAX_POINTS)
     );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    return subscribeQueryPoll(q, {
+      intervalMs: undefined,
+      onData: (snapshot) => {
         const rows = snapshot.docs.map((docSnap) => ({
           id: docSnap.id,
           ...docSnap.data(),
@@ -45,13 +46,11 @@ export function useRouteHistory(fleetId, rangeKey, selectedVehicleIds, enabled =
         setError(null);
         setLoading(false);
       },
-      (err) => {
+      onError: (err) => {
         setError(err.message || "Failed to load route history");
         setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+      },
+    });
   }, [fleetId, startTime, enabled]);
 
   const filteredPoints = useMemo(() => {

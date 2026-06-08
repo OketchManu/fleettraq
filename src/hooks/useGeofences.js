@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { db } from "../firebase";
+import { subscribeQueryPoll } from "../utils/firestorePoll";
 
 export function useGeofences(fleetId, enabled = true) {
   const [geofences, setGeofences] = useState([]);
@@ -17,20 +18,17 @@ export function useGeofences(fleetId, enabled = true) {
     setLoading(true);
     const q = query(collection(db, "geofences"), where("accountId", "==", fleetId));
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    return subscribeQueryPoll(q, {
+      onData: (snapshot) => {
         setGeofences(snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })));
         setError(null);
         setLoading(false);
       },
-      (err) => {
+      onError: (err) => {
         setError(err.message || "Failed to load geofences");
         setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+      },
+    });
   }, [fleetId, enabled]);
 
   return { geofences, loading, error };

@@ -9,13 +9,16 @@ import {
   Gauge, Layout, Clock, TrendingUp, Fuel, Truck, Users, Shield, Key, Copy
 } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { doc, onSnapshot, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
 import Button from "./Button";
 import ProfilePicture from "./ProfilePicture";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import { FLEET_COUNTRIES, DEFAULT_FLEET_LOCALE_SETTINGS, fleetSettingsDocId } from "../utils/fleetLocale";
+import { subscribeDocPoll } from "../utils/firestorePoll";
+import { assertCanWrite, handleWriteError } from "../utils/firestoreWriteGuard";
+import { friendlyFirestoreError } from "../utils/firestoreErrors";
 
 const DEFAULT_FLEET_SETTINGS = {
   // Notification Settings
@@ -105,24 +108,27 @@ const Settings = () => {
       return undefined;
     }
     const settingsRef = doc(db, "fleetSettings", settingsId);
-    const unsubscribe = onSnapshot(
-      settingsRef,
-      (docSnap) => {
+    let initAttempted = false;
+
+    return subscribeDocPoll(settingsRef, {
+      onData: (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setSettings((prev) => ({ ...prev, ...data }));
           if (data.darkMode !== undefined) setDarkMode(data.darkMode);
-        } else {
-          setDoc(settingsRef, DEFAULT_FLEET_SETTINGS, { merge: true }).catch((err) => setError("Failed to initialize settings: " + err.message));
+        } else if (!initAttempted) {
+          initAttempted = true;
+          setDoc(settingsRef, DEFAULT_FLEET_SETTINGS, { merge: true }).catch((err) =>
+            setError("Failed to initialize settings: " + err.message)
+          );
         }
         setIsLoading(false);
       },
-      (err) => {
+      onError: (err) => {
         setError("Failed to load settings: " + err.message);
         setIsLoading(false);
-      }
-    );
-    return () => unsubscribe();
+      },
+    });
   }, [setDarkMode, user?.uid, fleetId]);
 
   const handleChange = (e) => {
@@ -154,6 +160,7 @@ const Settings = () => {
     setError(null);
     setSuccess(null);
     try {
+      assertCanWrite();
       const settingsId = fleetSettingsDocId(fleetId || user.uid);
       const settingsRef = doc(db, "fleetSettings", settingsId);
       await setDoc(settingsRef, settings, { merge: true });
@@ -161,7 +168,8 @@ const Settings = () => {
       sendNotification?.("Fleet settings updated", "success");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError("Failed to save settings: " + err.message);
+      handleWriteError(err);
+      setError(friendlyFirestoreError(err));
     } finally {
       setIsSaving(false);
     }
@@ -176,6 +184,7 @@ const Settings = () => {
     setError(null);
     setSuccess(null);
     try {
+      assertCanWrite();
       const settingsId = fleetSettingsDocId(fleetId || user.uid);
       const settingsRef = doc(db, "fleetSettings", settingsId);
       await setDoc(settingsRef, DEFAULT_FLEET_SETTINGS, { merge: true });
@@ -185,7 +194,8 @@ const Settings = () => {
       sendNotification?.("Fleet settings reset to defaults", "info");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError("Failed to reset settings: " + err.message);
+      handleWriteError(err);
+      setError(friendlyFirestoreError(err));
     } finally {
       setIsSaving(false);
     }

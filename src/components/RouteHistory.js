@@ -28,8 +28,9 @@ import { formatDistance, formatDuration } from "../utils/routeAnalysis";
 import { downloadAllRoutesZipLike } from "../utils/routeExport";
 import { pickAuthoritativeTrack } from "../utils/deviceId";
 import { computeMotionState, getMotionMeta } from "../utils/vehicleMotion";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { db } from "../firebase";
+import { subscribeQueryPoll, liveMapPollIntervalMs } from "../utils/firestorePoll";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -134,7 +135,9 @@ const RouteHistory = () => {
       where("isTracking", "==", true)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    return subscribeQueryPoll(q, {
+      intervalMs: liveMapPollIntervalMs(),
+      onData: (snapshot) => {
       const allTracks = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
       const byVehicleId = new Map();
       for (const track of allTracks) {
@@ -165,9 +168,8 @@ const RouteHistory = () => {
         });
       }
       setLiveTracks(live);
+      },
     });
-
-    return () => unsubscribe();
   }, [fleetId, vehicles, activeVehicleIds]);
 
   const mapBounds = useMemo(() => {

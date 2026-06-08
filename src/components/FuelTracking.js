@@ -2,10 +2,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Fuel, Plus, Trash2, Edit, Gauge, TrendingUp, Download, AlertCircle, X, Car, Coins } from "lucide-react";
 import { db, auth } from "../firebase";
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where } from "firebase/firestore";
 import { useFleet } from "../context/FleetContext";
 import { computeFuelStats, lastOdometerForVehicle, friendlyFuelError } from "../utils/fuelStats";
 import { formatCurrency, formatVolume, formatOdometer } from "../utils/fleetLocale";
+import { subscribeQueryPoll } from "../utils/firestorePoll";
+import { assertCanWrite, handleWriteError, QUOTA_WRITE_BLOCKED_MSG } from "../utils/firestoreWriteGuard";
+import { friendlyFirestoreError, isQuotaError } from "../utils/firestoreErrors";
 import Button from "./Button";
 
 const FuelTracking = () => {
@@ -23,8 +26,6 @@ const FuelTracking = () => {
     fleetSettings,
     fleetLocale,
     formatDate,
-    formatDateTime,
-    formatTime,
   } = useFleet();
 
   const [fuelRecords, setFuelRecords] = useState([]);
@@ -68,9 +69,8 @@ const FuelTracking = () => {
     setLoading(true);
     const q = query(collection(db, "fuelRecords"), where("accountId", "==", fid));
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    return subscribeQueryPoll(q, {
+      onData: (snapshot) => {
         const records = snapshot.docs.map((d) => ({
           id: d.id,
           ...d.data(),
@@ -79,13 +79,11 @@ const FuelTracking = () => {
         setError(null);
         setLoading(false);
       },
-      (err) => {
+      onError: (err) => {
         setError(friendlyFuelError(err));
         setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+      },
+    });
   }, [fleetId, user?.uid, accessBlocked]);
 
   const allowedVehicleIds = useMemo(() => new Set(vehicles.map((v) => v.id)), [vehicles]);
@@ -172,6 +170,7 @@ const FuelTracking = () => {
     }
 
     try {
+      assertCanWrite();
       const recordData = {
         vehicleId: newRecord.vehicleId,
         gallons,
@@ -203,8 +202,9 @@ const FuelTracking = () => {
       resetForm();
       setShowAddForm(false);
     } catch (err) {
+      handleWriteError(err);
       console.error("Error saving fuel record:", err);
-      setError(friendlyFuelError(err));
+      setError(isQuotaError(err) || err.message === QUOTA_WRITE_BLOCKED_MSG ? friendlyFirestoreError(err) : friendlyFuelError(err));
     }
   };
 
@@ -219,11 +219,13 @@ const FuelTracking = () => {
     }
 
     try {
+      assertCanWrite();
       await deleteDoc(doc(db, "fuelRecords", id));
       sendNotification("Fuel record deleted successfully", "success");
     } catch (err) {
+      handleWriteError(err);
       console.error("Error deleting fuel record:", err);
-      setError(friendlyFuelError(err));
+      setError(friendlyFirestoreError(err));
     }
   };
 

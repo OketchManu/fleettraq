@@ -58,12 +58,24 @@ const AppLayout = ({ children }) => {
       )}
       {(quotaPaused || (fleetError && /quota exceeded/i.test(fleetError))) && (
         <div className="px-3 sm:px-4 py-3 text-xs sm:text-sm text-left leading-relaxed bg-red-600/20 text-red-100 border-b border-red-500/40">
-          <p className="font-semibold mb-1">Firebase daily limit reached — saves (including unassign) are blocked.</p>
-          <p className="mb-1">
-            GPS and background sync are paused for 6 hours to save quota. Close other FleetTraq tabs. Upgrade to Blaze,
-            wait until tomorrow (Pacific midnight), or edit Firestore manually: remove <code className="text-red-200">assignedVehicleId</code> on
-            the driver and <code className="text-red-200">assignedDriverUid</code> on the vehicle in Firebase Console.
+          <p className="font-semibold mb-1">Firebase daily limit reached — saves (unassign, fuel, settings) will not complete.</p>
+          <p className="mb-2">
+            This is a Firebase Spark plan limit, not a bug in FleetTraq. GPS and background sync are paused for 6 hours to protect your quota.
+            Close extra tabs, wait until midnight Pacific, or upgrade to Blaze in Firebase Console.
           </p>
+          <p className="mb-1">
+            <strong>Manual fix now:</strong> Firebase Console → Firestore → clear{" "}
+            <code className="text-red-200">assignedVehicleId</code> on the driver and{" "}
+            <code className="text-red-200">assignedDriverUid</code> on the vehicle.
+          </p>
+          <a
+            href="https://console.firebase.google.com/project/fleet-tracking-system-b80a3/firestore"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-red-200 underline hover:text-white"
+          >
+            Open Firebase Console
+          </a>
         </div>
       )}
       <div className="overflow-x-hidden">{children}</div>

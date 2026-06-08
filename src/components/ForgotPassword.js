@@ -6,6 +6,7 @@ import { auth } from "../firebase";
 import { ArrowLeft, Mail, Sun, Moon } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { friendlyAuthError } from "../utils/authErrors";
+import { passwordResetActionSettings, PASSWORD_RESET_FROM_LABEL } from "../utils/authEmail";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -28,9 +29,11 @@ const ForgotPassword = () => {
     }
 
     try {
-      await sendPasswordResetEmail(auth, email);
-      setSuccess("If an account exists for this email, a password reset link is on its way. Check your inbox and spam folder.");
-      setTimeout(() => navigate("/login"), 4000);
+      await sendPasswordResetEmail(auth, email.trim(), passwordResetActionSettings());
+      setSuccess(
+        `If an account exists for this email, ${PASSWORD_RESET_FROM_LABEL} sent a reset link. Check your inbox and spam folder — the sender may show as Firebase until you customize templates in Firebase Console.`
+      );
+      setTimeout(() => navigate("/login"), 5000);
     } catch (err) {
       console.error("Forgot password error:", err.code, err.message);
       setError(friendlyAuthError(err, "reset"));
@@ -107,7 +110,7 @@ const ForgotPassword = () => {
           Reset password
         </h1>
         <p className={`text-sm mb-6 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-          Enter the email for your FleetTraq account. We will send you a reset link.
+          Enter the email for your {PASSWORD_RESET_FROM_LABEL} account. We will email you a secure link to choose a new password.
         </p>
 
         <AnimatePresence>

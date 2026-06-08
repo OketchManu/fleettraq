@@ -5,8 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapPin, ChevronLeft, Crosshair, MapIcon, Trash2, Navigation, Car, Clock, AlertCircle, Wifi, WifiOff, Shield, Info } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
-import { collection, addDoc, onSnapshot, query, where, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, query, where, updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { db, auth } from "../firebase";
+import { subscribeQueryPoll, liveMapPollIntervalMs } from "../utils/firestorePoll";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -105,9 +106,7 @@ const Tracking = () => {
       where("accountId", "==", fid)
     );
     
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    const applyTrackingSnapshot = (snapshot) => {
         const allTracking = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
         allTracking.sort(
           (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
@@ -161,7 +160,6 @@ const Tracking = () => {
         setMyDeviceTrackedVehicles(myDevice);
         setOtherDeviceTrackedVehicles(otherDevices);
         
-        // If selected vehicle is being tracked by this device, update its location
         if (selectedVehicle) {
           const myTrack = myDevice.find(t => t.vehicleId === selectedVehicle);
           if (myTrack) {
@@ -174,12 +172,15 @@ const Tracking = () => {
             setIsTracking(myTrack.isTracking);
           }
         }
-      },
-      (err) => {
+    };
+
+    return subscribeQueryPoll(q, {
+      intervalMs: liveMapPollIntervalMs(),
+      onData: applyTrackingSnapshot,
+      onError: (err) => {
         setError("Failed to fetch tracked vehicles: " + err.message);
-      }
-    );
-    return () => unsubscribe();
+      },
+    });
   }, [user?.uid, fleetId, deviceId, selectedVehicle, vehicles]);
 
   const saveLocation = useCallback(
@@ -388,9 +389,9 @@ const Tracking = () => {
       where("deviceId", "==", deviceId)
     );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+    return subscribeQueryPoll(q, {
+      intervalMs: liveMapPollIntervalMs(),
+      onData: (snapshot) => {
         const updates = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
         updates.sort(
           (a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
@@ -415,12 +416,10 @@ const Tracking = () => {
           setTrackingDocId(null);
         }
       },
-      (err) => {
+      onError: (err) => {
         setError("Failed to fetch tracking updates: " + err.message);
-      }
-    );
-
-    return () => unsubscribe();
+      },
+    });
   }, [selectedVehicle, setTrackingData, fleetId, deviceId]);
 
   // Set initial map view

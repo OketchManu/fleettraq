@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Save, Lock, Mail, Bell, ChevronLeft, CheckCircle, AlertCircle, Moon, Trash2, Key, Shield, X } from "lucide-react";
-import { doc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { useFleet } from "../context/FleetContext";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser } from "firebase/auth";
 import Button from "./Button";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
+import { subscribeDocPoll } from "../utils/firestorePoll";
 
 const UserSettings = () => {
   const navigate = useNavigate();
@@ -41,18 +42,20 @@ const UserSettings = () => {
       return;
     }
     const settingsRef = doc(db, "userSettings", `${user.uid}_user`);
-    const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setSettings((prev) => ({ ...prev, ...data }));
-        if (data.darkMode !== undefined) setDarkMode(data.darkMode);
-      }
-      setLoading(false);
-    }, (err) => {
-      setError("Failed to load settings: " + err.message);
-      setLoading(false);
+    return subscribeDocPoll(settingsRef, {
+      onData: (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSettings((prev) => ({ ...prev, ...data }));
+          if (data.darkMode !== undefined) setDarkMode(data.darkMode);
+        }
+        setLoading(false);
+      },
+      onError: (err) => {
+        setError("Failed to load settings: " + err.message);
+        setLoading(false);
+      },
     });
-    return () => unsubscribe();
   }, [setDarkMode, user?.uid]);
 
   const handleSettingsChange = (e) => {

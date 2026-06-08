@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { db } from "../firebase";
+import { subscribeDocPoll } from "../utils/firestorePoll";
 
 const DEFAULTS = {
   notifications: true,
@@ -22,9 +23,8 @@ export function useFleetAlertSettings(accountId, enabled = true) {
     }
 
     const ref = doc(db, "fleetSettings", `${accountId}_fleet`);
-    const unsubscribe = onSnapshot(
-      ref,
-      (snap) => {
+    return subscribeDocPoll(ref, {
+      onData: (snap) => {
         if (snap.exists()) {
           setSettings({ ...DEFAULTS, ...snap.data() });
         } else {
@@ -32,13 +32,11 @@ export function useFleetAlertSettings(accountId, enabled = true) {
         }
         setLoading(false);
       },
-      () => {
+      onError: () => {
         setSettings(DEFAULTS);
         setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
+      },
+    });
   }, [accountId, enabled]);
 
   return { settings, loading };
