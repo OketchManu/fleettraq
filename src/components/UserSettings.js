@@ -9,6 +9,7 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, delete
 import Button from "./Button";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import SetupHelpBanner from "./SetupHelpBanner";
+import LegalFooterLinks from "./LegalFooterLinks";
 import { subscribeDocPoll } from "../utils/firestorePoll";
 
 const UserSettings = () => {
@@ -594,6 +595,7 @@ const UserSettings = () => {
 
       {/* Footer */}
       <footer className={`mt-12 py-6 text-center border-t ${darkMode ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-600"}`}>
+        <LegalFooterLinks className="mb-2" />
         <p>© 2026 FleetTraq. All rights reserved.</p>
       </footer>
     </div>

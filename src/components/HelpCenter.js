@@ -7,6 +7,7 @@ import Button from "./Button";
 import FleetOrganizationIdCard from "./FleetOrganizationIdCard";
 import FleetSetupGuide from "./FleetSetupGuide";
 import FleetSetupGuidePanel from "./FleetSetupGuidePanel";
+import LegalFooterLinks from "./LegalFooterLinks";
 
 const HelpCenter = () => {
   const navigate = useNavigate();
@@ -179,6 +180,13 @@ const HelpCenter = () => {
           </dl>
         </section>
       </main>
+
+      <footer className={`border-t py-6 ${darkMode ? "border-white/10" : "border-gray-200"}`}>
+        <div className="app-page-main max-w-5xl text-center space-y-2">
+          <LegalFooterLinks />
+          <p className={`text-xs ${darkMode ? "text-gray-500" : "text-gray-500"}`}>© 2026 FleetTraq</p>
+        </div>
+      </footer>
     </div>
   );
 };

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 
 import { useFleet } from "../context/FleetContext";
+import LegalFooterLinks from "./LegalFooterLinks";
 
 const WelcomeScreen = () => {
   const navigate = useNavigate();
@@ -359,7 +360,7 @@ const WelcomeScreen = () => {
               Ready to Transform Your Fleet?
             </h2>
             <p className={`text-lg mb-8 ${!darkMode ? "text-gray-600" : "text-gray-300"}`}>
-              Join thousands of companies that trust FleetTraq for their fleet management needs
+              Create an account and start managing vehicles, drivers, and GPS tracking from one dashboard.
             </p>
             <button
               onClick={() => navigate("/signup")}
@@ -376,9 +377,10 @@ const WelcomeScreen = () => {
       <footer className={`py-8 px-4 border-t ${
         !darkMode ? "border-gray-200" : "border-white/10"
       }`}>
-        <div className="max-w-7xl mx-auto text-center">
+        <div className="max-w-7xl mx-auto text-center space-y-3">
+          <LegalFooterLinks />
           <p className={`text-sm ${!darkMode ? "text-gray-500" : "text-gray-500"}`}>
-            © 2025 FleetTraq. All rights reserved. Built for modern fleet operations.
+            © 2026 FleetTraq. All rights reserved.
           </p>
         </div>
       </footer>

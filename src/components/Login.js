@@ -12,6 +12,8 @@ import GoogleSignInButton from "./GoogleSignInButton";
 import { useFleet } from "../context/FleetContext";
 import { normalizeRole } from "../utils/fleetAccess";
 import { friendlyAuthError } from "../utils/authErrors";
+import AuthLegalNotice from "./AuthLegalNotice";
+import LegalFooterLinks from "./LegalFooterLinks";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -394,6 +396,9 @@ const Login = () => {
               </button>
             </p>
           </div>
+
+          <AuthLegalNotice darkMode={darkMode} className="mt-4" />
+          <LegalFooterLinks className="mt-3" />
         </div>
       </motion.div>
     </div>

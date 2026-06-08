@@ -9,6 +9,8 @@ import { useFleet } from "../context/FleetContext";
 import { friendlyAuthError } from "../utils/authErrors";
 import { resolveInviteCode, ensureFleetInvite, incrementInviteUse } from "../utils/fleetInvite";
 import GoogleSignInButton from "./GoogleSignInButton";
+import AuthLegalNotice from "./AuthLegalNotice";
+import LegalFooterLinks from "./LegalFooterLinks";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ const Signup = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fleetInviteCode, setFleetInviteCode] = useState("");
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
 
 
   const handleSignup = async (e) => {
@@ -54,6 +57,12 @@ const Signup = () => {
 
     if (role === "driver" && !fleetInviteCode.trim()) {
       setError("Drivers must enter the invite code provided by their fleet administrator.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!acceptedLegal) {
+      setError("Please agree to the Terms of Service and Privacy Policy.");
       setIsLoading(false);
       return;
     }
@@ -198,6 +207,11 @@ const Signup = () => {
 
     if (role === "driver" && !fleetInviteCode.trim()) {
       setError("Drivers must enter the fleet invite code before signing up with Google.");
+      return;
+    }
+
+    if (!acceptedLegal) {
+      setError("Please agree to the Terms of Service and Privacy Policy.");
       return;
     }
 
@@ -478,9 +492,30 @@ const Signup = () => {
               </div>
             </div>
 
+            <label className={`flex items-start gap-3 cursor-pointer text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+              <input
+                type="checkbox"
+                checked={acceptedLegal}
+                onChange={(e) => setAcceptedLegal(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded accent-yellow-500 shrink-0"
+                disabled={isLoading}
+              />
+              <span>
+                I agree to the{" "}
+                <button type="button" onClick={() => navigate("/terms")} className="text-yellow-600 dark:text-yellow-400 underline">
+                  Terms of Service
+                </button>{" "}
+                and{" "}
+                <button type="button" onClick={() => navigate("/privacy")} className="text-yellow-600 dark:text-yellow-400 underline">
+                  Privacy Policy
+                </button>
+                .
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !acceptedLegal}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 text-black font-semibold hover:shadow-lg hover:shadow-yellow-500/25 transition-all disabled:opacity-50"
             >
               {isLoading ? "Creating account..." : "Create Account"}
@@ -516,6 +551,9 @@ const Signup = () => {
               Sign in
             </button>
           </p>
+
+          <AuthLegalNotice darkMode={darkMode} className="mt-4" />
+          <LegalFooterLinks className="mt-3" />
         </div>
       </motion.div>
     </div>

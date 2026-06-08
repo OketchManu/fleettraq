@@ -24,6 +24,8 @@ import Geofences from "./components/Geofences";
 import MyVehicle from "./components/MyVehicle";
 import Demo from "./components/Demo";
 import NotFound from "./components/NotFound";
+import PrivacyPolicy from "./components/PrivacyPolicy";
+import TermsOfService from "./components/TermsOfService";
 import AppLayout from "./components/AppLayout";
 import RequireActiveMembership from "./components/RequireActiveMembership";
 
@@ -110,6 +112,8 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
       <Route path="/forgot-password" element={user ? <Navigate to="/dashboard" /> : <ForgotPassword />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
       <Route path="/demo" element={<Demo />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/dashboard" element={authedShell(<Dashboard />)} />

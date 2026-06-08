@@ -6,6 +6,8 @@ import { auth } from "../firebase";
 import { ArrowLeft, Mail, Sun, Moon } from "lucide-react";
 import { useFleet } from "../context/FleetContext";
 import { friendlyAuthError } from "../utils/authErrors";
+import AuthLegalNotice from "./AuthLegalNotice";
+import LegalFooterLinks from "./LegalFooterLinks";
 import { passwordResetActionSettings, PASSWORD_RESET_FROM_LABEL } from "../utils/authEmail";
 
 const ForgotPassword = () => {
@@ -157,6 +159,9 @@ const ForgotPassword = () => {
             {isLoading ? "Sending…" : "Send reset link"}
           </button>
         </form>
+
+        <AuthLegalNotice darkMode={darkMode} className="mt-6" />
+        <LegalFooterLinks className="mt-3" />
       </motion.div>
     </div>
   );
